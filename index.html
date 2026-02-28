@@ -636,6 +636,8 @@ const TW=2400,TH=1800,TS=32;
 let tCamX=0,tCamY=0;
 const SKINS=['#ffffff','#ffe4c4','#f0c191','#c68642','#8d5524','#4a3728','#ffcccb','#d4a5a5','#b0c4de','#add8e6','#90ee90','#fffacd'];
 const SHOP=[
+  {id:'classic_black_shirt',name:'Classic Black Shirt',slot:'shirt',price:0,desc:'The default.',isDefault:true},
+  {id:'classic_black_jeans',name:'Classic Black Jeans',slot:'pants',price:0,desc:'The default.',isDefault:true},
   {id:'classic_blue_hat',name:'Classic Blue Hat',slot:'hat',price:0,desc:''},
   {id:'classic_white_tee',name:'Classic White T-Shirt',slot:'shirt',price:0,desc:''},
   {id:'classic_blue_jeans',name:'Classic Blue Jeans',slot:'pants',price:50,desc:'BASIC!!!!'},
@@ -861,11 +863,11 @@ function drawTPlayer(ctx,x,y,skin,eq,name,isMe){
 }
 function buildShop(){
   const body=document.getElementById('tp-shop-body');body.innerHTML='';
-  [{l:'FREE ITEMS',items:SHOP.filter(i=>i.price===0)},{l:'REGULAR ITEMS',items:SHOP.filter(i=>i.price>0&&!i.event)},{l:'EVENT ITEMS',items:SHOP.filter(i=>i.event)}].forEach(sec=>{
+  [{l:'FREE ITEMS',items:SHOP.filter(i=>i.price===0&&!i.isDefault)},{l:'REGULAR ITEMS',items:SHOP.filter(i=>i.price>0&&!i.event)},{l:'EVENT ITEMS',items:SHOP.filter(i=>i.event)}].forEach(sec=>{
     if(!sec.items.length)return;
     const sh=document.createElement('div');sh.className='shop-sec-hd';sh.textContent=sec.l;body.appendChild(sh);
     sec.items.forEach(item=>{
-      const owned=townOwned.includes(item.id)||['classic_black_jeans','classic_black_shirt'].includes(item.id);
+      const owned=townOwned.includes(item.id)||item.isDefault;
       const row=document.createElement('div');row.className='shop-item';
       row.innerHTML=`<div><div class="si-name">${item.name}</div>${item.desc?`<div class="si-desc">${item.desc}</div>`:''}</div><div style="display:flex;align-items:center;gap:5px;flex-shrink:0;"><div class="si-price ${item.price===0?'free':''}">${item.price===0?'FREE':item.price+' C'}</div><button class="si-buy" ${owned?'disabled':''} onclick="buyItem('${item.id}')">${owned?'Owned':'Buy'}</button></div>`;
       body.appendChild(row);
@@ -874,7 +876,7 @@ function buildShop(){
 }
 function buyItem(id){
   const item=SHOP.find(i=>i.id===id);if(!item)return;
-  if(townOwned.includes(id)||['classic_black_jeans','classic_black_shirt'].includes(id)){showToast('Already owned!');return;}
+  if(townOwned.includes(id)||item.isDefault){showToast('Already owned!');return;}
   if(townCoins<item.price){showToast('Not enough coins!');return;}
   townCoins-=item.price;townOwned.push(id);townBuys++;
   updCoins();saveTown();buildShop();buildWardrobe();showToast('Bought: '+item.name+'!');
@@ -883,18 +885,29 @@ function buyItem(id){
 }
 function buildWardrobe(){
   const body=document.getElementById('tp-wardrobe-body');body.innerHTML='';
-  const all=['classic_black_jeans','classic_black_shirt',...townOwned];const seen=new Set();
+  const all=['classic_black_shirt','classic_black_jeans',...townOwned];const seen=new Set();
   all.forEach(id=>{
     if(seen.has(id))return;seen.add(id);
     const si=SHOP.find(i=>i.id===id);
     const name=si?si.name:id.replace(/_/g,' ');const slot=si?si.slot:'shirt';
+    const isDefault=si&&si.isDefault;
     const equipped=Object.values(townEquipped).includes(id);
     const row=document.createElement('div');row.className='wd-item'+(equipped?' equipped':'');
-    row.innerHTML=`<span>${name}</span><button class="si-buy" style="${equipped?'background:#555;':''}" onclick="equipItem('${id}','${slot}')">${equipped?'Unequip':'Equip'}</button>`;
+    const btnLabel=isDefault&&equipped?'Default':(equipped?'Unequip':'Equip');
+    row.innerHTML=`<span>${name}</span><button class="si-buy" style="${equipped?'background:#555;':''}" onclick="equipItem('${id}','${slot}')">${btnLabel}</button>`;
     body.appendChild(row);
   });
 }
-function equipItem(id,slot){townEquipped[slot]=townEquipped[slot]===id?null:id;buildWardrobe();saveTown();}
+function equipItem(id,slot){
+  if(townEquipped[slot]===id){
+    if(slot==='shirt')townEquipped[slot]='classic_black_shirt';
+    else if(slot==='pants')townEquipped[slot]='classic_black_jeans';
+    else townEquipped[slot]=null;
+  } else {
+    townEquipped[slot]=id;
+  }
+  buildWardrobe();saveTown();
+}
 function buildInboxUI(){
   const body=document.getElementById('tp-inbox-body');body.innerHTML='';
   const visible=INBOX.filter(r=>townRewards[r.id+'_unlocked']||townRewards[r.id]);
