@@ -488,7 +488,7 @@ let dCtx,dCanvas,dRAF,dLevel=1,dAttempts=1,dRunning=false;
 let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false;
 let dPX,dPY,dScrollX=0,dLenTotal=0,dObs=[];
 let dBright=100,dR=0,dG=0,dB=0;
-const DSPD=()=>5+(dLevel-1)*1.6,DGRAV=0.52,DJUMP=-12,DSIZE=30;
+const DSPD=()=>3+(dLevel-1)*1.25,DGRAV=0.52,DJUMP=-12,DSIZE=30;
 const DGH=()=>dCanvas.height-60;
 
 function buildDLevel(lvl){
@@ -718,7 +718,7 @@ function startTownGame(){
     townCoins=d.coins||0;townOwned=d.owned||[];
     townEquipped=d.equipped||{hat:null,shirt:'classic_black_shirt',pants:'classic_black_jeans'};
     townSkin=d.skin||'#ffffff';townRewards=d.rewards||{};
-    townBuys=d.purchases||0;townMsgs=d.messages||0;
+    townBuys=d.purchases||0;townMsgs=d.messages||0;townQuestCD=d.questCD||{};
     updCoins();buildShop();buildWardrobe();buildInboxUI();buildSkinUI();buildQuestsUI();
   });
   tCanvas=document.getElementById('town-canvas');
@@ -1045,7 +1045,7 @@ function togTownPanel(id){
 function closeTownPanel(id){document.getElementById(id).classList.add('hidden');}
 function saveTown(){
   if(!townUser)return;
-  db.ref("claretown_data/"+townUser).set({coins:townCoins,owned:townOwned,equipped:townEquipped,skin:townSkin,rewards:townRewards,purchases:townBuys,messages:townMsgs});
+  db.ref("claretown_data/"+townUser).set({coins:townCoins,owned:townOwned,equipped:townEquipped,skin:townSkin,rewards:townRewards,purchases:townBuys,messages:townMsgs,questCD:townQuestCD});
 }
 </script>
 </body>
