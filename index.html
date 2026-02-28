@@ -499,12 +499,12 @@ function buildDLevel(lvl){
   const plat=(x,y,w)=>obs.push({t:'plat',x,y,w,h:14});
   const house=x=>obs.push({t:'house',x,y:gh-58,w:50,h:58});
   if(lvl===1){
-    spike(cx);spike(cx+36);cx+=200;pad(cx);cx+=200;block(cx,76);cx+=130;
-    spike(cx);spike(cx+36);spike(cx+72);cx+=260;plat(cx,gh-115,80);cx+=240;
-    house(cx);cx+=200;pad(cx);cx+=180;spike(cx);block(cx+80,56);cx+=240;
-    plat(cx,gh-95,64);cx+=210;spike(cx);spike(cx+36);spike(cx+72);spike(cx+108);cx+=300;
-    house(cx);house(cx+100);cx+=280;pad(cx);spike(cx+120);cx+=280;
-    spike(cx);spike(cx+36);cx+=200;dLenTotal=cx+300;
+    pad(cx);cx+=220;block(cx,76);cx+=180;
+    plat(cx,gh-115,80);cx+=260;
+    house(cx);cx+=200;pad(cx);cx+=200;block(cx+80,56);cx+=260;
+    plat(cx,gh-95,64);cx+=220;
+    house(cx);house(cx+100);cx+=290;pad(cx);cx+=280;
+    dLenTotal=cx+300;
   } else if(lvl===2){
     spike(cx);spike(cx+36);spike(cx+72);cx+=230;block(cx,100);cx+=110;
     plat(cx,gh-140,60);cx+=210;pad(cx);cx+=140;house(cx);spike(cx+60);cx+=210;
@@ -516,7 +516,7 @@ function buildDLevel(lvl){
     plat(cx,gh-125,32);plat(cx+100,gh-95,32);cx+=280;spike(cx);block(cx+80,78);cx+=270;
     dLenTotal=cx+300;
   } else {
-    for(let i=0;i<5;i++)spike(cx+i*38);cx+=310;pad(cx);block(cx+80,130);cx+=210;
+    for(let i=0;i<3;i++)spike(cx+i*38);cx+=280;pad(cx);block(cx+80,130);cx+=210;
     plat(cx,gh-155,40);plat(cx+100,gh-195,40);plat(cx+200,gh-155,40);cx+=390;
     spike(cx);spike(cx+36);pad(cx+90);cx+=270;house(cx);house(cx+70);house(cx+140);cx+=310;
     block(cx,78);block(cx+60,100);block(cx+120,78);cx+=290;
