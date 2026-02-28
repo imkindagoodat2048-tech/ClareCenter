@@ -89,7 +89,7 @@
     .gs-exit:hover { color: white; }
 
     /* ClareDash */
-    #claredash { background: #1a1a2e; }
+    #claredash { background: #1a1a2e; display: flex; flex-direction: column; }
     #dash-menu { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     .dash-title { font-family: 'Bebas Neue', cursive; font-size: 60px; letter-spacing: 6px; color: var(--accent); margin-bottom: 2px; }
     .dash-sub { font-family: 'Space Mono', monospace; font-size: 11px; color: #555; letter-spacing: 2px; margin-bottom: 26px; }
@@ -102,7 +102,7 @@
     .lvl-name { font-weight: 700; font-size: 13px; }
     .lvl-diff { font-size: 10px; color: #666; margin-top: 1px; }
     #dash-game { flex: 1; position: relative; overflow: hidden; }
-    #dash-canvas { display: block; width: 100%; height: 100%; }
+    #dash-canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     #dash-hud { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 10px 16px; pointer-events: none; }
     #dash-pct { font-family: 'Bebas Neue', cursive; font-size: 26px; color: var(--accent); }
     #dash-att { font-family: 'Space Mono', monospace; font-size: 10px; color: #555; margin-top: 3px; }
@@ -533,15 +533,20 @@ function buildDLevel(lvl){
 function initDCanvas(){
   dCanvas=document.getElementById('dash-canvas');
   const wrap=document.getElementById('dash-game');
-  dCanvas.width=wrap.clientWidth;dCanvas.height=wrap.clientHeight;
+  dCanvas.width=wrap.offsetWidth||window.innerWidth;
+  dCanvas.height=wrap.offsetHeight||window.innerHeight-44;
   dCtx=dCanvas.getContext('2d');
 }
 function startDashLevel(lvl){
-  dLevel=lvl;dAttempts=1;initDCanvas();
-  ['dash-levels','dash-game','dash-settings','dash-menu'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  dLevel=lvl;dAttempts=1;
+  ['dash-levels','dash-settings','dash-menu'].forEach(id=>document.getElementById(id).classList.add('hidden'));
   document.getElementById('dash-game').classList.remove('hidden');
   document.getElementById('dash-over').classList.add('hidden');
-  resetDash();dRunning=true;dLoop();updDHUD();
+  // Wait one frame so the element is visible and has real dimensions
+  requestAnimationFrame(()=>{
+    initDCanvas();
+    resetDash();dRunning=true;dLoop();updDHUD();
+  });
 }
 function resetDash(){dPX=120;dPY=DGH()-DSIZE;dVY=0;dScrollX=0;dPct=0;dDied=false;dWon=false;dGrounded=false;dObs=buildDLevel(dLevel);}
 function restartDash(){dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
@@ -807,36 +812,52 @@ function tRender(){
 }
 function drawTPlayer(ctx,x,y,skin,eq,name,isMe){
   const S=TS;
-  ctx.fillStyle=skin;ctx.fillRect(x,y,S,S);ctx.strokeStyle='#000';ctx.lineWidth=1.5;ctx.strokeRect(x+.5,y+.5,S-1,S-1);
+  // Body (bottom 60%)
+  const bodyY=y+S*0.4;const bodyH=S*0.6;
+  ctx.fillStyle=skin;ctx.fillRect(x,bodyY,S,bodyH);
+  // Pants over bottom half of body
   if(eq.pants){
     let c='#111';
     if(eq.pants==='classic_blue_jeans'||eq.pants==='ripped_blue_jeans')c='#336699';
     else if(eq.pants==='ugly_pants')c='#8B7355';
     else if(eq.pants==='colorful_dress')c=townDress?'#0044ff':'#001166';
-    ctx.fillStyle=c;ctx.fillRect(x,y+S/2,S,S/2);
+    ctx.fillStyle=c;ctx.fillRect(x,y+S*0.7,S,S*0.3);
   }
+  // Shirt over top of body
   if(eq.shirt){
     let c='#111';
     if(eq.shirt==='classic_white_tee')c='#eee';
     else if(eq.shirt==='ugly_shirt')c='#cc2222';
     else if(eq.shirt==='opera_cloak')c='#0a0a0a';
     else if(eq.shirt==='colorful_dress')c=townDress?'#0000ff':'#000033';
-    ctx.fillStyle=c;ctx.fillRect(x,y+3,S,S/2-3);
-    if(eq.shirt==='im_with_cool'){ctx.fillStyle='#eee';ctx.fillRect(x,y+3,S,S/2-3);ctx.fillStyle='#333';ctx.font='5px monospace';ctx.textAlign='center';ctx.fillText('w/Cool',x+S/2,y+13);}
-    if(eq.shirt==='ugly_shirt'){ctx.strokeStyle='#880000';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+S/2-3,y+3);ctx.lineTo(x+S/2-3,y+S/2);ctx.stroke();ctx.beginPath();ctx.moveTo(x+S/2+3,y+3);ctx.lineTo(x+S/2+3,y+S/2);ctx.stroke();}
+    ctx.fillStyle=c;ctx.fillRect(x,bodyY,S,bodyH*0.55);
+    if(eq.shirt==='im_with_cool'){ctx.fillStyle='#eee';ctx.fillRect(x,bodyY,S,bodyH*0.55);ctx.fillStyle='#333';ctx.font='5px monospace';ctx.textAlign='center';ctx.fillText('w/Cool',x+S/2,bodyY+8);}
+    if(eq.shirt==='ugly_shirt'){ctx.strokeStyle='#880000';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+S/2-3,bodyY);ctx.lineTo(x+S/2-3,bodyY+bodyH*0.55);ctx.stroke();ctx.beginPath();ctx.moveTo(x+S/2+3,bodyY);ctx.lineTo(x+S/2+3,bodyY+bodyH*0.55);ctx.stroke();}
   }
+  // Head (top 40%) - distinct, skin colored, with outline and eyes
+  const headY=y;const headH=S*0.4;const headW=S*0.75;const headX=x+S*0.125;
+  ctx.fillStyle=skin;ctx.fillRect(headX,headY,headW,headH);
+  ctx.strokeStyle=isMe?'rgba(232,255,0,0.7)':'rgba(0,0,0,0.8)';ctx.lineWidth=isMe?2:1.5;
+  ctx.strokeRect(headX+0.5,headY+0.5,headW-1,headH-1);
+  // Eyes
+  const eyeY=headY+headH*0.35;const eyeSize=2;
+  ctx.fillStyle='#222';
+  ctx.fillRect(headX+headW*0.25-eyeSize/2,eyeY,eyeSize,eyeSize);
+  ctx.fillRect(headX+headW*0.72-eyeSize/2,eyeY,eyeSize,eyeSize);
+  // Hat
   if(eq.hat){
     ctx.save();
-    if(eq.hat==='classic_blue_hat'){ctx.fillStyle='#2255cc';ctx.fillRect(x+2,y-14,S-4,14);ctx.fillStyle='#1144bb';ctx.fillRect(x-2,y-5,S+4,5);}
-    else if(eq.hat==='awesome_dragon_hat'){ctx.fillStyle='#bb3300';ctx.fillRect(x+4,y-18,S-8,18);ctx.fillStyle='#ff5500';ctx.beginPath();ctx.moveTo(x+8,y-18);ctx.lineTo(x+4,y-28);ctx.lineTo(x+14,y-18);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(x+S-8,y-18);ctx.lineTo(x+S-4,y-28);ctx.lineTo(x+S-14,y-18);ctx.closePath();ctx.fill();}
-    else if(eq.hat==='ugly_beanie'){ctx.fillStyle='#ccbb00';ctx.fillRect(x+2,y-15,S-4,15);ctx.fillStyle='#aaaa00';ctx.fillRect(x+2,y-5,S-4,5);}
-    else if(eq.hat==='opera_mask'){ctx.fillStyle='#ddd';ctx.fillRect(x+S/2,y+5,S/2-2,12);}
-    else if(eq.hat==='bell'){ctx.fillStyle='#ddcc33';ctx.beginPath();ctx.arc(x+S/2,y-8,10,0,Math.PI*2);ctx.fill();}
+    if(eq.hat==='classic_blue_hat'){ctx.fillStyle='#2255cc';ctx.fillRect(x+2,headY-12,S-4,12);ctx.fillStyle='#1144bb';ctx.fillRect(x-2,headY-3,S+4,4);}
+    else if(eq.hat==='awesome_dragon_hat'){ctx.fillStyle='#bb3300';ctx.fillRect(x+4,headY-16,S-8,16);ctx.fillStyle='#ff5500';ctx.beginPath();ctx.moveTo(x+8,headY-16);ctx.lineTo(x+4,headY-26);ctx.lineTo(x+14,headY-16);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(x+S-8,headY-16);ctx.lineTo(x+S-4,headY-26);ctx.lineTo(x+S-14,headY-16);ctx.closePath();ctx.fill();}
+    else if(eq.hat==='ugly_beanie'){ctx.fillStyle='#ccbb00';ctx.fillRect(headX,headY-12,headW,12);ctx.fillStyle='#aaaa00';ctx.fillRect(headX-2,headY-3,headW+4,4);}
+    else if(eq.hat==='opera_mask'){ctx.fillStyle='#ddd';ctx.fillRect(headX+headW/2,headY+headH*0.2,headW/2-1,headH*0.6);}
+    else if(eq.hat==='bell'){ctx.fillStyle='#ddcc33';ctx.beginPath();ctx.arc(headX+headW/2,headY-7,9,0,Math.PI*2);ctx.fill();}
     ctx.restore();
   }
+  // Name tag
   ctx.fillStyle=isMe?'#e8ff00':'#fff';
   ctx.font=`${isMe?'bold ':''}11px DM Sans,sans-serif`;ctx.textAlign='center';
-  ctx.fillText(name,x+S/2,y-(eq.hat?26:5));
+  ctx.fillText(name,x+S/2,headY-(eq.hat?18:4));
 }
 function buildShop(){
   const body=document.getElementById('tp-shop-body');body.innerHTML='';
@@ -876,22 +897,26 @@ function buildWardrobe(){
 function equipItem(id,slot){townEquipped[slot]=townEquipped[slot]===id?null:id;buildWardrobe();saveTown();}
 function buildInboxUI(){
   const body=document.getElementById('tp-inbox-body');body.innerHTML='';
-  INBOX.forEach(r=>{
-    const claimed=!!townRewards[r.id];const row=document.createElement('div');row.className='inbox-item'+(claimed?' claimed':'');
+  const visible=INBOX.filter(r=>townRewards[r.id+'_unlocked']||townRewards[r.id]);
+  if(!visible.length){body.innerHTML='<div style="padding:10px 14px;font-size:12px;color:#555;">Nothing yet. Go earn some achievements!</div>';return;}
+  visible.forEach(r=>{
+    const claimed=!!townRewards[r.id];
+    const row=document.createElement('div');row.className='inbox-item'+(claimed?' claimed':'');
     row.innerHTML=`<div><div class="ii-name">${r.name}</div><div class="ii-desc">${r.desc}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;"><div class="ii-reward">${r.reward}C</div><button class="ii-claim" ${claimed?'disabled':''} onclick="claimReward('${r.id}')">${claimed?'Claimed':'Claim'}</button></div>`;
     body.appendChild(row);
   });
 }
 function claimReward(id){
   const r=INBOX.find(i=>i.id===id);if(!r||townRewards[id]){showToast('Already claimed!');return;}
-  if(!r.check()){showToast('Condition not met yet!');return;}
+  if(!townRewards[id+'_unlocked']){showToast('Not unlocked yet!');return;}
   townRewards[id]=true;townCoins+=r.reward;updCoins();saveTown();buildInboxUI();
-  showToast('+'+r.reward+' Coins! '+r.name);chkReward('r_claim1',true);
+  showToast('+'+r.reward+' Coins! '+r.name);
+  if(id!=='r_claim1')chkReward('r_claim1',true);
 }
 function chkReward(id,cond){
-  if(cond&&!townRewards[id]){
-    const r=INBOX.find(i=>i.id===id);if(!r)return;
-    townRewards[id]=true;townCoins+=r.reward;updCoins();showToast('Reward: '+r.name+' +'+r.reward+'C!');saveTown();buildInboxUI();
+  if(cond&&!townRewards[id+'_unlocked']&&!townRewards[id]){
+    townRewards[id+'_unlocked']=true;
+    showToast('New reward in Inbox!');saveTown();buildInboxUI();
   }
 }
 function buildQuestsUI(){
@@ -927,10 +952,29 @@ function buildFriendsUI(){
   if(!townUser)return;
   db.ref("claretown_friends/"+townUser).once("value",snap=>{
     const body=document.getElementById('tp-friends-body');body.innerHTML='';
-    const d=snap.val()||{};const friends=Object.keys(d);
-    if(!friends.length){body.innerHTML='<div style="padding:10px 14px;font-size:12px;color:var(--muted);">No friends yet.</div>';return;}
-    friends.forEach(f=>{const row=document.createElement('div');row.className='friend-row';row.innerHTML=`<div class="friend-name">${f}</div>`;body.appendChild(row);});
-    chkReward('r_bffs',true);
+    const d=snap.val()||{};
+    const friends=Object.keys(d).filter(k=>d[k]===true);
+    const pending=Object.keys(d).filter(k=>d[k]==='pending');
+    const incoming=Object.keys(d).filter(k=>d[k]==='incoming');
+    if(!friends.length&&!pending.length&&!incoming.length){
+      body.innerHTML='<div style="padding:10px 14px;font-size:12px;color:#555;">No friends yet.</div>';return;
+    }
+    incoming.forEach(f=>{
+      const row=document.createElement('div');row.className='friend-row';
+      row.innerHTML=`<div><div class="friend-name">${f}</div><div style="font-size:10px;color:#2ed573;">Friend request!</div></div><div style="display:flex;gap:4px;"><button class="si-buy" onclick="acceptFriend('${f}')">Accept</button><button class="si-buy" style="background:#333;" onclick="declineFriend('${f}')">Decline</button></div>`;
+      body.appendChild(row);
+    });
+    pending.forEach(f=>{
+      const row=document.createElement('div');row.className='friend-row';
+      row.innerHTML=`<div><div class="friend-name" style="color:#555;">${f}</div><div style="font-size:10px;color:#888;">Pending...</div></div>`;
+      body.appendChild(row);
+    });
+    friends.forEach(f=>{
+      const row=document.createElement('div');row.className='friend-row';
+      row.innerHTML=`<div class="friend-name">${f}</div><button class="si-buy" style="background:#333;font-size:9px;" onclick="unfriend('${f}')">Unfriend</button>`;
+      body.appendChild(row);
+    });
+    if(friends.length)chkReward('r_bffs',true);
   });
 }
 function addFriend(){
@@ -938,10 +982,27 @@ function addFriend(){
   if(!target||target===townUser){showToast('Invalid username.');return;}
   db.ref("users/"+target).once("value",snap=>{
     if(!snap.exists()){showToast('User not found!');return;}
-    db.ref("claretown_friends/"+townUser+"/"+target).set(true);
-    db.ref("claretown_friends/"+target+"/"+townUser).set(true);
-    inp.value='';buildFriendsUI();showToast('Friended '+target+'!');
+    // Mark as pending for sender, incoming for receiver
+    db.ref("claretown_friends/"+townUser+"/"+target).set("pending");
+    db.ref("claretown_friends/"+target+"/"+townUser).set("incoming");
+    inp.value='';buildFriendsUI();showToast('Friend request sent to '+target+'!');
   });
+}
+function acceptFriend(from){
+  db.ref("claretown_friends/"+townUser+"/"+from).set(true);
+  db.ref("claretown_friends/"+from+"/"+townUser).set(true);
+  buildFriendsUI();showToast('You and '+from+' are now friends!');
+}
+function declineFriend(from){
+  db.ref("claretown_friends/"+townUser+"/"+from).remove();
+  db.ref("claretown_friends/"+from+"/"+townUser).remove();
+  buildFriendsUI();showToast('Request declined.');
+}
+function unfriend(target){
+  if(!confirm('Unfriend '+target+'?'))return;
+  db.ref("claretown_friends/"+townUser+"/"+target).remove();
+  db.ref("claretown_friends/"+target+"/"+townUser).remove();
+  buildFriendsUI();showToast('Unfriended '+target+'.');
 }
 function sendTownChat(){
   const inp=document.getElementById('town-chat-in');const text=inp.value.trim();if(!text)return;
