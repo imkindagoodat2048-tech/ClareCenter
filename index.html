@@ -566,8 +566,15 @@ function dPhysics(){
     if(ox>dCanvas.width+80||ox+o.w<-80)continue;
     if(o.t==='pad'){if(px+ps>ox&&px<ox+o.w&&py+ps>=o.y&&py+ps<=o.y+o.h+10&&dVY>=0){dVY=DJUMP*1.45;dPY=o.y-ps;dGrounded=false;}continue;}
     if(o.t==='plat'){if(px+ps>ox+4&&px<ox+o.w-4&&py+ps>=o.y&&py+ps<=o.y+o.h+spd+4&&dVY>=0){dPY=o.y-ps;dVY=0;dGrounded=true;}continue;}
-    if(o.t==='spike'){if(px+ps>ox+5&&px<ox+o.w-5&&py+ps>o.y+5&&py<o.y+o.h){dDie();return;}}
-    else{if(px+ps-2>ox&&px+2<ox+o.w&&py+ps-2>o.y&&py+2<o.y+o.h){dDie();return;}}
+    if(o.t==='spike'){
+      // Generous inner margins so near-misses feel fair
+      if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
+    } else {
+      // Blocks & houses: only die if player's right side runs into obstacle's left side
+      const playerRight=px+ps;
+      const obsLeft=ox;
+      if(playerRight>obsLeft&&playerRight<obsLeft+spd+8&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
+    }
   }
   updDHUD();
 }
