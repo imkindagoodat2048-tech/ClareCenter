@@ -557,9 +557,9 @@ let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false,dOrbUsed=false;
 let dPX,dPY,dScrollX=0,dObs=[];
 let dBright=100,dR=0,dG=0,dB=0;
 let dCurrentLevel=null; // {name, obs:[]} loaded level data
-const GROUND_OFFSET=60;
-const DSPD=3.2,DGRAV=0.52,DJUMP=-12,DSIZE=30;
-const DGH=()=>dCanvas.height-GROUND_OFFSET;
+const DSPD=40/60,DGRAV=0.52,DJUMP=-12,DSIZE=30;
+const GROUND_Y=360; // fixed world-space ground, same in editor and game
+const DGH=()=>GROUND_Y;
 
 // ── object helpers ──
 function makeObs(t,x,y,w,h,extra){return Object.assign({t,x,y,w,h},extra||{});}
@@ -627,7 +627,7 @@ function resetDash(){
   dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;
   dObs=dCurrentLevel.obs;
 }
-function restartDash(){dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
+function restartDash(){stopDash();dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
 function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
 function dJump(){
   if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=DJUMP;dGrounded=false;dOrbUsed=false;}
@@ -769,7 +769,7 @@ document.addEventListener('keyup',e=>{if(e.code==='Space')dOrbJumpQueued=false;}
 let edCanvas,edCtx,edObs=[],edScrollX=0,edSelectedIdx=-1;
 let edDragMode=false,edGridOn=true,edGridSize=40;
 let edDragIdx=-1,edDragOffX=0,edDragOffY=0,edPanDragging=false,edLastX=0,edLastY=0;
-const ED_GH=()=>edCanvas.height-GROUND_OFFSET;
+const ED_GH=()=>GROUND_Y;
 const OBJ_DEFAULTS={
   startblock:{w:40,h:60},endblock:{w:40,h:60},
   block:{w:40,h:40},plat:{w:80,h:14},
