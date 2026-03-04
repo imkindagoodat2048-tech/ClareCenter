@@ -608,14 +608,14 @@ function showDashTab(tab){
   ['dash-play-tab','dash-create-tab','dash-game','dash-settings'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.classList.add('hidden');
   });
-  stopDash();
+  stopDash();window._editingLevelKey=null;
   if(tab==='play'){document.getElementById('dash-play-tab').classList.remove('hidden');loadLevelList();}
   else if(tab==='create'){document.getElementById('dash-create-tab').classList.remove('hidden');initEditor();}
   else if(tab==='settings'){document.getElementById('dash-settings').classList.remove('hidden');}
 }
 
 // ── level list ──
-const DIFF_ORDER=['easy','normal','hard','extreme','deadly'];
+const DIFF_ORDER=['cakewalk','easy','normal','hard','extreme','deadly'];
 function loadLevelList(){
   const list=document.getElementById('dash-level-list');
   list.innerHTML='<div style="font-size:11px;color:#555;text-align:center;padding:8px;">Loading...</div>';
@@ -662,9 +662,31 @@ function loadLevelList(){
         +'<div class="lvl-diff" style="font-size:10px;color:#555;display:flex;align-items:center;flex-wrap:wrap;gap:2px;">by '+d.author+diffHtml+playsHtml+'</div></div>'
         +'<button class="game-play" onclick="event.stopPropagation();playLevel(\''+d.key+'\')">Play</button>'
         +adminDiffBtn
+        +(hubUser===d.author?'<button class="game-play" style="background:#555;margin-left:4px;" onclick="event.stopPropagation();renameLevel(\''+d.key+'\',this)" data-name="'+d.name.replace(/"/g,\'&quot;\')+'">Rename</button>':'')
+        +(hubUser===d.author?'<button class="game-play" style="background:var(--primary);margin-left:4px;" onclick="event.stopPropagation();editLevel(\''+d.key+'\')">Edit</button>':'')
         +(hubUser==='bartelsfamily5'?'<button class="game-play" style="background:#eb4d4b;margin-left:4px;" onclick="event.stopPropagation();deleteLevel(\''+d.key+'\')">Del</button>':'');
       list.appendChild(row);
     });
+  });
+}
+function renameLevel(key, btn){
+  const currentName = btn.getAttribute ? btn.getAttribute('data-name') : '';
+  const newName = prompt('Rename level:', currentName);
+  if(!newName||!newName.trim())return;
+  db.ref('claredash_levels/'+key+'/name').set(newName.trim(),()=>loadLevelList());
+}
+function editLevel(key){
+  db.ref('claredash_levels/'+key).once('value',snap=>{
+    if(!snap.exists())return;
+    const d=snap.val();
+    if(d.author!==hubUser){alert('Not your level!');return;}
+    // Load obs into editor and switch to create tab
+    edObs=JSON.parse(JSON.stringify(d.obs||[]));
+    edScrollX=0;edSelectedIdx=-1;
+    document.getElementById('lvl-name-in').value=d.name||'';
+    // Store key so save overwrites instead of creating new
+    window._editingLevelKey=key;
+    showDashTab('create');
   });
 }
 function deleteLevel(key){
@@ -819,6 +841,7 @@ function renderObs(ctx,o,rx){
 
 // ── DIFFICULTY RATING ──
 const DIFF_OPTS=[
+  {id:'cakewalk',emoji:'😆', label:'Cakewalk'},
   {id:'easy',   emoji:'😃', label:'Easy'},
   {id:'normal', emoji:'😊', label:'Normal'},
   {id:'hard',   emoji:'😕', label:'Hard'},
@@ -828,7 +851,7 @@ const DIFF_OPTS=[
 // Weighted average: tally each vote, pick highest count (ties go to harder)
 function calcDifficulty(votes){
   if(!votes)return null;
-  const counts={easy:0,normal:0,hard:0,extreme:0,deadly:0};
+  const counts={cakewalk:0,easy:0,normal:0,hard:0,extreme:0,deadly:0};
   Object.values(votes).forEach(v=>{if(counts[v]!==undefined)counts[v]++;});
   const total=Object.values(counts).reduce((a,b)=>a+b,0);
   if(!total)return null;
@@ -1092,16 +1115,26 @@ function edRender(){
     edDragMode?'Drag mode — drag objects, click to select':'Place mode — click to add';
 }
 function saveLevel(){
-  if(hubUser!=='bartelsfamily5'){showToast && alert('No permission.');return;}
   const name=document.getElementById('lvl-name-in').value.trim();
   if(!name){alert('Enter a level name!');return;}
   if(!edObs.find(o=>o.t==='startblock')){alert('Level needs a Start Block!');return;}
   if(!edObs.find(o=>o.t==='endblock')){alert('Level needs an End Block!');return;}
-  db.ref('claredash_levels').push({name,author:'bartelsfamily5',obs:edObs,created:Date.now()});
-  alert('Level saved: '+name);
-  document.getElementById('lvl-name-in').value='';
-  edObs=[];edRender();
-  loadLevelList();
+  const editKey=window._editingLevelKey;
+  if(editKey){
+    // overwrite existing level (author editing their own)
+    db.ref('claredash_levels/'+editKey).update({name,obs:edObs},()=>{
+      alert('Level updated: '+name);
+      window._editingLevelKey=null;
+      document.getElementById('lvl-name-in').value='';
+      edObs=[];edRender();loadLevelList();
+    });
+  } else {
+    if(hubUser!=='bartelsfamily5'){alert('Only bartelsfamily5 can create new levels!');return;}
+    db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,created:Date.now()});
+    alert('Level saved: '+name);
+    document.getElementById('lvl-name-in').value='';
+    edObs=[];edRender();loadLevelList();
+  }
 }
 function testLevel(){
   if(!edObs.find(o=>o.t==='startblock')){alert('Need a Start Block!');return;}
