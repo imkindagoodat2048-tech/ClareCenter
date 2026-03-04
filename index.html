@@ -315,11 +315,15 @@
                 <option value="startblock">Start Block</option>
                 <option value="endblock">End Block</option>
                 <option value="block">Block</option>
+                <option value="solidblock">Solid Color Block</option>
                 <option value="plat">Platform</option>
                 <option value="spike">Spike</option>
                 <option value="pad">Jump Pad</option>
                 <option value="orb">Orb</option>
+                <option value="shipportal">Ship Portal</option>
                 <option value="waveportal">Wave Portal</option>
+                <option value="gravityorb">Gravity Orb</option>
+                <option value="trigger">Trigger</option>
                 <option value="blockportal">Block Portal</option>
                 <option value="spiderportal">Spider Portal</option>
             </select>
@@ -370,6 +374,19 @@
                         <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
                             <input type="checkbox" id="ed-touch-chk" onchange="edSetProp('touchable',this.checked);edRender();"> Touchable
                         </label>
+                        <div id="ed-trigger-rows" style="display:none;margin-top:8px;border-top:1px solid #2a2a3a;padding-top:8px;">
+                            <div style="font-size:9px;color:#e8a000;letter-spacing:1px;margin-bottom:6px;font-family:'Space Mono',monospace;">TRIGGER SETTINGS</div>
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+                                <span style="font-size:11px;width:90px;">Speed</span>
+                                <input type="range" min="5" max="100" value="40" id="ed-trig-speed" oninput="edSetProp('trigSpeed',this.value/10);document.getElementById('ed-trig-speed-val').textContent=parseFloat(this.value/10).toFixed(1);edRender();" style="width:70px;">
+                                <span id="ed-trig-speed-val" style="font-size:10px;color:var(--accent);width:28px;">4.0</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:11px;width:90px;">Jump Height</span>
+                                <input type="range" min="1" max="100" value="50" id="ed-trig-jump" oninput="edSetProp('trigJump',parseInt(this.value));document.getElementById('ed-trig-jump-val').textContent=this.value;edRender();" style="width:70px;">
+                                <span id="ed-trig-jump-val" style="font-size:10px;color:var(--accent);width:28px;">50</span>
+                            </div>
+                        </div>
                         <div style="display:flex;align-items:center;gap:8px;margin-top:7px;">
                             <span style="font-size:11px;width:90px;">Rotate</span>
                             <button onclick="edRotate(-90)" style="background:#2f3542;border:none;color:white;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:12px;">↺</button>
@@ -604,10 +621,12 @@ function exitGame(id){
 // ===== CLAREDASH ENGINE =====
 let dCtx,dCanvas,dRAF,dAttempts=1,dRunning=false;
 let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false,dOrbUsed=false;
-let dWaveMode=false; // true = wave (hold=up, release=down)
-let dWaveHeld=false; // is down/space currently held in wave mode
-const DWAVE_UP=-3.5;  // upward velocity in wave mode
-const DWAVE_GRAV=0.22; // gravity in wave mode
+let dShipMode=false; // true = ship (hold=up, release=down)
+let dShipHeld=false; // is space held in ship mode
+let dWaveMode=false; // true = wave portal (instant up on press, instant down on release)
+let dGravFlipped=false; // gravity orb: flips gravity direction
+const DWAVE_UP=-3.5;
+const DWAVE_GRAV=0.22;
 let dSpiderMode=false; // true = gravity flipped, teleport to nearest ceiling/floor
 let dSpiderFlipped=false; // currently on ceiling
 let dPX,dPY,dScrollX=0,dObs=[];
@@ -801,7 +820,7 @@ function playLevel(key){
     if(dCurrentLevel.jumpHeight!=null){dJumpHeight=dCurrentLevel.jumpHeight;const ji=document.getElementById('ed-jump-in');if(ji){ji.value=dCurrentLevel.jumpHeight;document.getElementById('ed-jump-val').textContent=dCurrentLevel.jumpHeight;}}
     db.ref('claredash_levels/'+key+'/plays').transaction(n=>(n||0)+1);
     dAttempts=1;
-    ['dash-play-tab','dash-create-tab','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
+    ['dash-play-tab','dash-create-tab','dash-settings','dash-level-page'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
     document.getElementById('dash-game').classList.remove('hidden');
     document.getElementById('dash-over').classList.add('hidden');
     requestAnimationFrame(()=>{initDCanvas();resetDash();dRunning=true;dLoop();updDHUD();});
@@ -815,14 +834,15 @@ function resetDash(){
   dPX=start?start.x+10:120;
   dPY=DGH()-DSIZE;dVY=0;dScrollX=dPX-120;
   dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;
-  dWaveMode=false;dWaveHeld=false;dSpiderMode=false;dSpiderFlipped=false;
-  dObs=dCurrentLevel.obs;
+  dShipMode=false;dShipHeld=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;
+  dObs=JSON.parse(JSON.stringify(dCurrentLevel.obs));
+  dObs.forEach(o=>{if(o.t==='trigger')delete o._fired;});
 }
 function restartDash(){stopDash();dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
 function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
 function dJump(){
   if(dSpiderMode&&dRunning&&!dDied&&!dWon){spiderTeleport();return;}
-  if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=DJUMP();dGrounded=false;dOrbUsed=false;}
+  if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=dGravFlipped?DJUMP():DJUMP();dGrounded=false;dOrbUsed=false;}
 }
 function spiderTeleport(){
   // Find nearest obstacle surface in the flip direction
@@ -833,7 +853,7 @@ function spiderTeleport(){
     // Now on ceiling: find lowest ceiling above player
     let bestY=0; // top of screen
     for(const o of dObs){
-      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='startblock'||o.t==='endblock'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal')continue;
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal')continue;
       const ox=o.x-dScrollX;
       if(ox+o.w<dPX||ox>dPX+DSIZE)continue; // no horizontal overlap
       if(o.y+o.h<=dPY){bestY=Math.max(bestY,o.y+o.h);}
@@ -843,7 +863,7 @@ function spiderTeleport(){
     // Back to floor: find highest floor below player
     let bestY=gh-DSIZE;
     for(const o of dObs){
-      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='startblock'||o.t==='endblock'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal')continue;
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal')continue;
       const ox=o.x-dScrollX;
       if(ox+o.w<dPX||ox>dPX+DSIZE)continue;
       if(o.y>=dPY+DSIZE){bestY=Math.min(bestY,o.y-DSIZE);}
@@ -868,15 +888,21 @@ function dPhysics(){
   for(let s=0;s<steps;s++){
     if(dDied||dWon)return;
     const prevPY=dPY;
-    if(dWaveMode){
-      // Wave mode: held = fly up, released = fall
-      if(dWaveHeld){dVY=Math.max(dVY-0.6,DWAVE_UP);}
+    if(dShipMode){
+      // Ship mode: hold space = fly up, release = fall (smooth)
+      if(dShipHeld){dVY=Math.max(dVY-0.6,DWAVE_UP);}
       else{dVY=Math.min(dVY+DWAVE_GRAV,4);}
       dPY+=dVY*dt;
       dGrounded=false;
-      // Wave mode: bounce off ground (not die), die only on obstacles
       if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=Math.min(dVY,-1);}
       if(dPY<=0){dPY=0;dVY=Math.max(dVY,1);}
+    } else if(dWaveMode){
+      // Wave mode: INSTANT up on press, INSTANT down on release
+      dVY=dShipHeld?-5:5;
+      dPY+=dVY*dt;
+      dGrounded=false;
+      if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;}
+      if(dPY<=0){dPY=0;dVY=0;}
     } else if(dSpiderMode){
       // Spider mode: gravity direction depends on dSpiderFlipped
       if(dSpiderFlipped){
@@ -894,12 +920,20 @@ function dPhysics(){
         if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
       }
     } else {
-      // Normal gravity
+      // Normal or gravity-flipped
+      const gravDir=dGravFlipped?-1:1;
       const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
-      dVY+=DGRAV()*apexFactor*dt;
+      dVY+=DGRAV()*apexFactor*dt*gravDir;
       dPY+=dVY*dt;
-      // Ground - safe landing
-      if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=DJUMP();dGrounded=false;}}else{dGrounded=false;}
+      if(!dGravFlipped){
+        // Normal: ground at bottom
+        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=DJUMP()*-1;dGrounded=false;}}else{dGrounded=false;}
+        if(dPY<=0){dPY=0;dVY=Math.abs(dVY)*0.3;}
+      } else {
+        // Flipped: "ground" is ceiling (y=0), normal ground is safe
+        if(dPY<=0){dPY=0;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=DJUMP();dGrounded=false;}}else{dGrounded=false;}
+        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=-Math.abs(dVY)*0.3;} // bounce off floor
+      }
     }
     const px=dPX,py=dPY,ps=DSIZE;
     for(const o of dObs){
@@ -917,6 +951,16 @@ function dPhysics(){
         continue;
       }
       if(o.t==='startblock')continue;
+      if(o.t==='trigger'){
+        // Trigger fires when player scrolls past it
+        const trigX=o.x-dScrollX;
+        if(!o._fired&&trigX<dPX){
+          o._fired=true;
+          if(o.trigSpeed!=null)dSpeedBPS=o.trigSpeed;
+          if(o.trigJump!=null)dJumpHeight=o.trigJump;
+        }
+        continue;
+      }
       if(o.t==='pad'){
         // Use swept check: did player bottom cross pad top between prevPY and py?
         const padTop=o.y;
@@ -936,20 +980,24 @@ function dPhysics(){
       if(o.t==='blockportal'&&dSpiderMode){
         // blockportal also exits spider mode
       }
-      if(o.t==='waveportal'||o.t==='blockportal'){
+      if(o.t==='shipportal'||o.t==='blockportal'){
         // Portal: trigger on horizontal overlap within the portal column
         if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h){
-          if(o.t==='waveportal'&&!dWaveMode){dWaveMode=true;dVY=0;}
+          if(o.t==='shipportal'&&!dWaveMode){dWaveMode=true;dVY=0;}
           if(o.t==='blockportal'&&dWaveMode){dWaveMode=false;dVY=0;}
           if(o.t==='blockportal'&&dSpiderMode){dSpiderMode=false;dSpiderFlipped=false;dVY=0;}
         }
         continue;
       }
-      if(o.t==='orb'){
+      if(o.t==='orb'||o.t==='gravityorb'){
         const cx2=ox+o.w/2,cy2=o.y+o.h/2,r=o.w/2+4;
         const nearX=px+ps/2,nearY=py+ps/2;
         if(Math.abs(nearX-cx2)<r+ps/2&&Math.abs(nearY-cy2)<r+ps/2&&!dOrbUsed&&!dGrounded&&dOrbJumpQueued){
-          dOrbJump();dOrbJumpQueued=false;
+          if(o.t==='gravityorb'){
+            dGravFlipped=!dGravFlipped;dVY=0;dOrbUsed=true;dOrbJumpQueued=false;
+          } else {
+            dOrbJump();dOrbJumpQueued=false;
+          }
         }
         continue;
       }
@@ -1020,7 +1068,15 @@ function dRender(){
     if(rx>W+120||rx+o.w<-120)continue;
     ctx.save();
     if(o.alpha>0)ctx.globalAlpha=Math.max(0,1-(o.alpha/100));
-    renderObs(ctx,o,rx);
+    if(o.color&&o.t!=='spike'&&o.t!=='pad'&&o.t!=='orb'&&o.t!=='gravityorb'&&o.t!=='solidblock'&&o.t!=='startblock'&&o.t!=='endblock'){
+      renderObs(ctx,o,rx);
+      ctx.globalCompositeOperation='source-atop';
+      ctx.fillStyle=o.color;ctx.globalAlpha=(ctx.globalAlpha||1)*0.55;
+      ctx.fillRect(rx,o.y,o.w,o.h);
+      ctx.globalCompositeOperation='source-over';
+    } else {
+      renderObs(ctx,o,rx);
+    }
     ctx.restore();
   }
   const pc='rgb('+dR+','+dG+','+dB+')';
@@ -1038,8 +1094,8 @@ function dRender(){
     ctx.beginPath();ctx.moveTo(dPX+DSIZE/2,dPY+DSIZE);ctx.lineTo(dPX+DSIZE/2,dPY+DSIZE+8);ctx.stroke();
     ctx.restore();
   } else
-  // Wave mode: draw ship-like triangle instead of square
-  if(dWaveMode){
+  // Ship mode: draw ship-like triangle
+  if(dShipMode){
     ctx.save();
     // Glow
     ctx.shadowColor='#00ffcc';ctx.shadowBlur=12;
@@ -1050,6 +1106,21 @@ function dRender(){
     ctx.fillStyle=pc||'#00ffcc';
     ctx.beginPath();ctx.moveTo(dPX+DSIZE,dPY+DSIZE/2);ctx.lineTo(dPX,dPY+2);ctx.lineTo(dPX+6,dPY+DSIZE/2);ctx.lineTo(dPX,dPY+DSIZE-2);ctx.closePath();ctx.fill();
     ctx.strokeStyle='#00ffcc';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.restore();
+  } else if(dGravFlipped){
+    // Gravity flipped: draw square upside-down with red tint
+    ctx.save();
+    ctx.translate(dPX+DSIZE/2,dPY+DSIZE/2);ctx.scale(1,-1);ctx.translate(-(dPX+DSIZE/2),-(dPY+DSIZE/2));
+    ctx.fillStyle=pc;ctx.fillRect(dPX,dPY,DSIZE,DSIZE);
+    ctx.strokeStyle='#ff4444';ctx.lineWidth=2;ctx.strokeRect(dPX+1,dPY+1,DSIZE-2,DSIZE-2);
+    ctx.restore();
+  } else if(dWaveMode){
+    // Wave mode: tight zigzag ship shape
+    ctx.save();
+    ctx.shadowColor='#00ccff';ctx.shadowBlur=10;
+    ctx.fillStyle=pc||'#00ccff';
+    ctx.beginPath();ctx.moveTo(dPX+DSIZE,dPY+DSIZE/2);ctx.lineTo(dPX,dPY+4);ctx.lineTo(dPX+8,dPY+DSIZE/2);ctx.lineTo(dPX,dPY+DSIZE-4);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#00ccff';ctx.lineWidth=1.5;ctx.stroke();
     ctx.restore();
   } else {
     ctx.fillStyle=pc;ctx.fillRect(dPX,dPY,DSIZE,DSIZE);
@@ -1073,6 +1144,25 @@ function renderObs(ctx,o,rx){
     ctx.beginPath();ctx.arc(rx+o.w/2,o.y+o.h/2,o.w/2,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.fillStyle='#ffdd00';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
     ctx.fillText('★',rx+o.w/2,o.y+o.h/2+5);ctx.restore();
+  } else if(o.t==='gravityorb'){
+    // Gravity orb: red circle with ↕ symbol
+    ctx.save();ctx.strokeStyle='#ff4444';ctx.fillStyle='rgba(255,50,50,0.18)';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(rx+o.w/2,o.y+o.h/2,o.w/2,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // Draw ↕ arrows (up and down triangles)
+    ctx.fillStyle='#ffffff';
+    const gcx=rx+o.w/2,gcy=o.y+o.h/2;
+    // Up arrow
+    ctx.beginPath();ctx.moveTo(gcx,gcy-8);ctx.lineTo(gcx-5,gcy-2);ctx.lineTo(gcx+5,gcy-2);ctx.closePath();ctx.fill();
+    // Down arrow
+    ctx.beginPath();ctx.moveTo(gcx,gcy+8);ctx.lineTo(gcx-5,gcy+2);ctx.lineTo(gcx+5,gcy+2);ctx.closePath();ctx.fill();
+    // Center dot
+    ctx.beginPath();ctx.arc(gcx,gcy,1.5,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  } else if(o.t==='solidblock'){
+    const scol=o.color||'#ffffff';
+    ctx.fillStyle=scol;ctx.fillRect(rx,o.y,o.w,o.h);
+    // slightly darker stroke from the fill color
+    ctx.strokeStyle='rgba(0,0,0,0.25)';ctx.lineWidth=1.5;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
   } else if(o.t==='block'){
     ctx.fillStyle='#2a2a5a';ctx.fillRect(rx,o.y,o.w,o.h);ctx.strokeStyle='#5555aa';ctx.lineWidth=1.5;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
     ctx.strokeStyle='rgba(80,80,160,0.2)';ctx.lineWidth=1;for(let gy=o.y+16;gy<o.y+o.h;gy+=16){ctx.beginPath();ctx.moveTo(rx,gy);ctx.lineTo(rx+o.w,gy);ctx.stroke();}
@@ -1086,19 +1176,42 @@ function renderObs(ctx,o,rx){
     ctx.fillStyle='rgba(232,255,0,0.15)';ctx.fillRect(rx,o.y,o.w,o.h);
     ctx.strokeStyle='#e8ff00';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
     ctx.fillStyle='#e8ff00';ctx.font='bold 10px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('END',rx+o.w/2,o.y+o.h/2+4);
-  } else if(o.t==='waveportal'){
-    // Wave portal: green-cyan swirling portal
+  } else if(o.t==='shipportal'){
+    // Ship portal: yellow portal, whoosh lines like air/wind
     const grd=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
-    grd.addColorStop(0,'rgba(0,255,180,0.7)');grd.addColorStop(1,'rgba(0,180,255,0.7)');
+    grd.addColorStop(0,'rgba(255,220,0,0.75)');grd.addColorStop(1,'rgba(255,160,0,0.75)');
     ctx.fillStyle=grd;ctx.fillRect(rx,o.y,o.w,o.h);
-    ctx.strokeStyle='#00ffcc';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
-    // Swirl decoration
-    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1.5;
-    for(let yi=o.y+8;yi<o.y+o.h-4;yi+=12){
-      ctx.beginPath();ctx.moveTo(rx+4,yi);ctx.bezierCurveTo(rx+o.w*0.4,yi-6,rx+o.w*0.6,yi+6,rx+o.w-4,yi);ctx.stroke();
+    ctx.strokeStyle='#ffe000';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    // Whoosh/air lines (horizontal speed lines)
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.lineWidth=1.5;
+    const whooshY=[o.y+10,o.y+18,o.y+26,o.y+34,o.y+42,o.y+50];
+    const whooshW=[16,10,14,8,12,16];
+    whooshY.forEach((wy,i)=>{
+      if(wy>=o.y+o.h-6)return;
+      ctx.beginPath();ctx.moveTo(rx+4,wy);ctx.lineTo(rx+4+whooshW[i%whooshW.length],wy);ctx.stroke();
+    });
+    ctx.restore();
+    ctx.fillStyle='#fff700';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('SHIP',rx+o.w/2,o.y+o.h/2+4);
+  } else if(o.t==='waveportal'){
+    // Wave portal: blue-teal zigzag wave pattern
+    const grdW=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
+    grdW.addColorStop(0,'rgba(0,180,255,0.8)');grdW.addColorStop(1,'rgba(0,100,200,0.8)');
+    ctx.fillStyle=grdW;ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#00ccff';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    // Zigzag wave lines
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.lineWidth=2;
+    const wStep=o.h/4;
+    for(let wi=0;wi<3;wi++){
+      const wBase=o.y+6+wi*18;
+      if(wBase+10>o.y+o.h)break;
+      ctx.beginPath();ctx.moveTo(rx+4,wBase+6);
+      for(let wx2=0;wx2<o.w-8;wx2+=6){
+        ctx.lineTo(rx+4+wx2+3,wx2%12<6?wBase:wBase+10);
+      }
+      ctx.stroke();
     }
     ctx.restore();
-    ctx.fillStyle='#00ffcc';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('WAVE',rx+o.w/2,o.y+o.h/2+4);
+    ctx.fillStyle='#ffffff';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('WAVE',rx+o.w/2,o.y+o.h/2+4);
   } else if(o.t==='blockportal'){
     // Block portal: orange-red portal
     const grd2=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
@@ -1123,6 +1236,20 @@ function renderObs(ctx,o,rx){
     for(let r2=6;r2<Math.min(o.w,o.h)/2;r2+=7){ctx.beginPath();ctx.arc(scx,scy,r2,0,Math.PI*2);ctx.stroke();}
     ctx.restore();
     ctx.fillStyle='#ee88ff';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('SPIDER',rx+o.w/2,o.y+o.h/2+4);
+  } else if(o.t==='trigger'){
+    // Trigger: tall thin vertical gate, orange
+    ctx.fillStyle='rgba(255,160,0,0.18)';ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#ff9900';ctx.lineWidth=2;ctx.setLineDash([6,4]);
+    ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    ctx.setLineDash([]);
+    // Arrow icon pointing right
+    const tx=rx+o.w/2,ty=o.y+o.h/2;
+    ctx.fillStyle='#ff9900';ctx.font='bold 9px sans-serif';ctx.textAlign='center';
+    ctx.fillText('▶',tx,ty+4);
+    const sp=o.trigSpeed!=null?o.trigSpeed.toFixed(1):'?';
+    const jh=o.trigJump!=null?o.trigJump:'?';
+    ctx.fillStyle='rgba(255,160,0,0.9)';ctx.font='7px monospace';
+    ctx.fillText('S:'+sp,tx,ty+14);ctx.fillText('J:'+jh,tx,ty+22);
   }
   if(rot)ctx.restore();
 }
@@ -1197,7 +1324,7 @@ function setDifficultyAdmin(key,diffId){
 
 function dDie(){dDied=true;dRunning=false;showDashOver('YOU DIED',Math.round(dPct*100)+'% - Attempt '+dAttempts);}
 function showDashOver(t,s){document.getElementById('dash-over-title').textContent=t;document.getElementById('dash-over-sub').textContent=s;const rr=document.getElementById('dash-rate-row');if(rr)rr.remove();document.getElementById('dash-over').classList.remove('hidden');}
-function updDHUD(){document.getElementById('dash-pct').textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';document.getElementById('dash-att').textContent='Attempt '+dAttempts;const mh=document.getElementById('dash-mode-hud');if(mh)mh.textContent=dWaveMode?'WAVE — hold SPACE to fly':dSpiderMode?'SPIDER — SPACE to flip gravity':'SPACE / Click to jump';}
+function updDHUD(){document.getElementById('dash-pct').textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';document.getElementById('dash-att').textContent='Attempt '+dAttempts;const mh=document.getElementById('dash-mode-hud');if(mh)mh.textContent=dShipMode?'SHIP — hold SPACE to fly':dWaveMode?'WAVE — SPACE=up, release=down':dSpiderMode?'SPIDER — SPACE to flip gravity':'SPACE / Click to jump';}
 function showDashSettings(){['dash-play-tab','dash-create-tab','dash-game','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});document.getElementById('dash-settings').classList.remove('hidden');stopDash();}
 function updBright(v){dBright=parseInt(v);document.getElementById('dash-bright-val').textContent=v;document.getElementById('claredash').style.filter='brightness('+v+'%)';}
 function updColor(){
@@ -1212,18 +1339,18 @@ let dOrbJumpQueued=false;
 let dJumpHeld=false; // for hold-to-jump and wave mode
 function dJumpPress(){
   if(document.getElementById('dash-game').classList.contains('hidden'))return;
-  dJumpHeld=true;dWaveHeld=true;
+  dJumpHeld=true;dShipHeld=true;
   if(!dWaveMode){dJump();dOrbJumpQueued=true;}
 }
-function dJumpRelease(){dJumpHeld=false;dWaveHeld=false;dOrbJumpQueued=false;}
+function dJumpRelease(){dJumpHeld=false;dShipHeld=false;dOrbJumpQueued=false;}
 document.addEventListener('keydown',e=>{
   if(e.code==='Space'){e.preventDefault();if(!e.repeat)dJumpPress();}
   // Down arrow also acts as wave hold
-  if(e.code==='ArrowDown'||e.code==='KeyS'){if(dWaveMode)dWaveHeld=true;}
+  if(e.code==='ArrowDown'||e.code==='KeyS'){if(dShipMode||dWaveMode)dShipHeld=true;}
 });
 document.addEventListener('keyup',e=>{
   if(e.code==='Space')dJumpRelease();
-  if(e.code==='ArrowDown'||e.code==='KeyS'){dWaveHeld=false;}
+  if(e.code==='ArrowDown'||e.code==='KeyS'){if(dShipMode||dWaveMode)dShipHeld=false;}
 });
 // Touch/click for mobile
 document.getElementById('dash-game').addEventListener('mousedown',()=>dJumpPress());
@@ -1236,9 +1363,9 @@ let edDragIdx=-1,edDragOffX=0,edDragOffY=0,edPanDragging=false,edLastX=0,edLastY
 const ED_GH=()=>GROUND_Y;
 const OBJ_DEFAULTS={
   startblock:{w:40,h:60},endblock:{w:40,h:60},
-  block:{w:40,h:40},plat:{w:80,h:14},
+  block:{w:40,h:40},solidblock:{w:40,h:40},plat:{w:80,h:14},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
-  waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60}
+  shipportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60}
 };
 
 function initEditor(){
@@ -1401,7 +1528,7 @@ function edRender(){
     if(rx>W+120||rx+o.w<-120)continue;
     ctx.save();
     if(o.alpha>0)ctx.globalAlpha=1-(o.alpha/100);
-    if(o.color&&o.t!=='spike'&&o.t!=='pad'&&o.t!=='orb'&&o.t!=='startblock'&&o.t!=='endblock'){
+    if(o.color&&o.t!=='spike'&&o.t!=='pad'&&o.t!=='orb'&&o.t!=='gravityorb'&&o.t!=='solidblock'&&o.t!=='startblock'&&o.t!=='endblock'){
       // tint: draw normally then overlay color
       renderObs(ctx,o,rx);
       ctx.globalCompositeOperation='source-atop';
@@ -1453,7 +1580,7 @@ function testLevel(){
   if(!edObs.find(o=>o.t==='endblock')){alert('Need an End Block!');return;}
   dCurrentLevel={name:'Test',author:'bartelsfamily5',obs:edObs};dCurrentLevelKey=null;
   dAttempts=1;
-  ['dash-play-tab','dash-create-tab','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
+  ['dash-play-tab','dash-create-tab','dash-settings','dash-level-page'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
   document.getElementById('dash-game').classList.remove('hidden');
   document.getElementById('dash-over').classList.add('hidden');
   requestAnimationFrame(()=>{initDCanvas();resetDash();dRunning=true;dLoop();updDHUD();});
