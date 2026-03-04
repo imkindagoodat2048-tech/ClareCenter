@@ -309,6 +309,8 @@
                 <option value="spike">Spike</option>
                 <option value="pad">Jump Pad</option>
                 <option value="orb">Orb</option>
+                <option value="waveportal">Wave Portal</option>
+                <option value="blockportal">Block Portal</option>
             </select>
             <button class="icon-btn" onclick="editorPlace()" style="background:var(--primary);">Place</button>
             <button class="icon-btn" onclick="editorUndo()" style="background:#444;">Undo</button>
@@ -373,7 +375,7 @@
         <canvas id="dash-canvas" style="display:block;position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
         <div id="dash-hud" style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:10px 16px;pointer-events:none;">
             <div><div id="dash-pct" style="font-family:'Bebas Neue',cursive;font-size:26px;color:var(--accent);">0%</div><div id="dash-att" style="font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-top:3px;">Attempt 1</div></div>
-            <div style="font-family:'Space Mono',monospace;font-size:10px;color:#555;text-align:right;margin-top:8px;">SPACE / Click to jump</div>
+            <div id="dash-mode-hud" style="font-family:'Space Mono',monospace;font-size:10px;color:#555;text-align:right;margin-top:8px;">SPACE / Click to jump</div>
         </div>
         <div id="dash-over" class="hidden" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(26,26,46,0.9);">
             <div id="dash-over-title" style="font-family:'Bebas Neue',cursive;font-size:52px;letter-spacing:4px;color:var(--accent);margin-bottom:4px;">DIED</div>
@@ -401,6 +403,16 @@
                     <input class="rgb-in" type="number" min="0" max="255" value="0" id="dash-b" placeholder="B" oninput="updColor()">
                 </div>
                 <div class="col-prev" id="col-prev" style="background:#000"></div>
+            </div>
+        </div>
+        <div class="sett-row">
+            <div><div class="sett-label">Old Difficulties</div><div class="sett-sub">Show emoji instead of images</div></div>
+            <div class="sett-ctrl">
+                <label style="position:relative;display:inline-block;width:40px;height:20px;cursor:pointer;">
+                    <input type="checkbox" id="old-diff-chk" onchange="useOldDifficulties=this.checked;loadLevelList();this.parentElement.querySelector('.tog-track').style.background=this.checked?'var(--primary)':'#333';this.parentElement.querySelector('.tog-knob').style.transform=this.checked?'translateX(20px)':'translateX(0)';" style="opacity:0;width:0;height:0;position:absolute;">
+                    <span class="tog-track" style="position:absolute;cursor:pointer;inset:0;background:#333;border-radius:20px;transition:.2s;"></span>
+                    <span class="tog-knob" style="position:absolute;height:14px;width:14px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s;"></span>
+                </label>
             </div>
         </div>
         <button class="dash-btn" style="margin-top:10px;" onclick="showDashTab('play')">Back</button>
@@ -577,6 +589,10 @@ function exitGame(id){
 // ===== CLAREDASH ENGINE =====
 let dCtx,dCanvas,dRAF,dAttempts=1,dRunning=false;
 let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false,dOrbUsed=false;
+let dWaveMode=false; // true = wave (hold=up, release=down)
+let dWaveHeld=false; // is down/space currently held in wave mode
+const DWAVE_UP=-3.5;  // upward velocity in wave mode
+const DWAVE_GRAV=0.22; // gravity in wave mode
 let dPX,dPY,dScrollX=0,dObs=[];
 let dBright=100,dR=0,dG=0,dB=0;
 let dCurrentLevel=null,dCurrentLevelKey=null; // loaded level data + Firebase key
@@ -615,7 +631,7 @@ function showDashTab(tab){
 }
 
 // ── level list ──
-const DIFF_ORDER=['cakewalk','easy','normal','hard','extreme','deadly'];
+const DIFF_ORDER=['cakewalk','easy','medium','hard','extreme','deadly'];
 function loadLevelList(){
   const list=document.getElementById('dash-level-list');
   list.innerHTML='<div style="font-size:11px;color:#555;text-align:center;padding:8px;">Loading...</div>';
@@ -686,6 +702,8 @@ function editLevel(key){
     edObs=JSON.parse(JSON.stringify(d.obs||[]));
     edScrollX=0;edSelectedIdx=-1;
     document.getElementById('lvl-name-in').value=d.name||'';
+    if(d.speed!=null){dSpeedBPS=d.speed;const si=document.getElementById('ed-speed-in');if(si){si.value=d.speed*10;document.getElementById('ed-speed-val').textContent=parseFloat(d.speed).toFixed(1);}}
+    if(d.jumpHeight!=null){dJumpHeight=d.jumpHeight;const ji=document.getElementById('ed-jump-in');if(ji){ji.value=d.jumpHeight;document.getElementById('ed-jump-val').textContent=d.jumpHeight;}}
     // Store key so save overwrites instead of creating new
     window._editingLevelKey=key;
     showDashTab('create');
@@ -700,6 +718,9 @@ function playLevel(key){
   db.ref('claredash_levels/'+key).once('value',snap=>{
     if(!snap.exists())return;
     dCurrentLevel=snap.val();dCurrentLevelKey=key;
+    // Restore speed/jump saved with level
+    if(dCurrentLevel.speed!=null){dSpeedBPS=dCurrentLevel.speed;const si=document.getElementById('ed-speed-in');if(si){si.value=dCurrentLevel.speed*10;document.getElementById('ed-speed-val').textContent=parseFloat(dCurrentLevel.speed).toFixed(1);}}
+    if(dCurrentLevel.jumpHeight!=null){dJumpHeight=dCurrentLevel.jumpHeight;const ji=document.getElementById('ed-jump-in');if(ji){ji.value=dCurrentLevel.jumpHeight;document.getElementById('ed-jump-val').textContent=dCurrentLevel.jumpHeight;}}
     db.ref('claredash_levels/'+key+'/plays').transaction(n=>(n||0)+1);
     dAttempts=1;
     ['dash-play-tab','dash-create-tab','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
@@ -716,6 +737,7 @@ function resetDash(){
   dPX=start?start.x+10:120;
   dPY=DGH()-DSIZE;dVY=0;dScrollX=dPX-120;
   dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;
+  dWaveMode=false;dWaveHeld=false;
   dObs=dCurrentLevel.obs;
 }
 function restartDash(){stopDash();dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
@@ -739,12 +761,22 @@ function dPhysics(){
   for(let s=0;s<steps;s++){
     if(dDied||dWon)return;
     const prevPY=dPY;
-    // Apply gravity sub-step
-    const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
-    dVY+=DGRAV()*apexFactor*dt;
-    dPY+=dVY*dt;
+    if(dWaveMode){
+      // Wave mode: held = fly up, released = fall
+      if(dWaveHeld){dVY=Math.max(dVY-0.6,DWAVE_UP);}
+      else{dVY=Math.min(dVY+DWAVE_GRAV,4);}
+      dPY+=dVY*dt;
+      dGrounded=false;
+    } else {
+      // Normal gravity
+      const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
+      dVY+=DGRAV()*apexFactor*dt;
+      dPY+=dVY*dt;
+    }
     // Ground
-    if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
+    if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=dWaveMode?false:true;dOrbUsed=false;if(dWaveMode){dDie();return;}else if(dJumpHeld){dVY=DJUMP();dGrounded=false;}}else if(!dWaveMode){dGrounded=false;}
+    // Ceiling (wave mode: die if hit top)
+    if(dWaveMode&&dPY<=0){dDie();return;}
     const px=dPX,py=dPY,ps=DSIZE;
     for(const o of dObs){
       const ox=o.x-dScrollX;
@@ -771,6 +803,14 @@ function dPhysics(){
         }
         continue;
       }
+      if(o.t==='waveportal'||o.t==='blockportal'){
+        // Portal: trigger on horizontal overlap within the portal column
+        if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h){
+          if(o.t==='waveportal'&&!dWaveMode){dWaveMode=true;dVY=0;}
+          if(o.t==='blockportal'&&dWaveMode){dWaveMode=false;dVY=0;}
+        }
+        continue;
+      }
       if(o.t==='orb'){
         const cx2=ox+o.w/2,cy2=o.y+o.h/2,r=o.w/2+4;
         const nearX=px+ps/2,nearY=py+ps/2;
@@ -784,12 +824,28 @@ function dPhysics(){
         continue;
       }
       // block & plat: swept top collision and right-side death
-      // Swept top: player bottom swept from prevPY+ps to py+ps, check if it crossed o.y
       const prevBot=prevPY+ps,curBot=py+ps;
       const horizOverlap=px+ps>ox+2&&px<ox+o.w-2;
-      if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+4){
-        dPY=o.y-ps;dVY=0;dGrounded=true;dOrbUsed=false;continue;
+      if(o.t==='plat'){
+        // Platform: land on top only (passthrough from below, no drop-down)
+        if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+4){
+          dPY=o.y-ps;dOrbUsed=false;
+          if(dJumpHeld){dVY=DJUMP();dGrounded=false;}else{dVY=0;dGrounded=true;}
+          continue;
+        }
+        // Don't kill from below or sides - just pass through
+        continue;
       }
+      // Block: land on top, die on right-side OR if player top hits block bottom
+      if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+4){
+        dPY=o.y-ps;dOrbUsed=false;
+        if(dJumpHeld){dVY=DJUMP();dGrounded=false;}else{dVY=0;dGrounded=true;}
+        continue;
+      }
+      // Bottom-of-block kill: player top enters block bottom while moving up
+      const prevTop=prevPY,curTop=py;
+      const horizOverlapKill=px+ps>ox+2&&px<ox+o.w-2;
+      if(horizOverlapKill&&dVY<0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-4){dDie();return;}
       // Right-side: player's right enters left face of block
       if(px+ps>ox&&px+ps<ox+spd+8&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
     }
@@ -818,8 +874,23 @@ function dRender(){
     ctx.restore();
   }
   const pc='rgb('+dR+','+dG+','+dB+')';
-  ctx.fillStyle=pc;ctx.fillRect(dPX,dPY,DSIZE,DSIZE);
-  ctx.strokeStyle=(dR===0&&dG===0&&dB===0)?'#444':'#fff';ctx.lineWidth=2;ctx.strokeRect(dPX+1,dPY+1,DSIZE-2,DSIZE-2);
+  // Wave mode: draw ship-like triangle instead of square
+  if(dWaveMode){
+    ctx.save();
+    // Glow
+    ctx.shadowColor='#00ffcc';ctx.shadowBlur=12;
+    ctx.fillStyle='#00ffcc';ctx.globalAlpha=0.18;
+    ctx.fillRect(dPX-4,dPY-4,DSIZE+8,DSIZE+8);
+    ctx.globalAlpha=1;ctx.shadowBlur=0;
+    // Ship body
+    ctx.fillStyle=pc||'#00ffcc';
+    ctx.beginPath();ctx.moveTo(dPX+DSIZE,dPY+DSIZE/2);ctx.lineTo(dPX,dPY+2);ctx.lineTo(dPX+6,dPY+DSIZE/2);ctx.lineTo(dPX,dPY+DSIZE-2);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#00ffcc';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.restore();
+  } else {
+    ctx.fillStyle=pc;ctx.fillRect(dPX,dPY,DSIZE,DSIZE);
+    ctx.strokeStyle=(dR===0&&dG===0&&dB===0)?'#444':'#fff';ctx.lineWidth=2;ctx.strokeRect(dPX+1,dPY+1,DSIZE-2,DSIZE-2);
+  }
   ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,H-4,W,4);
   ctx.fillStyle='rgb('+(dR||232)+','+(dG||255)+','+(dB||0)+')';ctx.fillRect(0,H-4,W*dPct,4);
 }
@@ -849,22 +920,47 @@ function renderObs(ctx,o,rx){
     ctx.fillStyle='rgba(232,255,0,0.15)';ctx.fillRect(rx,o.y,o.w,o.h);
     ctx.strokeStyle='#e8ff00';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
     ctx.fillStyle='#e8ff00';ctx.font='bold 10px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('END',rx+o.w/2,o.y+o.h/2+4);
+  } else if(o.t==='waveportal'){
+    // Wave portal: green-cyan swirling portal
+    const grd=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
+    grd.addColorStop(0,'rgba(0,255,180,0.7)');grd.addColorStop(1,'rgba(0,180,255,0.7)');
+    ctx.fillStyle=grd;ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#00ffcc';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    // Swirl decoration
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1.5;
+    for(let yi=o.y+8;yi<o.y+o.h-4;yi+=12){
+      ctx.beginPath();ctx.moveTo(rx+4,yi);ctx.bezierCurveTo(rx+o.w*0.4,yi-6,rx+o.w*0.6,yi+6,rx+o.w-4,yi);ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle='#00ffcc';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('WAVE',rx+o.w/2,o.y+o.h/2+4);
+  } else if(o.t==='blockportal'){
+    // Block portal: orange-red portal
+    const grd2=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
+    grd2.addColorStop(0,'rgba(255,140,0,0.7)');grd2.addColorStop(1,'rgba(255,60,0,0.7)');
+    ctx.fillStyle=grd2;ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#ff8800';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1.5;
+    const cx=rx+o.w/2,cy=o.y+o.h/2;
+    for(let r=6;r<o.w/2;r+=8){ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();}
+    ctx.restore();
+    ctx.fillStyle='#ffcc00';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('BLOCK',rx+o.w/2,o.y+o.h/2+4);
   }
 }
 
 // ── DIFFICULTY RATING ──
 const DIFF_OPTS=[
-  {id:'cakewalk',emoji:'😆', label:'Cakewalk'},
-  {id:'easy',   emoji:'😃', label:'Easy'},
-  {id:'normal', emoji:'😊', label:'Normal'},
-  {id:'hard',   emoji:'😕', label:'Hard'},
-  {id:'extreme',emoji:'😨', label:'Extreme'},
-  {id:'deadly', emoji:'☠️', label:'Deadly'},
+  {id:'cakewalk',emoji:'😆', label:'Cakewalk', img:'difficulty/cakewalk.png'},
+  {id:'easy',    emoji:'😃', label:'Easy',     img:'difficulty/easy.png'},
+  {id:'medium',  emoji:'😊', label:'Medium',   img:'difficulty/medium.png'},
+  {id:'hard',    emoji:'😕', label:'Hard',     img:'difficulty/hard.png'},
+  {id:'extreme', emoji:'😨', label:'Extreme',  img:'difficulty/extreme.png'},
+  {id:'deadly',  emoji:'☠️', label:'Deadly',   img:'difficulty/deadly.png'},
 ];
+let useOldDifficulties=false; // toggled in settings
 // Weighted average: tally each vote, pick highest count (ties go to harder)
 function calcDifficulty(votes){
   if(!votes)return null;
-  const counts={cakewalk:0,easy:0,normal:0,hard:0,extreme:0,deadly:0};
+  const counts={cakewalk:0,easy:0,medium:0,hard:0,extreme:0,deadly:0};
   Object.values(votes).forEach(v=>{if(counts[v]!==undefined)counts[v]++;});
   const total=Object.values(counts).reduce((a,b)=>a+b,0);
   if(!total)return null;
@@ -877,7 +973,9 @@ function calcDifficulty(votes){
 function getDiffDisplay(diff){
   if(!diff)return '';
   const d=DIFF_OPTS.find(o=>o.id===diff);
-  return d?d.emoji+' '+d.label:'';
+  if(!d)return '';
+  if(useOldDifficulties)return d.emoji+' '+d.label;
+  return '<img src="'+d.img+'" alt="'+d.label+'" title="'+d.label+'" style="height:18px;vertical-align:middle;image-rendering:pixelated;" onerror="this.replaceWith(document.createTextNode(this.title));">';
 }
 function showRatingPrompt(key){
   // Check if user already voted
@@ -891,7 +989,7 @@ function showRatingPrompt(key){
     row.style.cssText='display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:12px;';
     row.innerHTML='<div style="font-family:Space Mono,monospace;font-size:10px;color:#888;letter-spacing:1px;">RATE THIS LEVEL</div>'
       +'<div style="display:flex;gap:8px;">'
-      +DIFF_OPTS.map(d=>`<button onclick="submitRating('${key}','${d.id}')" style="background:#1a1a2e;border:1px solid #333;color:white;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:18px;transition:border-color 0.1s;" onmouseover="this.style.borderColor='#e8ff00'" onmouseout="this.style.borderColor='#333'" title="${d.label}">${d.emoji}</button>`).join('')
+      +DIFF_OPTS.map(d=>`<button onclick="submitRating('${key}','${d.id}')" style="background:#1a1a2e;border:1px solid #333;color:white;padding:6px 10px;border-radius:6px;cursor:pointer;transition:border-color 0.1s;" onmouseover="this.style.borderColor='#e8ff00'" onmouseout="this.style.borderColor='#333'" title="${d.label}">${useOldDifficulties?d.emoji:'<img src="'+d.img+'" alt="'+d.label+'" style="height:24px;vertical-align:middle;image-rendering:pixelated;" onerror="this.replaceWith(document.createTextNode(this.alt));">'}</button>`).join('')
       +'</div>';
     over.appendChild(row);
   });
@@ -907,7 +1005,8 @@ function submitRating(key,diffId){
   const row=document.getElementById('dash-rate-row');
   if(row){
     const d=DIFF_OPTS.find(o=>o.id===diffId);
-    row.innerHTML='<div style="font-size:13px;color:var(--accent);font-family:Space Mono,monospace;">Rated: '+d.emoji+' '+d.label+'</div>';
+    const dispStr=useOldDifficulties?d.emoji+' '+d.label:'<img src="'+d.img+'" alt="'+d.label+'" style="height:20px;vertical-align:middle;image-rendering:pixelated;"> '+d.label;
+    row.innerHTML='<div style="font-size:13px;color:var(--accent);font-family:Space Mono,monospace;">Rated: '+dispStr+'</div>';
   }
 }
 function setDifficultyAdmin(key,diffId){
@@ -918,7 +1017,7 @@ function setDifficultyAdmin(key,diffId){
 
 function dDie(){dDied=true;dRunning=false;showDashOver('YOU DIED',Math.round(dPct*100)+'% - Attempt '+dAttempts);}
 function showDashOver(t,s){document.getElementById('dash-over-title').textContent=t;document.getElementById('dash-over-sub').textContent=s;const rr=document.getElementById('dash-rate-row');if(rr)rr.remove();document.getElementById('dash-over').classList.remove('hidden');}
-function updDHUD(){document.getElementById('dash-pct').textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';document.getElementById('dash-att').textContent='Attempt '+dAttempts;}
+function updDHUD(){document.getElementById('dash-pct').textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';document.getElementById('dash-att').textContent='Attempt '+dAttempts;const mh=document.getElementById('dash-mode-hud');if(mh)mh.textContent=dWaveMode?'WAVE — hold SPACE to fly':'SPACE / Click to jump';}
 function showDashSettings(){['dash-play-tab','dash-create-tab','dash-game','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});document.getElementById('dash-settings').classList.remove('hidden');stopDash();}
 function updBright(v){dBright=parseInt(v);document.getElementById('dash-bright-val').textContent=v;document.getElementById('claredash').style.filter='brightness('+v+'%)';}
 function updColor(){
@@ -928,18 +1027,27 @@ function updColor(){
   document.getElementById('col-prev').style.background='rgb('+dR+','+dG+','+dB+')';
 }
 
-// ── orb jump input ──
+// ── jump & wave input ──
 let dOrbJumpQueued=false;
+let dJumpHeld=false; // for hold-to-jump and wave mode
+function dJumpPress(){
+  if(document.getElementById('dash-game').classList.contains('hidden'))return;
+  dJumpHeld=true;dWaveHeld=true;
+  if(!dWaveMode){dJump();dOrbJumpQueued=true;}
+}
+function dJumpRelease(){dJumpHeld=false;dWaveHeld=false;dOrbJumpQueued=false;}
 document.addEventListener('keydown',e=>{
-  if(e.code==='Space'){
-    e.preventDefault();
-    if(!document.getElementById('dash-game').classList.contains('hidden')){
-      dJump();
-      dOrbJumpQueued=true;
-    }
-  }
+  if(e.code==='Space'){e.preventDefault();if(!e.repeat)dJumpPress();}
+  // Down arrow also acts as wave hold
+  if(e.code==='ArrowDown'||e.code==='KeyS'){if(dWaveMode)dWaveHeld=true;}
 });
-document.addEventListener('keyup',e=>{if(e.code==='Space')dOrbJumpQueued=false;});
+document.addEventListener('keyup',e=>{
+  if(e.code==='Space')dJumpRelease();
+  if(e.code==='ArrowDown'||e.code==='KeyS'){dWaveHeld=false;}
+});
+// Touch/click for mobile
+document.getElementById('dash-game').addEventListener('mousedown',()=>dJumpPress());
+document.addEventListener('mouseup',()=>dJumpRelease());
 
 // ── LEVEL EDITOR ──
 let edCanvas,edCtx,edObs=[],edScrollX=0,edSelectedIdx=-1;
@@ -949,7 +1057,8 @@ const ED_GH=()=>GROUND_Y;
 const OBJ_DEFAULTS={
   startblock:{w:40,h:60},endblock:{w:40,h:60},
   block:{w:40,h:40},plat:{w:80,h:14},
-  spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28}
+  spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
+  waveportal:{w:40,h:60},blockportal:{w:40,h:60}
 };
 
 function initEditor(){
@@ -1135,7 +1244,7 @@ function saveLevel(){
   const editKey=window._editingLevelKey;
   if(editKey){
     // overwrite existing level (author editing their own)
-    db.ref('claredash_levels/'+editKey).update({name,obs:edObs},()=>{
+    db.ref('claredash_levels/'+editKey).update({name,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight},()=>{
       alert('Level updated: '+name);
       window._editingLevelKey=null;
       document.getElementById('lvl-name-in').value='';
@@ -1143,7 +1252,7 @@ function saveLevel(){
     });
   } else {
     if(hubUser!=='bartelsfamily5'){alert('Only bartelsfamily5 can create new levels!');return;}
-    db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,created:Date.now()});
+    db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,created:Date.now()});
     alert('Level saved: '+name);
     document.getElementById('lvl-name-in').value='';
     edObs=[];edRender();loadLevelList();
