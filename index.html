@@ -286,9 +286,10 @@
     </div>
     <!-- CREATE TAB -->
     <div id="dash-create-tab" class="hidden" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
-        <div style="padding:8px 12px;border-bottom:1px solid #2a2a3a;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;">
-            <div style="font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:2px;color:var(--accent);">Editor</div>
-            <input id="lvl-name-in" placeholder="Level name..." style="background:#0f0f1a;border:1px solid #333;color:white;padding:4px 8px;font-size:11px;border-radius:4px;outline:none;width:120px;">
+        <!-- Main toolbar -->
+        <div style="padding:6px 10px;border-bottom:1px solid #2a2a3a;display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;">
+            <div style="font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:2px;color:var(--accent);">Editor</div>
+            <input id="lvl-name-in" placeholder="Level name..." style="background:#0f0f1a;border:1px solid #333;color:white;padding:4px 8px;font-size:11px;border-radius:4px;outline:none;width:110px;">
             <select id="obj-type-sel" style="background:#0f0f1a;border:1px solid #333;color:white;padding:4px 6px;font-size:11px;border-radius:4px;">
                 <option value="startblock">Start Block</option>
                 <option value="endblock">End Block</option>
@@ -302,9 +303,43 @@
             <button class="icon-btn" onclick="editorUndo()" style="background:#444;">Undo</button>
             <button class="icon-btn" onclick="saveLevel()" style="background:#2ed573;color:#000;">Save</button>
             <button class="icon-btn" onclick="testLevel()" style="background:#e8ff00;color:#000;">Test</button>
+            <!-- ADDITIONAL dropdown -->
+            <div style="position:relative;display:inline-block;">
+                <button class="icon-btn" onclick="toggleAdditional()" id="additional-btn">Additional ▾</button>
+                <div id="additional-panel" style="display:none;position:absolute;top:30px;right:0;background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:10px 14px;z-index:100;min-width:210px;box-shadow:0 4px 20px rgba(0,0,0,0.6);">
+                    <!-- Always visible -->
+                    <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;cursor:pointer;">
+                        <input type="checkbox" id="ed-grid-chk" checked onchange="edGridOn=this.checked;edRender()"> Grid
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer;">
+                        <input type="checkbox" id="ed-drag-chk" onchange="edDragMode=this.checked;edCanvas.style.cursor=edDragMode?'grab':'crosshair';"> Drag Mode
+                    </label>
+                    <!-- Selection-dependent (hidden when nothing selected) -->
+                    <div id="ed-sel-props" style="display:none;border-top:1px solid #2a2a3a;padding-top:8px;">
+                        <div style="font-size:9px;color:#555;letter-spacing:1px;margin-bottom:6px;font-family:'Space Mono',monospace;">SELECTED OBJECT</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+                            <span style="font-size:11px;width:90px;">Color</span>
+                            <input type="color" id="ed-color-in" value="#2a2a5a" oninput="edSetProp('color',this.value);edRender();" style="width:36px;height:22px;border:none;background:none;cursor:pointer;padding:0;">
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+                            <span style="font-size:11px;width:90px;">Transparency</span>
+                            <input type="range" min="0" max="100" value="0" id="ed-alpha-in" oninput="edSetProp('alpha',parseInt(this.value));document.getElementById('ed-alpha-val').textContent=this.value;edRender();" style="width:70px;">
+                            <span id="ed-alpha-val" style="font-size:10px;color:var(--accent);width:20px;">0</span>
+                        </div>
+                        <div id="ed-bounce-row" style="display:none;align-items:center;gap:8px;margin-bottom:7px;">
+                            <span style="font-size:11px;width:90px;">Bounciness</span>
+                            <input type="range" min="1" max="100" value="50" id="ed-bounce-in" oninput="edSetProp('bounce',parseInt(this.value));document.getElementById('ed-bounce-val').textContent=this.value;edRender();" style="width:70px;">
+                            <span id="ed-bounce-val" style="font-size:10px;color:var(--accent);width:20px;">50</span>
+                        </div>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
+                            <input type="checkbox" id="ed-touch-chk" onchange="edSetProp('touchable',this.checked);edRender();"> Touchable
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div style="padding:4px 12px;font-size:10px;color:#555;font-family:'Space Mono',monospace;flex-shrink:0;">
-            X: <span id="ed-x">0</span> &nbsp; Click canvas to place at position
+        <div style="padding:3px 10px;font-size:10px;color:#555;font-family:'Space Mono',monospace;flex-shrink:0;">
+            X: <span id="ed-x">0</span> &nbsp;|&nbsp; <span id="ed-mode-label">Place mode — click to add</span>
         </div>
         <div style="flex:1;position:relative;overflow:hidden;">
             <canvas id="ed-canvas" style="display:block;position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair;"></canvas>
@@ -522,8 +557,9 @@ let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false,dOrbUsed=false;
 let dPX,dPY,dScrollX=0,dObs=[];
 let dBright=100,dR=0,dG=0,dB=0;
 let dCurrentLevel=null; // {name, obs:[]} loaded level data
+const GROUND_OFFSET=60;
 const DSPD=3.2,DGRAV=0.52,DJUMP=-12,DSIZE=30;
-const DGH=()=>dCanvas.height-60;
+const DGH=()=>dCanvas.height-GROUND_OFFSET;
 
 // ── object helpers ──
 function makeObs(t,x,y,w,h,extra){return Object.assign({t,x,y,w,h},extra||{});}
@@ -596,9 +632,8 @@ function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
 function dJump(){
   if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=DJUMP;dGrounded=false;dOrbUsed=false;}
 }
-function dOrbJump(){
-  // called when touching an orb mid-air
-  dVY=DJUMP;dOrbUsed=true;
+function dOrbJump(bounce){
+  dVY=DJUMP*((bounce||50)/50);dOrbUsed=true;
 }
 function dLoop(){if(!dRunning)return;dRAF=requestAnimationFrame(dLoop);dPhysics();dRender();}
 function dPhysics(){
@@ -611,6 +646,7 @@ function dPhysics(){
   for(const o of dObs){
     const ox=o.x-dScrollX;
     if(ox>dCanvas.width+120||ox+o.w<-120)continue;
+    if(o.touchable===false&&o.t!=='endblock'&&o.t!=='startblock')continue; // untouchable passthrough
     if(o.t==='endblock'){
       // win if player's right side passes endblock's left
       if(px+ps>=ox){dWon=true;showDashOver('LEVEL COMPLETE!','Finished in '+dAttempts+' attempt'+(dAttempts>1?'s':'')+'!');return;}
@@ -619,7 +655,8 @@ function dPhysics(){
     if(o.t==='startblock')continue;
     if(o.t==='pad'){
       if(px+ps>ox&&px<ox+o.w&&py+ps>=o.y&&py+ps<=o.y+o.h+10&&dVY>=0){
-        dVY=DJUMP*1.45;dPY=o.y-ps;dGrounded=false;dOrbUsed=false;
+        const bScale=(o.bounce||50)/50;
+        dVY=DJUMP*1.45*bScale;dPY=o.y-ps;dGrounded=false;dOrbUsed=false;
       }
       continue;
     }
@@ -664,7 +701,10 @@ function dRender(){
   for(const o of dObs){
     const rx=o.x-dScrollX;
     if(rx>W+120||rx+o.w<-120)continue;
+    ctx.save();
+    if(o.alpha>0)ctx.globalAlpha=Math.max(0,1-(o.alpha/100));
     renderObs(ctx,o,rx);
+    ctx.restore();
   }
   const pc='rgb('+dR+','+dG+','+dB+')';
   ctx.fillStyle=pc;ctx.fillRect(dPX,dPY,DSIZE,DSIZE);
@@ -726,8 +766,10 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('keyup',e=>{if(e.code==='Space')dOrbJumpQueued=false;});
 
 // ── LEVEL EDITOR ──
-let edCanvas,edCtx,edObs=[],edScrollX=0,edDragging=false,edLastX=0;
-const ED_GH=()=>edCanvas.height-60;
+let edCanvas,edCtx,edObs=[],edScrollX=0,edSelectedIdx=-1;
+let edDragMode=false,edGridOn=true,edGridSize=40;
+let edDragIdx=-1,edDragOffX=0,edDragOffY=0,edPanDragging=false,edLastX=0,edLastY=0;
+const ED_GH=()=>edCanvas.height-GROUND_OFFSET;
 const OBJ_DEFAULTS={
   startblock:{w:40,h:60},endblock:{w:40,h:60},
   block:{w:40,h:40},plat:{w:80,h:14},
@@ -740,56 +782,174 @@ function initEditor(){
   edCanvas.width=wrap.offsetWidth||800;
   edCanvas.height=wrap.offsetHeight||400;
   edCtx=edCanvas.getContext('2d');
-  edCanvas.onclick=edClick;
-  edCanvas.addEventListener('mousedown',e=>{edDragging=true;edLastX=e.clientX;});
-  edCanvas.addEventListener('mousemove',e=>{
-    if(edDragging){edScrollX-=(e.clientX-edLastX);edLastX=e.clientX;edScrollX=Math.max(0,edScrollX);}
-    // show x coord
-    const rect=edCanvas.getBoundingClientRect();
-    document.getElementById('ed-x').textContent=Math.round(e.clientX-rect.left+edScrollX);
-    edRender();
-  });
-  edCanvas.addEventListener('mouseup',()=>edDragging=false);
-  edCanvas.addEventListener('mouseleave',()=>edDragging=false);
+  edSelectedIdx=-1;
+  edCanvas.addEventListener('mousedown',edMouseDown);
+  edCanvas.addEventListener('mousemove',edMouseMove);
+  edCanvas.addEventListener('mouseup',edMouseUp);
+  edCanvas.addEventListener('mouseleave',edMouseUp);
+  edCanvas.addEventListener('click',edMouseClick);
   edRender();
 }
-function edClick(e){
-  if(edDragging)return;
+
+function edMouseDown(e){
+  const {wx,wy}=edWorldPos(e);
+  if(edDragMode){
+    // check if clicking on an existing object to drag it
+    for(let i=edObs.length-1;i>=0;i--){
+      const o=edObs[i];
+      if(wx>=o.x&&wx<=o.x+o.w&&wy>=o.y&&wy<=o.y+o.h){
+        edDragIdx=i;edDragOffX=wx-o.x;edDragOffY=wy-o.y;
+        edCanvas.style.cursor='grabbing';
+        return;
+      }
+    }
+    // no object — pan
+    edPanDragging=true;edLastX=e.clientX;edLastY=e.clientY;
+  } else {
+    // place mode — start pan if no obj hit
+    edPanDragging=true;edLastX=e.clientX;edLastY=e.clientY;
+  }
+}
+function edMouseMove(e){
   const rect=edCanvas.getBoundingClientRect();
   const wx=e.clientX-rect.left+edScrollX;
-  const wy=e.clientY-rect.top;
+  document.getElementById('ed-x').textContent=Math.round(wx);
+  if(edDragIdx>=0){
+    const {wx:wwx,wy:wwy}=edWorldPos(e);
+    let nx=wwx-edDragOffX,ny=wwy-edDragOffY;
+    if(edGridOn){nx=Math.round(nx/edGridSize)*edGridSize;ny=Math.round(ny/edGridSize)*edGridSize;}
+    edObs[edDragIdx].x=Math.round(nx);edObs[edDragIdx].y=Math.round(ny);
+    edRender();return;
+  }
+  if(edPanDragging){
+    edScrollX-=(e.clientX-edLastX);edScrollX=Math.max(0,edScrollX);
+    edLastX=e.clientX;edLastY=e.clientY;
+  }
+  edRender();
+}
+function edMouseUp(e){
+  if(edDragIdx>=0){edDragIdx=-1;edCanvas.style.cursor=edDragMode?'grab':'crosshair';}
+  edPanDragging=false;
+}
+function edMouseClick(e){
+  if(edDragMode){
+    // in drag mode, click selects object
+    const {wx,wy}=edWorldPos(e);
+    let hit=-1;
+    for(let i=edObs.length-1;i>=0;i--){
+      const o=edObs[i];
+      if(wx>=o.x&&wx<=o.x+o.w&&wy>=o.y&&wy<=o.y+o.h){hit=i;break;}
+    }
+    edSelectObj(hit);
+    return;
+  }
+  // place mode
+  if(edPanDragging)return;
+  const {wx,wy}=edWorldPos(e);
   const gh=ED_GH();
   const type=document.getElementById('obj-type-sel').value;
   const def=OBJ_DEFAULTS[type];
-  let y;
-  if(type==='spike'||type==='pad')y=gh-def.h;
-  else if(type==='startblock'||type==='endblock')y=gh-def.h;
-  else if(type==='orb')y=wy-def.h/2;
-  else y=wy-def.h; // block/plat: place with bottom at click
-  edObs.push({t:type,x:Math.round(wx-def.w/2),y:Math.round(y),w:def.w,h:def.h});
+  let px=wx-def.w/2,py;
+  if(type==='spike'||type==='pad'||type==='startblock'||type==='endblock')py=gh-def.h;
+  else if(type==='orb')py=wy-def.h/2;
+  else py=wy-def.h;
+  if(edGridOn){px=Math.round(px/edGridSize)*edGridSize;py=Math.round(py/edGridSize)*edGridSize;}
+  edObs.push({t:type,x:Math.round(px),y:Math.round(py),w:def.w,h:def.h,color:null,alpha:0,bounce:50,touchable:false});
+  edSelectObj(edObs.length-1);
   edRender();
 }
-function editorPlace(){edClick({clientX:edCanvas.width/2,clientY:ED_GH(),target:edCanvas,getBoundingClientRect:()=>edCanvas.getBoundingClientRect()});}
-function editorUndo(){edObs.pop();edRender();}
+function edWorldPos(e){
+  const rect=edCanvas.getBoundingClientRect();
+  return{wx:e.clientX-rect.left+edScrollX,wy:e.clientY-rect.top};
+}
+function edSelectObj(idx){
+  edSelectedIdx=idx;
+  const panel=document.getElementById('ed-sel-props');
+  if(idx<0){panel.style.display='none';return;}
+  panel.style.display='block';
+  const o=edObs[idx];
+  document.getElementById('ed-color-in').value=o.color||'#2a2a5a';
+  document.getElementById('ed-alpha-in').value=o.alpha||0;
+  document.getElementById('ed-alpha-val').textContent=o.alpha||0;
+  document.getElementById('ed-touch-chk').checked=!!o.touchable;
+  const bounceRow=document.getElementById('ed-bounce-row');
+  if(o.t==='orb'||o.t==='pad'){
+    bounceRow.style.display='flex';
+    document.getElementById('ed-bounce-in').value=o.bounce||50;
+    document.getElementById('ed-bounce-val').textContent=o.bounce||50;
+  } else {
+    bounceRow.style.display='none';
+  }
+}
+function edSetProp(prop,val){
+  if(edSelectedIdx<0)return;
+  edObs[edSelectedIdx][prop]=val;
+}
+function toggleAdditional(){
+  const p=document.getElementById('additional-panel');
+  p.style.display=p.style.display==='none'?'block':'none';
+}
+// close additional panel when clicking outside
+document.addEventListener('click',e=>{
+  const panel=document.getElementById('additional-panel');
+  const btn=document.getElementById('additional-btn');
+  if(panel&&!panel.contains(e.target)&&e.target!==btn&&!btn.contains(e.target)){
+    panel.style.display='none';
+  }
+});
+function editorPlace(){
+  const gh=ED_GH();
+  edMouseClick({clientX:edCanvas.getBoundingClientRect().left+edCanvas.width/2-edScrollX,clientY:edCanvas.getBoundingClientRect().top+gh,getBoundingClientRect:()=>edCanvas.getBoundingClientRect()});
+}
+function editorUndo(){
+  if(edObs.length===0)return;
+  edObs.pop();
+  if(edSelectedIdx>=edObs.length)edSelectObj(-1);
+  edRender();
+}
 function edRender(){
   if(!edCtx)return;
   const ctx=edCtx,W=edCanvas.width,H=edCanvas.height,gh=ED_GH();
   ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle='rgba(80,80,160,0.15)';ctx.lineWidth=1;
-  const gs=60,gox=edScrollX%gs;
-  for(let x=-gox;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-  for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // grid
+  if(edGridOn){
+    ctx.strokeStyle='rgba(80,80,160,0.18)';ctx.lineWidth=1;
+    const gox=edScrollX%edGridSize;
+    for(let x=-gox;x<W;x+=edGridSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=edGridSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  }
   ctx.fillStyle='#252545';ctx.fillRect(0,gh,W,H-gh);
   ctx.strokeStyle='#5555aa';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,gh);ctx.lineTo(W,gh);ctx.stroke();
-  for(const o of edObs){
+  for(let i=0;i<edObs.length;i++){
+    const o=edObs[i];
     const rx=o.x-edScrollX;
     if(rx>W+120||rx+o.w<-120)continue;
-    renderObs(ctx,o,rx);
+    ctx.save();
+    if(o.alpha>0)ctx.globalAlpha=1-(o.alpha/100);
+    if(o.color&&o.t!=='spike'&&o.t!=='pad'&&o.t!=='orb'&&o.t!=='startblock'&&o.t!=='endblock'){
+      // tint: draw normally then overlay color
+      renderObs(ctx,o,rx);
+      ctx.globalCompositeOperation='source-atop';
+      ctx.fillStyle=o.color;ctx.globalAlpha=(ctx.globalAlpha)*0.55;
+      ctx.fillRect(rx,o.y,o.w,o.h);
+      ctx.globalCompositeOperation='source-over';
+    } else {
+      renderObs(ctx,o,rx);
+    }
+    ctx.restore();
+    // selection highlight
+    if(i===edSelectedIdx){
+      ctx.strokeStyle='#e8ff00';ctx.lineWidth=2;ctx.setLineDash([4,3]);
+      ctx.strokeRect(rx-2,o.y-2,o.w+4,o.h+4);ctx.setLineDash([]);
+    }
   }
-  // x ruler
-  ctx.fillStyle='#333';ctx.fillRect(0,H-20,W,20);
-  ctx.fillStyle='#666';ctx.font='9px Space Mono,monospace';ctx.textAlign='left';
-  for(let x=0;x<W;x+=100){ctx.fillText(Math.round(x+edScrollX),x+2,H-6);}
+  // ruler
+  ctx.fillStyle='#222';ctx.fillRect(0,H-18,W,18);
+  ctx.fillStyle='#555';ctx.font='9px monospace';ctx.textAlign='left';
+  for(let x=0;x<W;x+=80){ctx.fillText(Math.round(x+edScrollX),x+2,H-5);}
+  // mode label
+  document.getElementById('ed-mode-label').textContent=
+    edDragMode?'Drag mode — drag objects, click to select':'Place mode — click to add';
 }
 function saveLevel(){
   if(hubUser!=='bartelsfamily5'){showToast && alert('No permission.');return;}
