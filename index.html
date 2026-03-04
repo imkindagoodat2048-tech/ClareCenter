@@ -1,3 +1,4 @@
+/* I love you boys 😛 */
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -308,12 +309,24 @@
                 <button class="icon-btn" onclick="toggleAdditional()" id="additional-btn">Additional ▾</button>
                 <div id="additional-panel" style="display:none;position:absolute;top:30px;right:0;background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:10px 14px;z-index:100;min-width:210px;box-shadow:0 4px 20px rgba(0,0,0,0.6);">
                     <!-- Always visible -->
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span style="font-size:11px;width:80px;">Speed</span>
+                        <input type="range" min="5" max="100" value="40" id="ed-speed-in" oninput="dSpeedBPS=this.value/10;document.getElementById('ed-speed-val').textContent=parseFloat(this.value/10).toFixed(1);" style="width:70px;">
+                        <span id="ed-speed-val" style="font-size:10px;color:var(--accent);width:28px;">4.0</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span style="font-size:11px;width:80px;">Jump Height</span>
+                        <input type="range" min="1" max="100" value="50" id="ed-jump-in" oninput="dJumpHeight=parseInt(this.value);document.getElementById('ed-jump-val').textContent=this.value;" style="width:70px;">
+                        <span id="ed-jump-val" style="font-size:10px;color:var(--accent);width:28px;">50</span>
+                    </div>
+                    <div style="border-top:1px solid #2a2a3a;margin-bottom:8px;padding-top:8px;">
                     <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;cursor:pointer;">
                         <input type="checkbox" id="ed-grid-chk" checked onchange="edGridOn=this.checked;edRender()"> Grid
                     </label>
                     <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer;">
                         <input type="checkbox" id="ed-drag-chk" onchange="edDragMode=this.checked;edCanvas.style.cursor=edDragMode?'grab':'crosshair';"> Drag Mode
                     </label>
+                    </div>
                     <!-- Selection-dependent (hidden when nothing selected) -->
                     <div id="ed-sel-props" style="display:none;border-top:1px solid #2a2a3a;padding-top:8px;">
                         <div style="font-size:9px;color:#555;letter-spacing:1px;margin-bottom:6px;font-family:'Space Mono',monospace;">SELECTED OBJECT</div>
@@ -557,8 +570,15 @@ let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false,dOrbUsed=false;
 let dPX,dPY,dScrollX=0,dObs=[];
 let dBright=100,dR=0,dG=0,dB=0;
 let dCurrentLevel=null; // {name, obs:[]} loaded level data
-const DSPD=40/60,DGRAV=0.52,DJUMP=-12,DSIZE=30;
-const GROUND_Y=360; // fixed world-space ground, same in editor and game
+const DSIZE=30;
+const GROUND_Y=360;
+let dSpeedBPS=4; // blocks per second (user slider)
+let dJumpHeight=50; // 1-100 slider
+const getDSPD=()=>dSpeedBPS*40/60; // px per frame
+// Jump uses sinusoidal velocity: starts fast, slows to 0 at top, accelerates back down
+// We use standard gravity but tune DGRAV/DJUMP from jump height slider
+const DGRAV=()=>0.38+dJumpHeight*0.008;
+const DJUMP=()=>-(4+dJumpHeight*0.14);
 const DGH=()=>GROUND_Y;
 
 // ── object helpers ──
@@ -630,17 +650,19 @@ function resetDash(){
 function restartDash(){stopDash();dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
 function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
 function dJump(){
-  if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=DJUMP;dGrounded=false;dOrbUsed=false;}
+  if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=DJUMP();dGrounded=false;dOrbUsed=false;}
 }
 function dOrbJump(bounce){
-  dVY=DJUMP*((bounce||50)/50);dOrbUsed=true;
+  dVY=DJUMP()*((bounce||50)/50);dOrbUsed=true;
 }
 function dLoop(){if(!dRunning)return;dRAF=requestAnimationFrame(dLoop);dPhysics();dRender();}
 function dPhysics(){
   if(dDied||dWon)return;
-  const gh=DGH(),spd=DSPD;
+  const gh=DGH(),spd=getDSPD();
   dScrollX+=spd;
-  dVY+=DGRAV;dPY+=dVY;
+  // Ease gravity: full gravity when moving fast, reduced near apex for floaty top
+  const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
+  dVY+=DGRAV()*apexFactor;dPY+=dVY;
   if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
   const px=dPX,py=dPY,ps=DSIZE;
   for(const o of dObs){
@@ -656,7 +678,7 @@ function dPhysics(){
     if(o.t==='pad'){
       if(px+ps>ox&&px<ox+o.w&&py+ps>=o.y&&py+ps<=o.y+o.h+10&&dVY>=0){
         const bScale=(o.bounce||50)/50;
-        dVY=DJUMP*1.45*bScale;dPY=o.y-ps;dGrounded=false;dOrbUsed=false;
+        dVY=DJUMP()*1.45*bScale;dPY=o.y-ps;dGrounded=false;dOrbUsed=false;
       }
       continue;
     }
@@ -677,7 +699,7 @@ function dPhysics(){
     const playerRight=px+ps;
     const obsLeft=ox;
     // top collision: land if falling onto top surface
-    if(px+ps>ox+2&&px<ox+o.w-2&&py+ps>=o.y&&py+ps<=o.y+spd+8&&dVY>=0){
+    if(px+ps>ox+2&&px<ox+o.w-2&&py+ps>=o.y&&py+ps<=o.y+spd+12&&dVY>=0){
       dPY=o.y-ps;dVY=0;dGrounded=true;dOrbUsed=false;continue;
     }
     // right-side collision: die
