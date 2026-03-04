@@ -731,59 +731,70 @@ function dPhysics(){
   if(dDied||dWon)return;
   const gh=DGH(),spd=getDSPD();
   dScrollX+=spd;
-  // Ease gravity: full gravity when moving fast, reduced near apex for floaty top
-  const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
-  dVY+=DGRAV()*apexFactor;dPY+=dVY;
-  if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
-  const px=dPX,py=dPY,ps=DSIZE;
-  for(const o of dObs){
-    const ox=o.x-dScrollX;
-    if(ox>dCanvas.width+120||ox+o.w<-120)continue;
-    if(o.touchable===false&&o.t!=='endblock'&&o.t!=='startblock')continue; // untouchable passthrough
-    if(o.t==='endblock'){
-      // win if player's right side passes endblock's left
-      if(px+ps>=ox){dWon=true;
-        const attempts=dAttempts;
-        showDashOver('LEVEL COMPLETE!','Finished in '+attempts+' attempt'+(attempts>1?'s':'')+'!');
-        // Show rating prompt if not the author and not a test
-        if(dCurrentLevelKey&&dCurrentLevel&&dCurrentLevel.author!==hubUser){
-          setTimeout(()=>showRatingPrompt(dCurrentLevelKey),400);
+  // Sub-step: cap each step at 3px of vertical movement so even max-bounce can't tunnel
+  // through thin platforms (min object height is 14px for plats, 28px for spikes)
+  const absVY=Math.abs(dVY);
+  const steps=Math.max(1,Math.ceil(absVY/3));
+  const dt=1/steps;
+  for(let s=0;s<steps;s++){
+    if(dDied||dWon)return;
+    const prevPY=dPY;
+    // Apply gravity sub-step
+    const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
+    dVY+=DGRAV()*apexFactor*dt;
+    dPY+=dVY*dt;
+    // Ground
+    if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
+    const px=dPX,py=dPY,ps=DSIZE;
+    for(const o of dObs){
+      const ox=o.x-dScrollX;
+      if(ox>dCanvas.width+120||ox+o.w<-120)continue;
+      if(o.touchable===false&&o.t!=='endblock'&&o.t!=='startblock')continue;
+      if(o.t==='endblock'){
+        if(px+ps>=ox){dWon=true;
+          const attempts=dAttempts;
+          showDashOver('LEVEL COMPLETE!','Finished in '+attempts+' attempt'+(attempts>1?'s':'')+'!');
+          if(dCurrentLevelKey&&dCurrentLevel&&dCurrentLevel.author!==hubUser){
+            setTimeout(()=>showRatingPrompt(dCurrentLevelKey),400);
+          }
+          return;}
+        continue;
+      }
+      if(o.t==='startblock')continue;
+      if(o.t==='pad'){
+        // Use swept check: did player bottom cross pad top between prevPY and py?
+        const padTop=o.y;
+        const prevBot=prevPY+ps,curBot=py+ps;
+        if(px+ps>ox&&px<ox+o.w&&curBot>=padTop&&prevBot<=padTop+o.h+4&&dVY>=0){
+          const bScale=(o.bounce||50)/50;
+          dVY=DJUMP()*1.45*bScale;dPY=padTop-ps;dGrounded=false;dOrbUsed=false;
         }
-        return;}
-      continue;
-    }
-    if(o.t==='startblock')continue;
-    if(o.t==='pad'){
-      if(px+ps>ox&&px<ox+o.w&&py+ps>=o.y&&py+ps<=o.y+o.h+10&&dVY>=0){
-        const bScale=(o.bounce||50)/50;
-        dVY=DJUMP()*1.45*bScale;dPY=o.y-ps;dGrounded=false;dOrbUsed=false;
+        continue;
       }
-      continue;
-    }
-    if(o.t==='orb'){
-      // orb: circle hitbox, allows one mid-air jump on contact if space held
-      const cx2=ox+o.w/2,cy2=o.y+o.h/2,r=o.w/2+4;
-      const nearX=px+ps/2,nearY=py+ps/2;
-      if(Math.abs(nearX-cx2)<r+ps/2&&Math.abs(nearY-cy2)<r+ps/2&&!dOrbUsed&&!dGrounded&&dOrbJumpQueued){
-        dOrbJump();dOrbJumpQueued=false;
+      if(o.t==='orb'){
+        const cx2=ox+o.w/2,cy2=o.y+o.h/2,r=o.w/2+4;
+        const nearX=px+ps/2,nearY=py+ps/2;
+        if(Math.abs(nearX-cx2)<r+ps/2&&Math.abs(nearY-cy2)<r+ps/2&&!dOrbUsed&&!dGrounded&&dOrbJumpQueued){
+          dOrbJump();dOrbJumpQueued=false;
+        }
+        continue;
       }
-      continue;
+      if(o.t==='spike'){
+        if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
+        continue;
+      }
+      // block & plat: swept top collision and right-side death
+      // Swept top: player bottom swept from prevPY+ps to py+ps, check if it crossed o.y
+      const prevBot=prevPY+ps,curBot=py+ps;
+      const horizOverlap=px+ps>ox+2&&px<ox+o.w-2;
+      if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+4){
+        dPY=o.y-ps;dVY=0;dGrounded=true;dOrbUsed=false;continue;
+      }
+      // Right-side: player's right enters left face of block
+      if(px+ps>ox&&px+ps<ox+spd+8&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
     }
-    if(o.t==='spike'){
-      if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
-      continue;
-    }
-    // block & plat: land on top, die on right-side hit
-    const playerRight=px+ps;
-    const obsLeft=ox;
-    // top collision: land if falling onto top surface
-    if(px+ps>ox+2&&px<ox+o.w-2&&py+ps>=o.y&&py+ps<=o.y+spd+12&&dVY>=0){
-      dPY=o.y-ps;dVY=0;dGrounded=true;dOrbUsed=false;continue;
-    }
-    // right-side collision: die
-    if(playerRight>obsLeft&&playerRight<obsLeft+spd+8&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
   }
-  // progress: scroll distance from spawn
+  // progress
   const start=dObs.find(o=>o.t==='startblock');
   const end=dObs.find(o=>o.t==='endblock');
   if(start&&end){const total=end.x-start.x;const done=dScrollX-(start.x-120);dPct=Math.max(0,Math.min(1,done/total));}
