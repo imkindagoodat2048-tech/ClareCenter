@@ -1024,12 +1024,11 @@ function dPhysics(){
       if(o.t==='blockportal'&&dSpiderMode){
         // blockportal also exits spider mode
       }
-      if(o.t==='shipportal'||o.t==='blockportal'){
-        // Portal: trigger on horizontal overlap within the portal column
+      if(o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'){
         if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h){
-          if(o.t==='shipportal'&&!dWaveMode){dWaveMode=true;dVY=0;}
-          if(o.t==='blockportal'&&dWaveMode){dWaveMode=false;dVY=0;}
-          if(o.t==='blockportal'&&dSpiderMode){dSpiderMode=false;dSpiderFlipped=false;dVY=0;}
+          if(o.t==='shipportal'&&!dShipMode){dShipMode=true;dWaveMode=false;dVY=0;}
+          if(o.t==='waveportal'&&!dWaveMode){dWaveMode=true;dShipMode=false;dVY=0;}
+          if(o.t==='blockportal'){dShipMode=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;dVY=0;}
         }
         continue;
       }
