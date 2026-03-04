@@ -270,36 +270,62 @@
 <div id="claredash" class="game-screen hidden">
     <div class="gs-topbar">
         <div class="gs-title">ClareDash</div>
-        <button class="gs-exit" onclick="exitGame('claredash')">Exit</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+            <div id="dash-tab-btns" style="display:flex;gap:4px;">
+                <button class="icon-btn" id="tab-play-btn" onclick="showDashTab('play')">Play</button>
+                <button class="icon-btn" id="tab-create-btn" style="display:none;" onclick="showDashTab('create')">Create</button>
+                <button class="icon-btn" onclick="showDashSettings()">Settings</button>
+            </div>
+            <button class="gs-exit" onclick="exitGame('claredash')">Exit</button>
+        </div>
     </div>
-    <div id="dash-menu">
-        <div class="dash-title">ClareDash</div>
-        <div class="dash-sub">geometry-style runner</div>
-        <button class="dash-btn" onclick="showDashLevels()">Play</button>
-        <button class="dash-btn" onclick="showDashSettings()">Settings</button>
-        <button class="dash-btn" onclick="exitGame('claredash')">Exit</button>
+    <!-- PLAY TAB: level list -->
+    <div id="dash-play-tab" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;overflow-y:auto;padding:16px;">
+        <div style="font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:3px;color:var(--accent);margin-bottom:4px;">Select Level</div>
+        <div id="dash-level-list" style="display:flex;flex-direction:column;gap:8px;width:320px;"></div>
     </div>
-    <div id="dash-levels" class="hidden">
-        <div style="font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:3px;color:var(--accent);margin-bottom:8px;">Select Level</div>
-        <button class="lvl-btn" onclick="startDashLevel(1)"><div class="lvl-num">01</div><div><div class="lvl-name">Spike Rush</div><div class="lvl-diff">Normal</div></div></button>
-        <button class="lvl-btn" onclick="startDashLevel(2)"><div class="lvl-num">02</div><div><div class="lvl-name">Platform Jump</div><div class="lvl-diff">Hard</div></div></button>
-        <button class="lvl-btn" onclick="startDashLevel(3)"><div class="lvl-num">03</div><div><div class="lvl-name">Chaos Zone</div><div class="lvl-diff">Extreme</div></div></button>
-        <button class="dash-btn" style="margin-top:12px;" onclick="showDashMenu()">Back</button>
+    <!-- CREATE TAB -->
+    <div id="dash-create-tab" class="hidden" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:8px 12px;border-bottom:1px solid #2a2a3a;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;">
+            <div style="font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:2px;color:var(--accent);">Editor</div>
+            <input id="lvl-name-in" placeholder="Level name..." style="background:#0f0f1a;border:1px solid #333;color:white;padding:4px 8px;font-size:11px;border-radius:4px;outline:none;width:120px;">
+            <select id="obj-type-sel" style="background:#0f0f1a;border:1px solid #333;color:white;padding:4px 6px;font-size:11px;border-radius:4px;">
+                <option value="startblock">Start Block</option>
+                <option value="endblock">End Block</option>
+                <option value="block">Block</option>
+                <option value="plat">Platform</option>
+                <option value="spike">Spike</option>
+                <option value="pad">Jump Pad</option>
+                <option value="orb">Orb</option>
+            </select>
+            <button class="icon-btn" onclick="editorPlace()" style="background:var(--primary);">Place</button>
+            <button class="icon-btn" onclick="editorUndo()" style="background:#444;">Undo</button>
+            <button class="icon-btn" onclick="saveLevel()" style="background:#2ed573;color:#000;">Save</button>
+            <button class="icon-btn" onclick="testLevel()" style="background:#e8ff00;color:#000;">Test</button>
+        </div>
+        <div style="padding:4px 12px;font-size:10px;color:#555;font-family:'Space Mono',monospace;flex-shrink:0;">
+            X: <span id="ed-x">0</span> &nbsp; Click canvas to place at position
+        </div>
+        <div style="flex:1;position:relative;overflow:hidden;">
+            <canvas id="ed-canvas" style="display:block;position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair;"></canvas>
+        </div>
     </div>
-    <div id="dash-game" class="hidden">
-        <canvas id="dash-canvas"></canvas>
-        <div id="dash-hud">
-            <div><div id="dash-pct">0%</div><div id="dash-att">Attempt 1</div></div>
+    <!-- GAME -->
+    <div id="dash-game" class="hidden" style="flex:1;position:relative;overflow:hidden;">
+        <canvas id="dash-canvas" style="display:block;position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+        <div id="dash-hud" style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:10px 16px;pointer-events:none;">
+            <div><div id="dash-pct" style="font-family:'Bebas Neue',cursive;font-size:26px;color:var(--accent);">0%</div><div id="dash-att" style="font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-top:3px;">Attempt 1</div></div>
             <div style="font-family:'Space Mono',monospace;font-size:10px;color:#555;text-align:right;margin-top:8px;">SPACE / Click to jump</div>
         </div>
-        <div id="dash-over" class="hidden">
-            <div id="dash-over-title">DIED</div>
-            <div id="dash-over-sub"></div>
-            <button onclick="restartDash()">Retry</button>
-            <button class="sec" onclick="showDashLevels()">Levels</button>
+        <div id="dash-over" class="hidden" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(26,26,46,0.9);">
+            <div id="dash-over-title" style="font-family:'Bebas Neue',cursive;font-size:52px;letter-spacing:4px;color:var(--accent);margin-bottom:4px;">DIED</div>
+            <div id="dash-over-sub" style="font-family:'Space Mono',monospace;font-size:11px;color:#666;margin-bottom:20px;"></div>
+            <button onclick="restartDash()" style="font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;background:var(--primary);border:none;color:white;padding:10px 30px;cursor:pointer;margin:3px;border-radius:4px;">Retry</button>
+            <button onclick="showDashTab('play')" style="font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;background:#2f3542;border:none;color:white;padding:10px 30px;cursor:pointer;margin:3px;border-radius:4px;">Levels</button>
         </div>
     </div>
-    <div id="dash-settings" class="hidden">
+    <!-- SETTINGS -->
+    <div id="dash-settings" class="hidden" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:30px;">
         <div class="sett-title">Settings</div>
         <div class="sett-row">
             <div><div class="sett-label">Brightness</div><div class="sett-sub">0 - 100</div></div>
@@ -319,7 +345,7 @@
                 <div class="col-prev" id="col-prev" style="background:#000"></div>
             </div>
         </div>
-        <button class="dash-btn" style="margin-top:10px;" onclick="showDashMenu()">Back</button>
+        <button class="dash-btn" style="margin-top:10px;" onclick="showDashTab('play')">Back</button>
     </div>
 </div>
 
@@ -472,7 +498,14 @@ async function delUser(u){if(!confirm('Delete '+u+'?'))return;await db.ref("user
 // ===== LAUNCHERS =====
 function launchClareCool(){window.open('https://imkindagoodat2048-tech.github.io/ClareCool/','_blank');}
 function launchClareClash(){window.open('https://imkindagoodat2048-tech.github.io/ClareGame/','_blank');}
-function launchClareDash(){document.getElementById('claredash').classList.remove('hidden');showDashMenu();}
+function launchClareDash(){
+  document.getElementById('claredash').classList.remove('hidden');
+  // Show Create tab only for bartelsfamily5
+  if(hubUser==='bartelsfamily5'){
+    document.getElementById('tab-create-btn').style.display='';
+  }
+  showDashTab('play');
+}
 function launchClareTown(){
   document.getElementById('claretown').classList.remove('hidden');
   if(hubUser){townUser=hubUser;document.getElementById('claretown-auth').classList.add('hidden');startTownGame();}
@@ -484,52 +517,18 @@ function exitGame(id){
 }
 
 // ===== CLAREDASH ENGINE =====
-let dCtx,dCanvas,dRAF,dLevel=1,dAttempts=1,dRunning=false;
-let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false;
-let dPX,dPY,dScrollX=0,dLenTotal=0,dObs=[];
+let dCtx,dCanvas,dRAF,dAttempts=1,dRunning=false;
+let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false,dOrbUsed=false;
+let dPX,dPY,dScrollX=0,dObs=[];
 let dBright=100,dR=0,dG=0,dB=0;
-const DSPD=()=>3+(dLevel-1)*1.25,DGRAV=0.52,DJUMP=-12,DSIZE=30;
+let dCurrentLevel=null; // {name, obs:[]} loaded level data
+const DSPD=3.2,DGRAV=0.52,DJUMP=-12,DSIZE=30;
 const DGH=()=>dCanvas.height-60;
 
-function buildDLevel(lvl){
-  const obs=[],gh=DGH(),W=dCanvas.width;let cx=W+180;
-  const spike=x=>obs.push({t:'spike',x,y:gh-28,w:28,h:28});
-  const pad=x=>obs.push({t:'pad',x,y:gh-18,w:38,h:18});
-  const block=(x,h)=>obs.push({t:'block',x,y:gh-h,w:30,h});
-  const plat=(x,y,w)=>obs.push({t:'plat',x,y,w,h:14});
-  const house=x=>obs.push({t:'house',x,y:gh-58,w:50,h:58});
-  if(lvl===1){
-    pad(cx);cx+=220;block(cx,76);cx+=180;
-    plat(cx,gh-115,80);cx+=260;
-    house(cx);cx+=200;pad(cx);cx+=200;block(cx+80,56);cx+=260;
-    plat(cx,gh-95,64);cx+=220;
-    house(cx);house(cx+100);cx+=290;pad(cx);cx+=280;
-    dLenTotal=cx+300;
-  } else if(lvl===2){
-    spike(cx);spike(cx+36);spike(cx+72);cx+=230;block(cx,100);cx+=110;
-    plat(cx,gh-140,60);cx+=210;pad(cx);cx+=140;house(cx);spike(cx+60);cx+=210;
-    block(cx,70);block(cx+80,90);cx+=270;spike(cx);spike(cx+36);cx+=190;
-    plat(cx,gh-108,48);plat(cx+130,gh-145,48);cx+=290;
-    pad(cx);spike(cx+100);spike(cx+136);cx+=300;
-    house(cx);house(cx+100);house(cx+200);cx+=360;block(cx,120);cx+=130;
-    spike(cx);spike(cx+36);spike(cx+72);spike(cx+108);cx+=290;pad(cx);cx+=180;
-    plat(cx,gh-125,32);plat(cx+100,gh-95,32);cx+=280;spike(cx);block(cx+80,78);cx+=270;
-    dLenTotal=cx+300;
-  } else {
-    for(let i=0;i<3;i++)spike(cx+i*38);cx+=280;pad(cx);block(cx+80,130);cx+=210;
-    plat(cx,gh-155,40);plat(cx+100,gh-195,40);plat(cx+200,gh-155,40);cx+=390;
-    spike(cx);spike(cx+36);pad(cx+90);cx+=270;house(cx);house(cx+70);house(cx+140);cx+=310;
-    block(cx,78);block(cx+60,100);block(cx+120,78);cx+=290;
-    spike(cx);spike(cx+36);spike(cx+72);spike(cx+108);spike(cx+144);cx+=330;
-    pad(cx);spike(cx+120);spike(cx+156);cx+=350;
-    plat(cx,gh-125,32);plat(cx+80,gh-165,32);plat(cx+160,gh-125,32);cx+=350;
-    house(cx);spike(cx+60);spike(cx+100);cx+=290;block(cx,145);cx+=160;
-    for(let i=0;i<6;i++)spike(cx+i*36);cx+=390;pad(cx);cx+=190;
-    plat(cx,gh-175,32);cx+=210;spike(cx);spike(cx+36);spike(cx+72);cx+=310;
-    dLenTotal=cx+400;
-  }
-  return obs;
-}
+// ── object helpers ──
+function makeObs(t,x,y,w,h,extra){return Object.assign({t,x,y,w,h},extra||{});}
+
+// ── canvas init ──
 function initDCanvas(){
   dCanvas=document.getElementById('dash-canvas');
   const wrap=document.getElementById('dash-game');
@@ -537,99 +536,283 @@ function initDCanvas(){
   dCanvas.height=wrap.offsetHeight||window.innerHeight-44;
   dCtx=dCanvas.getContext('2d');
 }
-function startDashLevel(lvl){
-  dLevel=lvl;dAttempts=1;
-  ['dash-levels','dash-settings','dash-menu'].forEach(id=>document.getElementById(id).classList.add('hidden'));
-  document.getElementById('dash-game').classList.remove('hidden');
-  document.getElementById('dash-over').classList.add('hidden');
-  // Wait one frame so the element is visible and has real dimensions
-  requestAnimationFrame(()=>{
-    initDCanvas();
-    resetDash();dRunning=true;dLoop();updDHUD();
+
+// ── tab switching ──
+function showDashTab(tab){
+  ['dash-play-tab','dash-create-tab','dash-game','dash-settings'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.classList.add('hidden');
+  });
+  stopDash();
+  if(tab==='play'){document.getElementById('dash-play-tab').classList.remove('hidden');loadLevelList();}
+  else if(tab==='create'){document.getElementById('dash-create-tab').classList.remove('hidden');initEditor();}
+  else if(tab==='settings'){document.getElementById('dash-settings').classList.remove('hidden');}
+}
+
+// ── level list ──
+function loadLevelList(){
+  db.ref('claredash_levels').once('value',snap=>{
+    const list=document.getElementById('dash-level-list');
+    list.innerHTML='';
+    if(!snap.exists()){list.innerHTML='<div style="font-size:12px;color:#555;text-align:center;">No levels yet!</div>';return;}
+    snap.forEach(c=>{
+      const d=c.val();
+      const row=document.createElement('div');
+      row.className='lvl-btn';
+      row.innerHTML='<div style="flex:1;"><div class="lvl-name">'+d.name+'</div><div class="lvl-diff" style="font-size:10px;color:#555;">by '+d.author+'</div></div>'
+        +'<button class="game-play" onclick="event.stopPropagation();playLevel(\''+c.key+'\')">Play</button>'
+        +(hubUser==='bartelsfamily5'?'<button class="game-play" style="background:#eb4d4b;margin-left:4px;" onclick="event.stopPropagation();deleteLevel(\''+c.key+'\')">Del</button>':'');
+      list.appendChild(row);
+    });
   });
 }
-function resetDash(){dPX=120;dPY=DGH()-DSIZE;dVY=0;dScrollX=0;dPct=0;dDied=false;dWon=false;dGrounded=false;dObs=buildDLevel(dLevel);}
+function deleteLevel(key){
+  if(!confirm('Delete this level?'))return;
+  db.ref('claredash_levels/'+key).remove();
+  loadLevelList();
+}
+function playLevel(key){
+  db.ref('claredash_levels/'+key).once('value',snap=>{
+    if(!snap.exists())return;
+    dCurrentLevel=snap.val();
+    dAttempts=1;
+    ['dash-play-tab','dash-create-tab','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
+    document.getElementById('dash-game').classList.remove('hidden');
+    document.getElementById('dash-over').classList.add('hidden');
+    requestAnimationFrame(()=>{initDCanvas();resetDash();dRunning=true;dLoop();updDHUD();});
+  });
+}
+
+// ── physics & game loop ──
+function resetDash(){
+  // find startblock x for spawn
+  const start=dCurrentLevel.obs.find(o=>o.t==='startblock');
+  dPX=start?start.x+10:120;
+  dPY=DGH()-DSIZE;dVY=0;dScrollX=dPX-120;
+  dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;
+  dObs=dCurrentLevel.obs;
+}
 function restartDash(){dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
 function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
-function dJump(){if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=DJUMP;dGrounded=false;}}
+function dJump(){
+  if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=DJUMP;dGrounded=false;dOrbUsed=false;}
+}
+function dOrbJump(){
+  // called when touching an orb mid-air
+  dVY=DJUMP;dOrbUsed=true;
+}
 function dLoop(){if(!dRunning)return;dRAF=requestAnimationFrame(dLoop);dPhysics();dRender();}
 function dPhysics(){
   if(dDied||dWon)return;
-  const gh=DGH(),spd=DSPD();
-  dScrollX+=spd;dPct=dScrollX/(dLenTotal-dCanvas.width);
-  if(dScrollX>=dLenTotal-dCanvas.width){dWon=true;showDashOver('LEVEL COMPLETE!',`Finished in ${dAttempts} attempt${dAttempts>1?'s':''}!`);return;}
+  const gh=DGH(),spd=DSPD;
+  dScrollX+=spd;
   dVY+=DGRAV;dPY+=dVY;
-  if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;}else{dGrounded=false;}
+  if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
   const px=dPX,py=dPY,ps=DSIZE;
   for(const o of dObs){
     const ox=o.x-dScrollX;
-    if(ox>dCanvas.width+80||ox+o.w<-80)continue;
-    if(o.t==='pad'){if(px+ps>ox&&px<ox+o.w&&py+ps>=o.y&&py+ps<=o.y+o.h+10&&dVY>=0){dVY=DJUMP*1.45;dPY=o.y-ps;dGrounded=false;}continue;}
-    if(o.t==='plat'){if(px+ps>ox+4&&px<ox+o.w-4&&py+ps>=o.y&&py+ps<=o.y+o.h+spd+4&&dVY>=0){dPY=o.y-ps;dVY=0;dGrounded=true;}continue;}
-    if(o.t==='spike'){
-      // Generous inner margins so near-misses feel fair
-      if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
-    } else {
-      // Blocks & houses: only die if player's right side runs into obstacle's left side
-      const playerRight=px+ps;
-      const obsLeft=ox;
-      if(playerRight>obsLeft&&playerRight<obsLeft+spd+8&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
+    if(ox>dCanvas.width+120||ox+o.w<-120)continue;
+    if(o.t==='endblock'){
+      // win if player's right side passes endblock's left
+      if(px+ps>=ox){dWon=true;showDashOver('LEVEL COMPLETE!','Finished in '+dAttempts+' attempt'+(dAttempts>1?'s':'')+'!');return;}
+      continue;
     }
+    if(o.t==='startblock')continue;
+    if(o.t==='pad'){
+      if(px+ps>ox&&px<ox+o.w&&py+ps>=o.y&&py+ps<=o.y+o.h+10&&dVY>=0){
+        dVY=DJUMP*1.45;dPY=o.y-ps;dGrounded=false;dOrbUsed=false;
+      }
+      continue;
+    }
+    if(o.t==='orb'){
+      // orb: circle hitbox, allows one mid-air jump on contact if space held
+      const cx2=ox+o.w/2,cy2=o.y+o.h/2,r=o.w/2+4;
+      const nearX=px+ps/2,nearY=py+ps/2;
+      if(Math.abs(nearX-cx2)<r+ps/2&&Math.abs(nearY-cy2)<r+ps/2&&!dOrbUsed&&!dGrounded&&dOrbJumpQueued){
+        dOrbJump();dOrbJumpQueued=false;
+      }
+      continue;
+    }
+    if(o.t==='spike'){
+      if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
+      continue;
+    }
+    // block & plat: land on top, die on right-side hit
+    const playerRight=px+ps;
+    const obsLeft=ox;
+    // top collision: land if falling onto top surface
+    if(px+ps>ox+2&&px<ox+o.w-2&&py+ps>=o.y&&py+ps<=o.y+spd+8&&dVY>=0){
+      dPY=o.y-ps;dVY=0;dGrounded=true;dOrbUsed=false;continue;
+    }
+    // right-side collision: die
+    if(playerRight>obsLeft&&playerRight<obsLeft+spd+8&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
   }
+  // progress: scroll distance from spawn
+  const start=dObs.find(o=>o.t==='startblock');
+  const end=dObs.find(o=>o.t==='endblock');
+  if(start&&end){const total=end.x-start.x;const done=dScrollX-(start.x-120);dPct=Math.max(0,Math.min(1,done/total));}
   updDHUD();
 }
 function dRender(){
   const ctx=dCtx,W=dCanvas.width,H=dCanvas.height,gh=DGH();
   ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
   ctx.strokeStyle='rgba(80,80,160,0.1)';ctx.lineWidth=1;
-  const gs=60,ox=dScrollX%gs;
-  for(let x=-ox;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  const gs=60,gox=dScrollX%gs;
+  for(let x=-gox;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
   for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   ctx.fillStyle='#252545';ctx.fillRect(0,gh,W,H-gh);
   ctx.strokeStyle='#5555aa';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,gh);ctx.lineTo(W,gh);ctx.stroke();
   for(const o of dObs){
     const rx=o.x-dScrollX;
-    if(rx>W+80||rx+o.w<-80)continue;
-    if(o.t==='spike'){
-      ctx.fillStyle='#dd3333';ctx.strokeStyle='#ff6666';ctx.lineWidth=1.5;
-      ctx.beginPath();ctx.moveTo(rx+o.w/2,o.y);ctx.lineTo(rx+o.w,o.y+o.h);ctx.lineTo(rx,o.y+o.h);ctx.closePath();ctx.fill();ctx.stroke();
-    } else if(o.t==='pad'){
-      ctx.fillStyle='#22cc77';ctx.strokeStyle='#55ffaa';ctx.lineWidth=2;
-      ctx.beginPath();ctx.arc(rx+o.w/2,o.y+o.h,o.w/2,Math.PI,0);ctx.closePath();ctx.fill();ctx.stroke();
-      ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(rx+o.w/2,o.y+o.h-11);ctx.lineTo(rx+o.w/2-5,o.y+o.h-4);ctx.lineTo(rx+o.w/2+5,o.y+o.h-4);ctx.closePath();ctx.fill();
-    } else if(o.t==='block'){
-      ctx.fillStyle='#2a2a5a';ctx.fillRect(rx,o.y,o.w,o.h);ctx.strokeStyle='#5555aa';ctx.lineWidth=1.5;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
-      ctx.strokeStyle='rgba(80,80,160,0.2)';ctx.lineWidth=1;for(let gy=o.y+16;gy<o.y+o.h;gy+=16){ctx.beginPath();ctx.moveTo(rx,gy);ctx.lineTo(rx+o.w,gy);ctx.stroke();}
-    } else if(o.t==='plat'){
-      ctx.fillStyle='#3a3a7a';ctx.fillRect(rx,o.y,o.w,o.h);ctx.strokeStyle='#7777cc';ctx.lineWidth=1.5;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
-    } else if(o.t==='house'){
-      const by=o.y+26;
-      ctx.fillStyle='#2a2a5a';ctx.fillRect(rx,by,o.w,o.h-26);ctx.strokeStyle='#5555aa';ctx.lineWidth=1.5;ctx.strokeRect(rx+.5,by+.5,o.w-1,o.h-27);
-      ctx.fillStyle='#3a3a7a';ctx.strokeStyle='#8888cc';ctx.beginPath();ctx.moveTo(rx-4,by);ctx.lineTo(rx+o.w/2,o.y);ctx.lineTo(rx+o.w+4,by);ctx.closePath();ctx.fill();ctx.stroke();
-      ctx.fillStyle='rgba(255,255,100,0.7)';ctx.fillRect(rx+14,by+8,20,16);
-    }
+    if(rx>W+120||rx+o.w<-120)continue;
+    renderObs(ctx,o,rx);
   }
-  const pc=`rgb(${dR},${dG},${dB})`;
+  const pc='rgb('+dR+','+dG+','+dB+')';
   ctx.fillStyle=pc;ctx.fillRect(dPX,dPY,DSIZE,DSIZE);
-  ctx.strokeStyle=pc==='rgb(0,0,0)'?'#444':'#fff';ctx.lineWidth=2;ctx.strokeRect(dPX+1,dPY+1,DSIZE-2,DSIZE-2);
+  ctx.strokeStyle=(dR===0&&dG===0&&dB===0)?'#444':'#fff';ctx.lineWidth=2;ctx.strokeRect(dPX+1,dPY+1,DSIZE-2,DSIZE-2);
   ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,H-4,W,4);
-  ctx.fillStyle=`rgb(${dR||232},${dG||255},${dB||0})`;ctx.fillRect(0,H-4,W*Math.max(0,Math.min(1,dPct)),4);
+  ctx.fillStyle='rgb('+(dR||232)+','+(dG||255)+','+(dB||0)+')';ctx.fillRect(0,H-4,W*dPct,4);
 }
-function dDie(){dDied=true;dRunning=false;showDashOver('YOU DIED',`${Math.round(dPct*100)}% - Attempt ${dAttempts}`);}
+function renderObs(ctx,o,rx){
+  if(o.t==='spike'){
+    ctx.fillStyle='#dd3333';ctx.strokeStyle='#ff6666';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(rx+o.w/2,o.y);ctx.lineTo(rx+o.w,o.y+o.h);ctx.lineTo(rx,o.y+o.h);ctx.closePath();ctx.fill();ctx.stroke();
+  } else if(o.t==='pad'){
+    ctx.fillStyle='#22cc77';ctx.strokeStyle='#55ffaa';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(rx+o.w/2,o.y+o.h,o.w/2,Math.PI,0);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(rx+o.w/2,o.y+o.h-11);ctx.lineTo(rx+o.w/2-5,o.y+o.h-4);ctx.lineTo(rx+o.w/2+5,o.y+o.h-4);ctx.closePath();ctx.fill();
+  } else if(o.t==='orb'){
+    ctx.save();ctx.strokeStyle='#ffdd00';ctx.fillStyle='rgba(255,220,0,0.18)';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(rx+o.w/2,o.y+o.h/2,o.w/2,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#ffdd00';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
+    ctx.fillText('★',rx+o.w/2,o.y+o.h/2+5);ctx.restore();
+  } else if(o.t==='block'){
+    ctx.fillStyle='#2a2a5a';ctx.fillRect(rx,o.y,o.w,o.h);ctx.strokeStyle='#5555aa';ctx.lineWidth=1.5;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    ctx.strokeStyle='rgba(80,80,160,0.2)';ctx.lineWidth=1;for(let gy=o.y+16;gy<o.y+o.h;gy+=16){ctx.beginPath();ctx.moveTo(rx,gy);ctx.lineTo(rx+o.w,gy);ctx.stroke();}
+  } else if(o.t==='plat'){
+    ctx.fillStyle='#3a3a7a';ctx.fillRect(rx,o.y,o.w,o.h);ctx.strokeStyle='#7777cc';ctx.lineWidth=1.5;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+  } else if(o.t==='startblock'){
+    ctx.fillStyle='rgba(0,255,100,0.15)';ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#2ed573';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    ctx.fillStyle='#2ed573';ctx.font='bold 10px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('START',rx+o.w/2,o.y+o.h/2+4);
+  } else if(o.t==='endblock'){
+    ctx.fillStyle='rgba(232,255,0,0.15)';ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#e8ff00';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    ctx.fillStyle='#e8ff00';ctx.font='bold 10px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('END',rx+o.w/2,o.y+o.h/2+4);
+  }
+}
+function dDie(){dDied=true;dRunning=false;showDashOver('YOU DIED',Math.round(dPct*100)+'% - Attempt '+dAttempts);}
 function showDashOver(t,s){document.getElementById('dash-over-title').textContent=t;document.getElementById('dash-over-sub').textContent=s;document.getElementById('dash-over').classList.remove('hidden');}
-function updDHUD(){document.getElementById('dash-pct').textContent=`${Math.round(Math.min(100,Math.max(0,dPct*100)))}%`;document.getElementById('dash-att').textContent=`Attempt ${dAttempts}`;}
-function showDashMenu(){['dash-menu','dash-levels','dash-game','dash-settings'].forEach(id=>document.getElementById(id).classList.add('hidden'));document.getElementById('dash-menu').classList.remove('hidden');stopDash();}
-function showDashLevels(){['dash-menu','dash-levels','dash-game','dash-settings'].forEach(id=>document.getElementById(id).classList.add('hidden'));document.getElementById('dash-levels').classList.remove('hidden');stopDash();}
-function showDashSettings(){['dash-menu','dash-levels','dash-game','dash-settings'].forEach(id=>document.getElementById(id).classList.add('hidden'));document.getElementById('dash-settings').classList.remove('hidden');stopDash();}
-function updBright(v){dBright=parseInt(v);document.getElementById('dash-bright-val').textContent=v;document.getElementById('claredash').style.filter=`brightness(${v}%)`;}
+function updDHUD(){document.getElementById('dash-pct').textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';document.getElementById('dash-att').textContent='Attempt '+dAttempts;}
+function showDashSettings(){['dash-play-tab','dash-create-tab','dash-game','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});document.getElementById('dash-settings').classList.remove('hidden');stopDash();}
+function updBright(v){dBright=parseInt(v);document.getElementById('dash-bright-val').textContent=v;document.getElementById('claredash').style.filter='brightness('+v+'%)';}
 function updColor(){
   dR=Math.max(0,Math.min(255,parseInt(document.getElementById('dash-r').value)||0));
   dG=Math.max(0,Math.min(255,parseInt(document.getElementById('dash-g').value)||0));
   dB=Math.max(0,Math.min(255,parseInt(document.getElementById('dash-b').value)||0));
-  document.getElementById('col-prev').style.background=`rgb(${dR},${dG},${dB})`;
+  document.getElementById('col-prev').style.background='rgb('+dR+','+dG+','+dB+')';
 }
-document.addEventListener('keydown',e=>{if(e.code==='Space'&&!document.getElementById('dash-game').classList.contains('hidden')){e.preventDefault();dJump();}});
-document.getElementById('dash-canvas').addEventListener('click',()=>dJump());
+
+// ── orb jump input ──
+let dOrbJumpQueued=false;
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){
+    e.preventDefault();
+    if(!document.getElementById('dash-game').classList.contains('hidden')){
+      dJump();
+      dOrbJumpQueued=true;
+    }
+  }
+});
+document.addEventListener('keyup',e=>{if(e.code==='Space')dOrbJumpQueued=false;});
+
+// ── LEVEL EDITOR ──
+let edCanvas,edCtx,edObs=[],edScrollX=0,edDragging=false,edLastX=0;
+const ED_GH=()=>edCanvas.height-60;
+const OBJ_DEFAULTS={
+  startblock:{w:40,h:60},endblock:{w:40,h:60},
+  block:{w:40,h:40},plat:{w:80,h:14},
+  spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28}
+};
+
+function initEditor(){
+  edCanvas=document.getElementById('ed-canvas');
+  const wrap=edCanvas.parentElement;
+  edCanvas.width=wrap.offsetWidth||800;
+  edCanvas.height=wrap.offsetHeight||400;
+  edCtx=edCanvas.getContext('2d');
+  edCanvas.onclick=edClick;
+  edCanvas.addEventListener('mousedown',e=>{edDragging=true;edLastX=e.clientX;});
+  edCanvas.addEventListener('mousemove',e=>{
+    if(edDragging){edScrollX-=(e.clientX-edLastX);edLastX=e.clientX;edScrollX=Math.max(0,edScrollX);}
+    // show x coord
+    const rect=edCanvas.getBoundingClientRect();
+    document.getElementById('ed-x').textContent=Math.round(e.clientX-rect.left+edScrollX);
+    edRender();
+  });
+  edCanvas.addEventListener('mouseup',()=>edDragging=false);
+  edCanvas.addEventListener('mouseleave',()=>edDragging=false);
+  edRender();
+}
+function edClick(e){
+  if(edDragging)return;
+  const rect=edCanvas.getBoundingClientRect();
+  const wx=e.clientX-rect.left+edScrollX;
+  const wy=e.clientY-rect.top;
+  const gh=ED_GH();
+  const type=document.getElementById('obj-type-sel').value;
+  const def=OBJ_DEFAULTS[type];
+  let y;
+  if(type==='spike'||type==='pad')y=gh-def.h;
+  else if(type==='startblock'||type==='endblock')y=gh-def.h;
+  else if(type==='orb')y=wy-def.h/2;
+  else y=wy-def.h; // block/plat: place with bottom at click
+  edObs.push({t:type,x:Math.round(wx-def.w/2),y:Math.round(y),w:def.w,h:def.h});
+  edRender();
+}
+function editorPlace(){edClick({clientX:edCanvas.width/2,clientY:ED_GH(),target:edCanvas,getBoundingClientRect:()=>edCanvas.getBoundingClientRect()});}
+function editorUndo(){edObs.pop();edRender();}
+function edRender(){
+  if(!edCtx)return;
+  const ctx=edCtx,W=edCanvas.width,H=edCanvas.height,gh=ED_GH();
+  ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(80,80,160,0.15)';ctx.lineWidth=1;
+  const gs=60,gox=edScrollX%gs;
+  for(let x=-gox;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  ctx.fillStyle='#252545';ctx.fillRect(0,gh,W,H-gh);
+  ctx.strokeStyle='#5555aa';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,gh);ctx.lineTo(W,gh);ctx.stroke();
+  for(const o of edObs){
+    const rx=o.x-edScrollX;
+    if(rx>W+120||rx+o.w<-120)continue;
+    renderObs(ctx,o,rx);
+  }
+  // x ruler
+  ctx.fillStyle='#333';ctx.fillRect(0,H-20,W,20);
+  ctx.fillStyle='#666';ctx.font='9px Space Mono,monospace';ctx.textAlign='left';
+  for(let x=0;x<W;x+=100){ctx.fillText(Math.round(x+edScrollX),x+2,H-6);}
+}
+function saveLevel(){
+  if(hubUser!=='bartelsfamily5'){showToast && alert('No permission.');return;}
+  const name=document.getElementById('lvl-name-in').value.trim();
+  if(!name){alert('Enter a level name!');return;}
+  if(!edObs.find(o=>o.t==='startblock')){alert('Level needs a Start Block!');return;}
+  if(!edObs.find(o=>o.t==='endblock')){alert('Level needs an End Block!');return;}
+  db.ref('claredash_levels').push({name,author:'bartelsfamily5',obs:edObs,created:Date.now()});
+  alert('Level saved: '+name);
+  document.getElementById('lvl-name-in').value='';
+  edObs=[];edRender();
+  loadLevelList();
+}
+function testLevel(){
+  if(!edObs.find(o=>o.t==='startblock')){alert('Need a Start Block!');return;}
+  if(!edObs.find(o=>o.t==='endblock')){alert('Need an End Block!');return;}
+  dCurrentLevel={name:'Test',author:'bartelsfamily5',obs:edObs};
+  dAttempts=1;
+  ['dash-play-tab','dash-create-tab','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
+  document.getElementById('dash-game').classList.remove('hidden');
+  document.getElementById('dash-over').classList.add('hidden');
+  requestAnimationFrame(()=>{initDCanvas();resetDash();dRunning=true;dLoop();updDHUD();});
+}
 
 // ===== CLARETOWN ENGINE =====
 let townUser=null,townLoginMode=true;
