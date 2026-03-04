@@ -280,8 +280,19 @@
         </div>
     </div>
     <!-- PLAY TAB: level list -->
-    <div id="dash-play-tab" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;overflow-y:auto;padding:16px;">
-        <div style="font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:3px;color:var(--accent);margin-bottom:4px;">Select Level</div>
+    <div id="dash-play-tab" style="flex:1;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:16px;gap:8px;">
+        <div style="font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:3px;color:var(--accent);margin-bottom:2px;">Select Level</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:4px;">
+            <span style="font-size:10px;color:#555;font-family:'Space Mono',monospace;">Sort:</span>
+            <select id="dash-sort-sel" onchange="loadLevelList()" style="background:#0f0f1a;border:1px solid #333;color:white;padding:3px 7px;font-size:11px;border-radius:4px;outline:none;">
+                <option value="recent">🕐 Recent</option>
+                <option value="oldest">📅 Oldest</option>
+                <option value="played">🔥 Most Played</option>
+                <option value="hardest">💀 Hardest</option>
+                <option value="easiest">😃 Easiest</option>
+                <option value="official">⭐ Official</option>
+            </select>
+        </div>
         <div id="dash-level-list" style="display:flex;flex-direction:column;gap:8px;width:320px;"></div>
     </div>
     <!-- CREATE TAB -->
@@ -604,28 +615,54 @@ function showDashTab(tab){
 }
 
 // ── level list ──
+const DIFF_ORDER=['easy','normal','hard','extreme','deadly'];
 function loadLevelList(){
+  const list=document.getElementById('dash-level-list');
+  list.innerHTML='<div style="font-size:11px;color:#555;text-align:center;padding:8px;">Loading...</div>';
+  const sortSel=document.getElementById('dash-sort-sel');
+  const sort=sortSel?sortSel.value:'recent';
   db.ref('claredash_levels').once('value',snap=>{
-    const list=document.getElementById('dash-level-list');
     list.innerHTML='';
     if(!snap.exists()){list.innerHTML='<div style="font-size:12px;color:#555;text-align:center;">No levels yet!</div>';return;}
-    snap.forEach(c=>{
-      const d=c.val();
+    let levels=[];
+    snap.forEach(c=>{levels.push({key:c.key,...c.val()});});
+    // sort
+    if(sort==='recent')levels.sort((a,b)=>(b.created||0)-(a.created||0));
+    else if(sort==='oldest')levels.sort((a,b)=>(a.created||0)-(b.created||0));
+    else if(sort==='played')levels.sort((a,b)=>(b.plays||0)-(a.plays||0));
+    else if(sort==='hardest')levels.sort((a,b)=>{
+      const ai=DIFF_ORDER.indexOf(a.difficulty||'');
+      const bi=DIFF_ORDER.indexOf(b.difficulty||'');
+      return (bi===-1?-1:bi)-(ai===-1?-1:ai);
+    });
+    else if(sort==='easiest')levels.sort((a,b)=>{
+      const ai=DIFF_ORDER.indexOf(a.difficulty||'');
+      const bi=DIFF_ORDER.indexOf(b.difficulty||'');
+      return (ai===-1?99:ai)-(bi===-1?99:bi);
+    });
+    else if(sort==='official'){
+      levels=levels.filter(l=>l.author==='bartelsfamily5');
+    }
+    if(!levels.length){list.innerHTML='<div style="font-size:12px;color:#555;text-align:center;">No levels here!</div>';return;}
+    levels.forEach(d=>{
       const row=document.createElement('div');
       row.className='lvl-btn';
       const diff=d.difficulty||null;
-      const diffHtml=diff?('<span style="font-size:11px;margin-left:6px;">'+getDiffDisplay(diff)+'</span>'):'';
+      const diffHtml=diff?('<span style="font-size:11px;margin-left:5px;">'+getDiffDisplay(diff)+'</span>'):'';
+      const playsHtml=d.plays?('<span style="font-size:9px;color:#444;margin-left:5px;">▶ '+d.plays+'</span>'):'';
+      const officialBadge=d.author==='bartelsfamily5'?'<span style="font-size:9px;color:#e8ff00;margin-left:4px;">⭐</span>':'';
       let adminDiffBtn='';
       if(hubUser==='bartelsfamily5'){
-        adminDiffBtn='<select onchange="setDifficultyAdmin(\''+c.key+'\',this.value);this.value=\'\'" style="background:#0f0f1a;border:1px solid #333;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;" title="Set difficulty">'
-          +'<option value="">⚙ Diff</option>'
+        adminDiffBtn='<select onchange="setDifficultyAdmin(\''+d.key+'\',this.value);this.value=\'\';" style="background:#0f0f1a;border:1px solid #333;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;" title="Set difficulty">'
+          +'<option value="">⚙</option>'
           +DIFF_OPTS.map(o=>'<option value="'+o.id+'">'+o.emoji+' '+o.label+'</option>').join('')
           +'</select>';
       }
-      row.innerHTML='<div style="flex:1;"><div class="lvl-name">'+d.name+'</div><div class="lvl-diff" style="font-size:10px;color:#555;display:flex;align-items:center;flex-wrap:wrap;gap:2px;">by '+d.author+diffHtml+'</div></div>'
-        +'<button class="game-play" onclick="event.stopPropagation();playLevel(\''+c.key+'\')">Play</button>'
+      row.innerHTML='<div style="flex:1;min-width:0;"><div class="lvl-name" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;">'+d.name+officialBadge+'</div>'
+        +'<div class="lvl-diff" style="font-size:10px;color:#555;display:flex;align-items:center;flex-wrap:wrap;gap:2px;">by '+d.author+diffHtml+playsHtml+'</div></div>'
+        +'<button class="game-play" onclick="event.stopPropagation();playLevel(\''+d.key+'\')">Play</button>'
         +adminDiffBtn
-        +(hubUser==='bartelsfamily5'?'<button class="game-play" style="background:#eb4d4b;margin-left:4px;" onclick="event.stopPropagation();deleteLevel(\''+c.key+'\')">Del</button>':'');
+        +(hubUser==='bartelsfamily5'?'<button class="game-play" style="background:#eb4d4b;margin-left:4px;" onclick="event.stopPropagation();deleteLevel(\''+d.key+'\')">Del</button>':'');
       list.appendChild(row);
     });
   });
@@ -639,6 +676,7 @@ function playLevel(key){
   db.ref('claredash_levels/'+key).once('value',snap=>{
     if(!snap.exists())return;
     dCurrentLevel=snap.val();dCurrentLevelKey=key;
+    db.ref('claredash_levels/'+key+'/plays').transaction(n=>(n||0)+1);
     dAttempts=1;
     ['dash-play-tab','dash-create-tab','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
     document.getElementById('dash-game').classList.remove('hidden');
