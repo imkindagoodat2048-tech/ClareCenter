@@ -324,6 +324,8 @@
                 <option value="waveportal">Wave Portal</option>
                 <option value="gravityorb">Gravity Orb</option>
                 <option value="trigger">Trigger</option>
+                <option value="teleportin">Teleport (Red/Entry)</option>
+                <option value="teleportout">Teleport (Blue/Exit)</option>
                 <option value="blockportal">Block Portal</option>
                 <option value="spiderportal">Spider Portal</option>
             </select>
@@ -385,6 +387,14 @@
                                 <span style="font-size:11px;width:90px;">Jump Height</span>
                                 <input type="range" min="1" max="100" value="50" id="ed-trig-jump" oninput="edSetProp('trigJump',parseInt(this.value));document.getElementById('ed-trig-jump-val').textContent=this.value;edRender();" style="width:70px;">
                                 <span id="ed-trig-jump-val" style="font-size:10px;color:var(--accent);width:28px;">50</span>
+                            </div>
+                        </div>
+                        <div id="ed-portal-row" style="display:none;margin-top:8px;border-top:1px solid #2a2a3a;padding-top:8px;">
+                            <div style="font-size:9px;color:#5599ff;letter-spacing:1px;margin-bottom:6px;font-family:'Space Mono',monospace;">PORTAL ID</div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:11px;width:90px;">ID</span>
+                                <input type="number" min="0" max="99" value="0" id="ed-portal-id" oninput="edSetProp('portalId',parseInt(this.value)||0);edRender();" style="width:50px;background:#0f0f1a;border:1px solid #333;color:white;padding:3px 6px;border-radius:4px;font-size:11px;">
+                                <span style="font-size:9px;color:#555;">0–99</span>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;margin-top:7px;">
@@ -836,7 +846,7 @@ function resetDash(){
   dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;
   dShipMode=false;dShipHeld=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;
   dObs=JSON.parse(JSON.stringify(dCurrentLevel.obs));
-  dObs.forEach(o=>{if(o.t==='trigger')delete o._fired;});
+  dObs.forEach(o=>{if(o.t==='trigger')delete o._fired;if(o.t==='teleportin')delete o._used;});
 }
 function restartDash(){stopDash();dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
 function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
@@ -853,7 +863,7 @@ function spiderTeleport(){
     // Now on ceiling: find lowest ceiling above player
     let bestY=0; // top of screen
     for(const o of dObs){
-      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal')continue;
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
       const ox=o.x-dScrollX;
       if(ox+o.w<dPX||ox>dPX+DSIZE)continue; // no horizontal overlap
       if(o.y+o.h<=dPY){bestY=Math.max(bestY,o.y+o.h);}
@@ -863,7 +873,7 @@ function spiderTeleport(){
     // Back to floor: find highest floor below player
     let bestY=gh-DSIZE;
     for(const o of dObs){
-      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal')continue;
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
       const ox=o.x-dScrollX;
       if(ox+o.w<dPX||ox>dPX+DSIZE)continue;
       if(o.y>=dPY+DSIZE){bestY=Math.min(bestY,o.y-DSIZE);}
@@ -952,15 +962,20 @@ function dPhysics(){
       }
       if(o.t==='startblock')continue;
       if(o.t==='trigger'){
-        // Trigger fires when player scrolls past it
         const trigX=o.x-dScrollX;
-        if(!o._fired&&trigX<dPX){
-          o._fired=true;
-          if(o.trigSpeed!=null)dSpeedBPS=o.trigSpeed;
-          if(o.trigJump!=null)dJumpHeight=o.trigJump;
+        if(!o._fired&&trigX<dPX){o._fired=true;if(o.trigSpeed!=null)dSpeedBPS=o.trigSpeed;if(o.trigJump!=null)dJumpHeight=o.trigJump;}
+        continue;
+      }
+      if(o.t==='teleportin'){
+        // Red entry portal: teleport player to matching blue exit portal
+        if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h&&!o._used){
+          const myId=o.portalId||0;
+          const exit=dObs.find(x=>x.t==='teleportout'&&(x.portalId||0)===myId);
+          if(exit){o._used=true;dScrollX=exit.x-120;dPX=exit.x+exit.w+5;dPY=exit.y+(exit.h-DSIZE)/2;dVY=0;}
         }
         continue;
       }
+      if(o.t==='teleportout'){continue;}
       if(o.t==='pad'){
         // Use swept check: did player bottom cross pad top between prevPY and py?
         const padTop=o.y;
@@ -1236,6 +1251,31 @@ function renderObs(ctx,o,rx){
     for(let r2=6;r2<Math.min(o.w,o.h)/2;r2+=7){ctx.beginPath();ctx.arc(scx,scy,r2,0,Math.PI*2);ctx.stroke();}
     ctx.restore();
     ctx.fillStyle='#ee88ff';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('SPIDER',rx+o.w/2,o.y+o.h/2+4);
+  } else if(o.t==='teleportin'){
+    // Red entry portal
+    const tgrd=ctx.createLinearGradient(rx,o.y,rx,o.y+o.h);
+    tgrd.addColorStop(0,'rgba(255,40,40,0.85)');tgrd.addColorStop(1,'rgba(180,0,0,0.85)');
+    ctx.fillStyle=tgrd;ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#ff6666';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    // Inner glow rings
+    ctx.save();ctx.strokeStyle='rgba(255,200,200,0.4)';ctx.lineWidth=1;
+    const picx=rx+o.w/2,picy=o.y+o.h/2;
+    for(let pr2=4;pr2<Math.min(o.w,o.h)/2-2;pr2+=5){ctx.beginPath();ctx.arc(picx,picy,pr2,0,Math.PI*2);ctx.stroke();}
+    ctx.restore();
+    ctx.fillStyle='#fff';ctx.font='bold 8px DM Sans,sans-serif';ctx.textAlign='center';
+    ctx.fillText('IN',picx,picy-4);ctx.fillText('#'+(o.portalId||0),picx,picy+8);
+  } else if(o.t==='teleportout'){
+    // Blue exit portal
+    const tgrd2=ctx.createLinearGradient(rx,o.y,rx,o.y+o.h);
+    tgrd2.addColorStop(0,'rgba(40,120,255,0.85)');tgrd2.addColorStop(1,'rgba(0,60,200,0.85)');
+    ctx.fillStyle=tgrd2;ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#66aaff';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    ctx.save();ctx.strokeStyle='rgba(180,220,255,0.4)';ctx.lineWidth=1;
+    const pocx=rx+o.w/2,pocy=o.y+o.h/2;
+    for(let pr3=4;pr3<Math.min(o.w,o.h)/2-2;pr3+=5){ctx.beginPath();ctx.arc(pocx,pocy,pr3,0,Math.PI*2);ctx.stroke();}
+    ctx.restore();
+    ctx.fillStyle='#fff';ctx.font='bold 8px DM Sans,sans-serif';ctx.textAlign='center';
+    ctx.fillText('OUT',pocx,pocy-4);ctx.fillText('#'+(o.portalId||0),pocx,pocy+8);
   } else if(o.t==='trigger'){
     // Trigger: tall thin vertical gate, orange
     ctx.fillStyle='rgba(255,160,0,0.18)';ctx.fillRect(rx,o.y,o.w,o.h);
@@ -1446,7 +1486,9 @@ function edMouseClick(e){
   else if(type==='orb')py=wy-def.h/2;
   else py=wy-def.h;
   if(edGridOn){px=Math.round(px/edGridSize)*edGridSize;py=Math.round(py/edGridSize)*edGridSize;}
-  edObs.push({t:type,x:Math.round(px),y:Math.round(py),w:def.w,h:def.h,color:null,alpha:0,bounce:50,touchable:true});
+  const newY=(type==='trigger')?0:Math.round(py);
+  const newH=(type==='trigger')?ED_GH():def.h;
+  edObs.push({t:type,x:Math.round(px),y:newY,w:def.w,h:newH,color:null,alpha:0,bounce:50,touchable:true});
   edSelectObj(edObs.length-1);
   edRender();
 }
@@ -1472,6 +1514,21 @@ function edSelectObj(idx){
     document.getElementById('ed-bounce-val').textContent=o.bounce||50;
   } else {
     bounceRow.style.display='none';
+  }
+  const tr=document.getElementById('ed-trigger-rows');
+  if(tr){
+    tr.style.display=o.t==='trigger'?'block':'none';
+    if(o.t==='trigger'){
+      const ts=document.getElementById('ed-trig-speed');if(ts){ts.value=(o.trigSpeed||4)*10;document.getElementById('ed-trig-speed-val').textContent=parseFloat(o.trigSpeed||4).toFixed(1);}
+      const tj=document.getElementById('ed-trig-jump');if(tj){tj.value=o.trigJump||50;document.getElementById('ed-trig-jump-val').textContent=o.trigJump||50;}
+    }
+  }
+  const pr=document.getElementById('ed-portal-row');
+  if(pr){
+    pr.style.display=(o.t==='teleportin'||o.t==='teleportout')?'block':'none';
+    if(o.t==='teleportin'||o.t==='teleportout'){
+      const pid=document.getElementById('ed-portal-id');if(pid)pid.value=o.portalId||0;
+    }
   }
 }
 function edRotate(delta){
