@@ -1059,6 +1059,8 @@ function dRender(){
   ctx.fillStyle='rgb('+(dR||232)+','+(dG||255)+','+(dB||0)+')';ctx.fillRect(0,H-4,W*dPct,4);
 }
 function renderObs(ctx,o,rx){
+  const rot=(o.rot||0)*Math.PI/180;
+  if(rot){ctx.save();ctx.translate(rx+o.w/2,o.y+o.h/2);ctx.rotate(rot);ctx.translate(-(rx+o.w/2),-(o.y+o.h/2));}
   if(o.t==='spike'){
     ctx.fillStyle='#dd3333';ctx.strokeStyle='#ff6666';ctx.lineWidth=1.5;
     ctx.beginPath();ctx.moveTo(rx+o.w/2,o.y);ctx.lineTo(rx+o.w,o.y+o.h);ctx.lineTo(rx,o.y+o.h);ctx.closePath();ctx.fill();ctx.stroke();
