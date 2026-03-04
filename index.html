@@ -1399,7 +1399,7 @@ document.addEventListener('mouseup',()=>dJumpRelease());
 // ── LEVEL EDITOR ──
 let edCanvas,edCtx,edObs=[],edScrollX=0,edSelectedIdx=-1;
 let edDragMode=false,edGridOn=true,edGridSize=40;
-let edDragIdx=-1,edDragOffX=0,edDragOffY=0,edPanDragging=false,edLastX=0,edLastY=0;
+let edDragIdx=-1,edDragOffX=0,edDragOffY=0,edPanDragging=false,edLastX=0,edLastY=0,edMouseDownPos=null;
 const ED_GH=()=>GROUND_Y;
 const OBJ_DEFAULTS={
   startblock:{w:40,h:60},endblock:{w:40,h:60},
@@ -1419,7 +1419,6 @@ function initEditor(){
   edCanvas.addEventListener('mousemove',edMouseMove);
   edCanvas.addEventListener('mouseup',edMouseUp);
   edCanvas.addEventListener('mouseleave',edMouseUp);
-  edCanvas.addEventListener('click',edMouseClick);
   edRender();
 }
 
@@ -1435,11 +1434,11 @@ function edMouseDown(e){
         return;
       }
     }
-    // no object — pan
     edPanDragging=true;edLastX=e.clientX;edLastY=e.clientY;
   } else {
-    // place mode — start pan if no obj hit
-    edPanDragging=true;edLastX=e.clientX;edLastY=e.clientY;
+    // place mode — record mousedown pos, only pan on drag
+    edLastX=e.clientX;edLastY=e.clientY;edPanDragging=false;
+    edMouseDownPos={x:e.clientX,y:e.clientY};
   }
 }
 function edMouseMove(e){
@@ -1453,6 +1452,10 @@ function edMouseMove(e){
     edObs[edDragIdx].x=Math.round(nx);edObs[edDragIdx].y=Math.round(ny);
     edRender();return;
   }
+  if(!edDragMode&&edMouseDownPos&&!edPanDragging){
+    const dx=Math.abs(e.clientX-edMouseDownPos.x),dy=Math.abs(e.clientY-edMouseDownPos.y);
+    if(dx>4||dy>4){edPanDragging=true;edLastX=e.clientX;edLastY=e.clientY;}
+  }
   if(edPanDragging){
     edScrollX-=(e.clientX-edLastX);edScrollX=Math.max(0,edScrollX);
     edLastX=e.clientX;edLastY=e.clientY;
@@ -1460,8 +1463,11 @@ function edMouseMove(e){
   edRender();
 }
 function edMouseUp(e){
-  if(edDragIdx>=0){edDragIdx=-1;edCanvas.style.cursor=edDragMode?'grab':'crosshair';}
-  edPanDragging=false;
+  if(edDragIdx>=0){edDragIdx=-1;edCanvas.style.cursor=edDragMode?'grab':'crosshair';edMouseDownPos=null;return;}
+  if(!edDragMode&&!edPanDragging&&edMouseDownPos){
+    edMouseClick(e); // place object on clean click
+  }
+  edPanDragging=false;edMouseDownPos=null;
 }
 function edMouseClick(e){
   if(edDragMode){
@@ -1476,7 +1482,6 @@ function edMouseClick(e){
     return;
   }
   // place mode
-  if(edPanDragging)return;
   const {wx,wy}=edWorldPos(e);
   const gh=ED_GH();
   const type=document.getElementById('obj-type-sel').value;
