@@ -329,10 +329,21 @@
                 <option value="blockportal">Block Portal</option>
                 <option value="spiderportal">Spider Portal</option>
             </select>
-            <button class="icon-btn" onclick="editorPlace()" style="background:var(--primary);">Place</button>
             <button class="icon-btn" onclick="editorUndo()" style="background:#444;">Undo</button>
             <button class="icon-btn" onclick="saveLevel()" style="background:#2ed573;color:#000;">Save</button>
             <button class="icon-btn" onclick="testLevel()" style="background:#e8ff00;color:#000;">Test</button>
+
+            <!-- MODIFIER button (shows when object selected) -->
+            <div style="position:relative;display:inline-block;" id="mod-btn-wrap" style="display:none;">
+                <button class="icon-btn" onclick="toggleModPanel()" id="mod-btn" style="display:none;">Modifiers ▾</button>
+                <div id="mod-panel" style="display:none;position:absolute;top:30px;left:0;background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:0;z-index:200;width:300px;box-shadow:0 4px 24px rgba(0,0,0,0.8);overflow:hidden;">
+                    <div style="padding:8px 12px;border-bottom:1px solid #2a2a3a;display:flex;align-items:center;justify-content:space-between;">
+                        <span style="font-family:'Space Mono',monospace;font-size:9px;color:#888;letter-spacing:1px;">MODIFIERS</span>
+                        <button onclick="modAddNew()" style="background:var(--primary);border:none;color:white;padding:2px 10px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:700;">+ Add</button>
+                    </div>
+                    <div id="mod-list" style="max-height:320px;overflow-y:auto;padding:6px 0;"></div>
+                </div>
+            </div>
             <!-- ADDITIONAL dropdown -->
             <div style="position:relative;display:inline-block;">
                 <button class="icon-btn" onclick="toggleAdditional()" id="additional-btn">Additional ▾</button>
@@ -349,6 +360,14 @@
                         <span id="ed-jump-val" style="font-size:10px;color:var(--accent);width:28px;">50</span>
                     </div>
                     <div style="border-top:1px solid #2a2a3a;margin-bottom:8px;padding-top:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span style="font-size:11px;width:80px;">BG Color</span>
+                        <input type="color" id="ed-bg-color" value="#1a1a2e" oninput="dBgColor=this.value;edRender();" style="width:36px;height:22px;border:none;background:none;cursor:pointer;padding:0;">
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span style="font-size:11px;width:80px;">Ground Color</span>
+                        <input type="color" id="ed-ground-color" value="#252545" oninput="dGroundColor=this.value;edRender();" style="width:36px;height:22px;border:none;background:none;cursor:pointer;padding:0;">
+                    </div>
                     <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;cursor:pointer;">
                         <input type="checkbox" id="ed-grid-chk" checked onchange="edGridOn=this.checked;edRender()"> Grid
                     </label>
@@ -641,6 +660,8 @@ let dSpiderMode=false; // true = gravity flipped, teleport to nearest ceiling/fl
 let dSpiderFlipped=false; // currently on ceiling
 let dPX,dPY,dScrollX=0,dObs=[];
 let dBright=100,dR=0,dG=0,dB=0;
+let dBgColor='#1a1a2e',dGroundColor='#252545';
+let dModTimers=[]; // runtime modifier animations
 let dCurrentLevel=null,dCurrentLevelKey=null; // loaded level data + Firebase key
 const DSIZE=30;
 const GROUND_Y=360;
@@ -828,6 +849,7 @@ function playLevel(key){
     // Restore speed/jump saved with level
     if(dCurrentLevel.speed!=null){dSpeedBPS=dCurrentLevel.speed;const si=document.getElementById('ed-speed-in');if(si){si.value=dCurrentLevel.speed*10;document.getElementById('ed-speed-val').textContent=parseFloat(dCurrentLevel.speed).toFixed(1);}}
     if(dCurrentLevel.jumpHeight!=null){dJumpHeight=dCurrentLevel.jumpHeight;const ji=document.getElementById('ed-jump-in');if(ji){ji.value=dCurrentLevel.jumpHeight;document.getElementById('ed-jump-val').textContent=dCurrentLevel.jumpHeight;}}
+    dBgColor=dCurrentLevel.bgColor||'#1a1a2e';dGroundColor=dCurrentLevel.groundColor||'#252545';
     db.ref('claredash_levels/'+key+'/plays').transaction(n=>(n||0)+1);
     dAttempts=1;
     ['dash-play-tab','dash-create-tab','dash-settings','dash-level-page'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
@@ -847,6 +869,8 @@ function resetDash(){
   dShipMode=false;dShipHeld=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;
   dObs=JSON.parse(JSON.stringify(dCurrentLevel.obs));
   dObs.forEach(o=>{if(o.t==='trigger')delete o._fired;if(o.t==='teleportin')delete o._used;});
+  dLevelStartTime=Date.now();
+  resetModifiers();
 }
 function restartDash(){stopDash();dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
 function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
@@ -885,7 +909,7 @@ function spiderTeleport(){
 function dOrbJump(bounce){
   dVY=DJUMP()*((bounce||50)/50);dOrbUsed=true;
 }
-function dLoop(){if(!dRunning)return;dRAF=requestAnimationFrame(dLoop);dPhysics();dRender();}
+function dLoop(){if(!dRunning)return;dRAF=requestAnimationFrame(dLoop);tickModifiers(1);dPhysics();dRender();}
 function dPhysics(){
   if(dDied||dWon)return;
   const gh=DGH(),spd=getDSPD();
@@ -961,6 +985,11 @@ function dPhysics(){
         continue;
       }
       if(o.t==='startblock')continue;
+      // Check touch modifiers on any object player overlaps
+      if(o.mods&&o.mods.some(m=>m.trigger==='touch'&&!m._fired)){
+        const px2=dPX,py2=dPY,ps2=DSIZE,ox2=o.x-dScrollX;
+        if(px2+ps2>ox2&&px2<ox2+o.w&&py2+ps2>o.y&&py2<o.y+o.h)checkTouchModifiers(o);
+      }
       if(o.t==='trigger'){
         const trigX=o.x-dScrollX;
         if(!o._fired&&trigX<dPX){o._fired=true;if(o.trigSpeed!=null)dSpeedBPS=o.trigSpeed;if(o.trigJump!=null)dJumpHeight=o.trigJump;}
@@ -1071,12 +1100,12 @@ function dPhysics(){
 }
 function dRender(){
   const ctx=dCtx,W=dCanvas.width,H=dCanvas.height,gh=DGH();
-  ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=dBgColor||'#1a1a2e';ctx.fillRect(0,0,W,H);
   ctx.strokeStyle='rgba(80,80,160,0.1)';ctx.lineWidth=1;
   const gs=60,gox=dScrollX%gs;
   for(let x=-gox;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
   for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-  ctx.fillStyle='#252545';ctx.fillRect(0,gh,W,H-gh);
+  ctx.fillStyle=dGroundColor||'#252545';ctx.fillRect(0,gh,W,H-gh);
   ctx.strokeStyle='#5555aa';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,gh);ctx.lineTo(W,gh);ctx.stroke();
   for(const o of dObs){
     const rx=o.x-dScrollX;
@@ -1294,6 +1323,269 @@ function renderObs(ctx,o,rx){
   if(rot)ctx.restore();
 }
 
+
+// ══════════════════════════════════════════
+// MODIFIER SYSTEM
+// ══════════════════════════════════════════
+// Each object can have o.mods = [{type, trigger, triggerVal, delay, destroyOnUse, smooth, fast,
+//   // move: moveX, moveY, moveTime
+//   // rotate: rotateDeg, rotateBack, rotateTime
+//   // transparency: transAmt, transTime
+//   // touchable: (no extra)
+//   // color: colorR, colorG, colorB, colorDelay
+//   _fired, _anim
+// }]
+
+function resetModifiers(){
+  dModTimers=[];
+  if(!dObs)return;
+  dObs.forEach(o=>{
+    o._ox=o.x;o._oy=o.y;o._orot=o.rot||0;o._oalpha=o.alpha||0;o._otouch=o.touchable;o._ocolor=o.color||null;
+    if(o.mods)o.mods.forEach(m=>{m._fired=false;m._anim=null;});
+  });
+}
+
+function hexToRgb(h){
+  const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);
+  return{r,g,b};
+}
+function rgbToHex(r,g,b){
+  return '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');
+}
+function lerpColor(from,to,t){
+  const a=hexToRgb(from),b=hexToRgb(to);
+  return rgbToHex(a.r+(b.r-a.r)*t,a.g+(b.g-a.g)*t,a.b+(b.b-a.b)*t);
+}
+
+function tickModifiers(dt60){
+  // dt60 = fraction of 60fps frame (1 normally)
+  const gh=DGH();
+  dObs.forEach(o=>{
+    if(!o.mods||!o.mods.length)return;
+    o.mods.forEach(m=>{
+      if(m._fired&&!m._anim)return;
+      // Check trigger
+      if(!m._fired){
+        const trig=m.trigger||'y';
+        let fire=false;
+        if(trig==='x'){ const tx=m.triggerVal||0; fire=(dPX>=tx); }
+        else if(trig==='y'){ const ty=m.triggerVal||0; fire=(dPY<=ty); }
+        else if(trig==='touch'){ /* handled in collision */ }
+        else if(trig==='time'){ fire=((Date.now()-dLevelStartTime)/1000>=(m.triggerVal||0)); }
+        else if(trig==='pct'){ fire=(dPct*100>=(m.triggerVal||0)); }
+        if(!fire)return;
+        m._fired=true;
+        fireModifier(o,m);
+      }
+      // Animate active anim
+      if(m._anim){
+        const a=m._anim;
+        a.elapsed+=dt60/60;
+        const dur=a.duration||0;
+        const t=dur>0?Math.min(1,a.elapsed/dur):1;
+        const et=a.smooth?(t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2)):t;
+        if(m.type==='move'){
+          o.x=a.sx+(a.tx-a.sx)*et;
+          o.y=a.sy+(a.ty-a.sy)*et;
+        } else if(m.type==='rotate'){
+          o.rot=a.sr+(a.tr-a.sr)*et;
+        } else if(m.type==='transparency'){
+          o.alpha=a.sa+(a.ta-a.sa)*et;
+        } else if(m.type==='color'){
+          o.color=lerpColor(a.sc,a.tc,et);
+        }
+        if(t>=1){ m._anim=null; if(m.destroyOnUse){o.mods=o.mods.filter(x=>x!==m);} }
+      }
+    });
+  });
+}
+
+function fireModifier(o,m){
+  const fast=m.fast?3:1;
+  if(m.type==='move'){
+    const tx=(m.moveX!=null?(o._ox||o.x)+(m.moveX||0):o.x);
+    const ty=(m.moveY!=null?(o._oy||o.y)+(m.moveY||0):o.y);
+    const dur=(parseFloat(m.moveTime)||0)/fast;
+    if(dur===0||!m.smooth&&dur>0){
+      // instant or non-smooth: wait dur then snap
+      if(dur>0&&!m.smooth){setTimeout(()=>{o.x=tx;o.y=ty;},dur*1000);}
+      else{o.x=tx;o.y=ty;}
+    } else {
+      m._anim={sx:o.x,sy:o.y,tx,ty,duration:dur,elapsed:0,smooth:m.smooth!==false};
+    }
+  } else if(m.type==='rotate'){
+    const deg=m.rotateBack?-(m.rotateDeg||0):(m.rotateDeg||0);
+    const tr=(o.rot||0)+deg;
+    const dur=(parseFloat(m.rotateTime)||0)/fast;
+    if(!dur||!m.smooth&&dur>0){
+      if(dur>0&&!m.smooth){setTimeout(()=>{o.rot=tr;},dur*1000);}
+      else{o.rot=tr;}
+    } else {
+      m._anim={sr:o.rot||0,tr,duration:dur,elapsed:0,smooth:m.smooth!==false};
+    }
+  } else if(m.type==='transparency'){
+    const ta=m.transAmt!=null?m.transAmt:100;
+    const dur=(parseFloat(m.transTime)||0)/fast;
+    if(!dur||!m.smooth&&dur>0){
+      if(dur>0&&!m.smooth){setTimeout(()=>{o.alpha=ta;},dur*1000);}
+      else{o.alpha=ta;}
+    } else {
+      m._anim={sa:o.alpha||0,ta,duration:dur,elapsed:0,smooth:m.smooth!==false};
+    }
+  } else if(m.type==='touchable'){
+    o.touchable=!o.touchable;
+    if(m.destroyOnUse)o.mods=o.mods.filter(x=>x!==m);
+  } else if(m.type==='color'){
+    const tc=rgbToHex(m.colorR||255,m.colorG||255,m.colorB||255);
+    const dur=(parseFloat(m.colorDelay)||0)/fast;
+    if(!dur||!m.smooth&&dur>0){
+      if(dur>0&&!m.smooth){setTimeout(()=>{o.color=tc;},dur*1000);}
+      else{o.color=tc;}
+    } else {
+      m._anim={sc:o.color||'#ffffff',tc,duration:dur,elapsed:0,smooth:m.smooth!==false};
+    }
+  }
+}
+
+let dLevelStartTime=0;
+
+// Touch modifier check (called in collision loop)
+function checkTouchModifiers(o){
+  if(!o.mods)return;
+  o.mods.forEach(m=>{
+    if(!m._fired&&m.trigger==='touch'){m._fired=true;fireModifier(o,m);}
+  });
+}
+
+// ── MODIFIER EDITOR UI ──
+let edModObjIdx=-1;
+
+function toggleModPanel(){
+  const p=document.getElementById('mod-panel');
+  if(!p)return;
+  const open=p.style.display==='none'||!p.style.display;
+  // close additional
+  document.getElementById('additional-panel').style.display='none';
+  p.style.display=open?'block':'none';
+  if(open)renderModList();
+}
+
+function renderModList(){
+  const list=document.getElementById('mod-list');
+  if(!list)return;
+  edModObjIdx=edSelectedIdx;
+  if(edModObjIdx<0){list.innerHTML='<div style="padding:10px;font-size:11px;color:#555;">Select an object first.</div>';return;}
+  const o=edObs[edModObjIdx];
+  const mods=o.mods||[];
+  if(!mods.length){
+    list.innerHTML='<div style="padding:10px;font-size:11px;color:#555;">No modifiers. Click + Add.</div>';
+    return;
+  }
+  list.innerHTML='';
+  mods.forEach((m,i)=>{
+    const div=document.createElement('div');
+    div.style.cssText='padding:8px 12px;border-bottom:1px solid #1a1a2e;';
+    div.innerHTML=buildModCard(m,i);
+    list.appendChild(div);
+  });
+}
+
+function buildModCard(m,i){
+  const TYPE_LABELS={move:'Move',rotate:'Rotate',transparency:'Transparency',touchable:'Touchable',color:'Color'};
+  const TRIG_LABELS={x:'X Position',y:'Y Position',touch:'Touch',time:'Time (s)',pct:'Percentage (%)'};
+  const label=TYPE_LABELS[m.type]||m.type;
+  const trigLabel=TRIG_LABELS[m.trigger||'y']||m.trigger;
+  const iStr=String(i);
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <span style="font-family:'Space Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:1px;">${label.toUpperCase()}</span>
+    <button onclick="modDelete(${i})" style="background:#eb4d4b;border:none;color:#fff;padding:1px 7px;border-radius:3px;cursor:pointer;font-size:9px;">✕</button>
+  </div>`;
+  // Trigger
+  html+=`<div style="margin-bottom:5px;font-size:10px;color:#888;">Trigger: <select onchange="modSet(${i},'trigger',this.value);modRefresh();" style="background:#0f0f1a;border:1px solid #333;color:white;font-size:10px;padding:1px 4px;border-radius:3px;">
+    ${['x','y','touch','time','pct'].map(t=>`<option value="${t}"${(m.trigger||'y')===t?' selected':''}>${TRIG_LABELS[t]}</option>`).join('')}
+  </select></div>`;
+  if(m.trigger==='x'||m.trigger==='y'||m.trigger==='time'||m.trigger==='pct'){
+    const max=m.trigger==='pct'?100:(m.trigger==='time'?1000:9999);
+    html+=`<div style="margin-bottom:5px;font-size:10px;color:#888;">Value: <input type="range" min="0" max="${max}" value="${m.triggerVal||0}" oninput="modSet(${i},'triggerVal',parseFloat(this.value));this.nextElementSibling.textContent=this.value;" style="width:80px;vertical-align:middle;"> <span style="color:var(--accent);font-size:10px;">${m.triggerVal||0}</span></div>`;
+  }
+  // Type-specific options
+  if(m.type==='move'){
+    html+=modRow('Move X (offset)',i,'moveX',m.moveX||0,'number',0,1000);
+    html+=modRow('Move Y (offset)',i,'moveY',m.moveY||0,'number',-1000,1000);
+    html+=modTimeRow('Move Time (s)',i,'moveTime',m.moveTime||0);
+  } else if(m.type==='rotate'){
+    html+=modRow('Rotate Deg',i,'rotateDeg',m.rotateDeg||0,'number',1,360);
+    html+=`<div style="margin-bottom:4px;font-size:10px;color:#888;"><label><input type="checkbox" ${m.rotateBack?'checked':''} onchange="modSet(${i},'rotateBack',this.checked);"> Backwards</label></div>`;
+    html+=modTimeRow('Rotate Time (s)',i,'rotateTime',m.rotateTime||0);
+  } else if(m.type==='transparency'){
+    html+=modRow('Amount (0-100)',i,'transAmt',m.transAmt!=null?m.transAmt:100,'range',0,100);
+    html+=modTimeRow('Trans Time (s)',i,'transTime',m.transTime||0);
+  } else if(m.type==='color'){
+    const r=m.colorR||255,g=m.colorG||255,b=m.colorB||255;
+    html+=`<div style="margin-bottom:4px;font-size:10px;color:#888;">Color:
+      R<input type="number" min="0" max="255" value="${r}" oninput="modSet(${i},'colorR',parseInt(this.value)||0)" style="width:42px;background:#0f0f1a;border:1px solid #333;color:white;font-size:10px;padding:1px 3px;border-radius:3px;margin:0 3px;">
+      G<input type="number" min="0" max="255" value="${g}" oninput="modSet(${i},'colorG',parseInt(this.value)||0)" style="width:42px;background:#0f0f1a;border:1px solid #333;color:white;font-size:10px;padding:1px 3px;border-radius:3px;margin:0 3px;">
+      B<input type="number" min="0" max="255" value="${b}" oninput="modSet(${i},'colorB',parseInt(this.value)||0)" style="width:42px;background:#0f0f1a;border:1px solid #333;color:white;font-size:10px;padding:1px 3px;border-radius:3px;">
+    </div>`;
+    html+=modTimeRow('Color Delay (s)',i,'colorDelay',m.colorDelay||0);
+  }
+  // Other options
+  html+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:10px;color:#888;">
+    <label><input type="checkbox" ${m.destroyOnUse?'checked':''} onchange="modSet(${i},'destroyOnUse',this.checked);"> Destroy on Use</label>
+    <label><input type="checkbox" ${m.smooth!==false?'checked':''} onchange="modSet(${i},'smooth',this.checked);"> Smooth</label>
+    <label><input type="checkbox" ${m.fast?'checked':''} onchange="modSet(${i},'fast',this.checked);"> FAST!!!</label>
+  </div>`;
+  if(m.trigger==='time'||m.trigger==='pct'){}
+  // Delay
+  html+=`<div style="margin-top:4px;font-size:10px;color:#888;">Delay (s): <input type="number" min="0" max="100" value="${m.delay||0}" oninput="modSet(${i},'delay',parseFloat(this.value)||0)" style="width:50px;background:#0f0f1a;border:1px solid #333;color:white;font-size:10px;padding:1px 4px;border-radius:3px;"></div>`;
+  return html;
+}
+
+function modRow(label,i,key,val,inputType,min,max){
+  if(inputType==='range'){
+    return`<div style="margin-bottom:4px;font-size:10px;color:#888;">${label}: <input type="range" min="${min}" max="${max}" value="${val}" oninput="modSet(${i},'${key}',parseInt(this.value));this.nextElementSibling.textContent=this.value;" style="width:80px;vertical-align:middle;"> <span style="color:var(--accent);font-size:10px;">${val}</span></div>`;
+  }
+  return`<div style="margin-bottom:4px;font-size:10px;color:#888;">${label}: <input type="number" min="${min}" max="${max}" value="${val}" oninput="modSet(${i},'${key}',parseFloat(this.value)||0)" style="width:60px;background:#0f0f1a;border:1px solid #333;color:white;font-size:10px;padding:1px 4px;border-radius:3px;"></div>`;
+}
+function modTimeRow(label,i,key,val){
+  return`<div style="margin-bottom:4px;font-size:10px;color:#888;">${label}: <input type="text" value="${val}" oninput="this.value=this.value.replace(/[^0-9.]/g,'');modSet(${i},'${key}',parseFloat(this.value)||0);" style="width:60px;background:#0f0f1a;border:1px solid #333;color:white;font-size:10px;padding:1px 4px;border-radius:3px;"></div>`;
+}
+
+function modSet(i,key,val){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  if(!o.mods||!o.mods[i])return;
+  o.mods[i][key]=val;
+}
+function modRefresh(){
+  renderModList();
+}
+function modDelete(i){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  if(o.mods)o.mods.splice(i,1);
+  renderModList();
+}
+function modAddNew(){
+  if(edSelectedIdx<0){alert('Select an object first.');return;}
+  const o=edObs[edSelectedIdx];
+  if(!o.mods)o.mods=[];
+  // Show type picker
+  const list=document.getElementById('mod-list');
+  const types=['move','rotate','transparency','touchable','color'];
+  const labels={move:'Move',rotate:'Rotate',transparency:'Transparency',touchable:'Touchable',color:'Color'};
+  list.innerHTML='<div style="padding:10px;"><div style="font-family:Space Mono,monospace;font-size:9px;color:#888;letter-spacing:1px;margin-bottom:8px;">SELECT TYPE</div>'
+    +types.map(t=>`<button onclick="modConfirmAdd('${t}')" style="display:block;width:100%;text-align:left;background:#0f0f1a;border:1px solid #333;color:white;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;margin-bottom:4px;">${labels[t]}</button>`).join('')
+    +'</div>';
+}
+function modConfirmAdd(type){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  if(!o.mods)o.mods=[];
+  o.mods.push({type,trigger:'y',triggerVal:0,delay:0,destroyOnUse:false,smooth:true,fast:false});
+  renderModList();
+}
+
 // ── DIFFICULTY RATING ──
 const DIFF_OPTS=[
   {id:'cakewalk',emoji:'😆', label:'Cakewalk', img:'difficulty/cakewalk.png'},
@@ -1405,7 +1697,9 @@ const OBJ_DEFAULTS={
   startblock:{w:40,h:60},endblock:{w:40,h:60},
   block:{w:40,h:40},solidblock:{w:40,h:40},plat:{w:80,h:14},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
-  shipportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60}
+  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},
+  gravityorb:{w:28,h:28},trigger:{w:8,h:360},
+  teleportin:{w:40,h:60},teleportout:{w:40,h:60}
 };
 
 function initEditor(){
@@ -1504,7 +1798,9 @@ function edWorldPos(e){
 function edSelectObj(idx){
   edSelectedIdx=idx;
   const panel=document.getElementById('ed-sel-props');
-  if(idx<0){panel.style.display='none';return;}
+  const mBtn=document.getElementById('mod-btn');
+  if(idx<0){panel.style.display='none';if(mBtn)mBtn.style.display='none';document.getElementById('mod-panel').style.display='none';return;}
+  if(mBtn)mBtn.style.display='';
   panel.style.display='block';
   const o=edObs[idx];
   document.getElementById('ed-color-in').value=o.color||'#2a2a5a';
@@ -1560,6 +1856,11 @@ document.addEventListener('click',e=>{
   if(panel&&!panel.contains(e.target)&&e.target!==btn&&!btn.contains(e.target)){
     panel.style.display='none';
   }
+  const modP=document.getElementById('mod-panel');
+  const modB=document.getElementById('mod-btn');
+  if(modP&&modB&&!modP.contains(e.target)&&e.target!==modB&&!modB.contains(e.target)){
+    modP.style.display='none';
+  }
 });
 function editorPlace(){
   const gh=ED_GH();
@@ -1582,7 +1883,7 @@ function edRender(){
     for(let x=-gox;x<W;x+=edGridSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
     for(let y=0;y<H;y+=edGridSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   }
-  ctx.fillStyle='#252545';ctx.fillRect(0,gh,W,H-gh);
+  ctx.fillStyle=dGroundColor||'#252545';ctx.fillRect(0,gh,W,H-gh);
   ctx.strokeStyle='#5555aa';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,gh);ctx.lineTo(W,gh);ctx.stroke();
   for(let i=0;i<edObs.length;i++){
     const o=edObs[i];
@@ -1623,7 +1924,7 @@ function saveLevel(){
   const editKey=window._editingLevelKey;
   if(editKey){
     // overwrite existing level (author editing their own)
-    db.ref('claredash_levels/'+editKey).update({name,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight},()=>{
+    db.ref('claredash_levels/'+editKey).update({name,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor},()=>{
       alert('Level updated: '+name);
       window._editingLevelKey=null;
       document.getElementById('lvl-name-in').value='';
@@ -1631,7 +1932,7 @@ function saveLevel(){
     });
   } else {
     // All users can create levels
-    db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,created:Date.now()});
+    db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,created:Date.now()});
     alert('Level saved: '+name);
     document.getElementById('lvl-name-in').value='';
     edObs=[];edRender();loadLevelList();
