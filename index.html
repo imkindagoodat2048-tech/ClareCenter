@@ -295,6 +295,16 @@
         </div>
         <div id="dash-level-list" style="display:flex;flex-direction:column;gap:8px;width:320px;"></div>
     </div>
+    <!-- LEVEL PAGE -->
+    <div id="dash-level-page" class="hidden" style="flex:1;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:20px;gap:14px;">
+        <button onclick="showDashTab('play')" style="align-self:flex-start;background:#2f3542;border:none;color:#aaa;padding:5px 14px;border-radius:4px;cursor:pointer;font-size:11px;">← Back</button>
+        <div id="lp-name" style="font-family:'Bebas Neue',cursive;font-size:36px;letter-spacing:3px;color:var(--accent);text-align:center;"></div>
+        <div id="lp-diff-img" style="display:flex;align-items:center;justify-content:center;min-height:60px;"></div>
+        <div id="lp-meta" style="font-family:'Space Mono',monospace;font-size:11px;color:#777;text-align:center;"></div>
+        <button id="lp-play-btn" onclick="" style="font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:3px;background:var(--primary);border:none;color:white;padding:12px 40px;cursor:pointer;border-radius:6px;">Play</button>
+        <div id="lp-recent-ratings" style="width:100%;max-width:340px;"></div>
+        <div id="lp-author-btns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"></div>
+    </div>
     <!-- CREATE TAB -->
     <div id="dash-create-tab" class="hidden" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
         <!-- Main toolbar -->
@@ -311,6 +321,7 @@
                 <option value="orb">Orb</option>
                 <option value="waveportal">Wave Portal</option>
                 <option value="blockportal">Block Portal</option>
+                <option value="spiderportal">Spider Portal</option>
             </select>
             <button class="icon-btn" onclick="editorPlace()" style="background:var(--primary);">Place</button>
             <button class="icon-btn" onclick="editorUndo()" style="background:#444;">Undo</button>
@@ -359,6 +370,12 @@
                         <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
                             <input type="checkbox" id="ed-touch-chk" onchange="edSetProp('touchable',this.checked);edRender();"> Touchable
                         </label>
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;">
+                            <span style="font-size:11px;width:90px;">Rotate</span>
+                            <button onclick="edRotate(-90)" style="background:#2f3542;border:none;color:white;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:12px;">↺</button>
+                            <span id="ed-rot-val" style="font-size:10px;color:var(--accent);width:28px;">0°</span>
+                            <button onclick="edRotate(90)" style="background:#2f3542;border:none;color:white;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:12px;">↻</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -570,10 +587,8 @@ function launchClareCool(){window.open('https://imkindagoodat2048-tech.github.io
 function launchClareClash(){window.open('https://imkindagoodat2048-tech.github.io/ClareGame/','_blank');}
 function launchClareDash(){
   document.getElementById('claredash').classList.remove('hidden');
-  // Show Create tab only for bartelsfamily5
-  if(hubUser==='bartelsfamily5'){
-    document.getElementById('tab-create-btn').style.display='';
-  }
+  // Show Create tab for all users
+  document.getElementById('tab-create-btn').style.display='';
   showDashTab('play');
 }
 function launchClareTown(){
@@ -593,6 +608,8 @@ let dWaveMode=false; // true = wave (hold=up, release=down)
 let dWaveHeld=false; // is down/space currently held in wave mode
 const DWAVE_UP=-3.5;  // upward velocity in wave mode
 const DWAVE_GRAV=0.22; // gravity in wave mode
+let dSpiderMode=false; // true = gravity flipped, teleport to nearest ceiling/floor
+let dSpiderFlipped=false; // currently on ceiling
 let dPX,dPY,dScrollX=0,dObs=[];
 let dBright=100,dR=0,dG=0,dB=0;
 let dCurrentLevel=null,dCurrentLevelKey=null; // loaded level data + Firebase key
@@ -621,13 +638,14 @@ function initDCanvas(){
 
 // ── tab switching ──
 function showDashTab(tab){
-  ['dash-play-tab','dash-create-tab','dash-game','dash-settings'].forEach(id=>{
+  ['dash-play-tab','dash-create-tab','dash-game','dash-settings','dash-level-page'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.classList.add('hidden');
   });
   stopDash();window._editingLevelKey=null;
   if(tab==='play'){document.getElementById('dash-play-tab').classList.remove('hidden');loadLevelList();}
   else if(tab==='create'){document.getElementById('dash-create-tab').classList.remove('hidden');initEditor();}
   else if(tab==='settings'){document.getElementById('dash-settings').classList.remove('hidden');}
+  else if(tab==='levelpage'){document.getElementById('dash-level-page').classList.remove('hidden');}
 }
 
 // ── level list ──
@@ -674,12 +692,10 @@ function loadLevelList(){
           +DIFF_OPTS.map(o=>'<option value="'+o.id+'">'+o.emoji+' '+o.label+'</option>').join('')
           +'</select>';
       }
-      row.innerHTML='<div style="flex:1;min-width:0;"><div class="lvl-name" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;">'+d.name+officialBadge+'</div>'
+      row.innerHTML='<div style="flex:1;min-width:0;cursor:pointer;" onclick="openLevelPage(\''+d.key+'\')"><div class="lvl-name" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;">'+d.name+officialBadge+'</div>'
         +'<div class="lvl-diff" style="font-size:10px;color:#555;display:flex;align-items:center;flex-wrap:wrap;gap:2px;">by '+d.author+diffHtml+playsHtml+'</div></div>'
         +'<button class="game-play" onclick="event.stopPropagation();playLevel(\''+d.key+'\')">Play</button>'
         +adminDiffBtn
-        +(hubUser===d.author?'<button class="game-play" style="background:#555;margin-left:4px;" onclick="event.stopPropagation();renameLevel(\''+d.key+'\')" >Rename</button>':'')
-        +(hubUser===d.author?'<button class="game-play" style="background:var(--primary);margin-left:4px;" onclick="event.stopPropagation();editLevel(\''+d.key+'\')">Edit</button>':'')
         +(hubUser==='bartelsfamily5'?'<button class="game-play" style="background:#eb4d4b;margin-left:4px;" onclick="event.stopPropagation();deleteLevel(\''+d.key+'\')">Del</button>':'');
       list.appendChild(row);
     });
@@ -714,6 +730,68 @@ function deleteLevel(key){
   db.ref('claredash_levels/'+key).remove();
   loadLevelList();
 }
+function openLevelPage(key){
+  db.ref('claredash_levels/'+key).once('value',snap=>{
+    if(!snap.exists())return;
+    const d=snap.val();
+    showDashTab('levelpage');
+    document.getElementById('lp-name').textContent=d.name||'Untitled';
+    // Difficulty image
+    const lpDiff=document.getElementById('lp-diff-img');
+    if(d.difficulty){
+      const dOpt=DIFF_OPTS.find(o=>o.id===d.difficulty);
+      if(dOpt){
+        if(useOldDifficulties){
+          lpDiff.innerHTML='<span style="font-size:40px;">'+dOpt.emoji+'</span><span style="font-family:Bebas Neue,cursive;font-size:22px;letter-spacing:2px;color:#aaa;margin-left:10px;">'+dOpt.label+'</span>';
+        } else {
+          lpDiff.innerHTML='';
+          const lpImg=document.createElement('img');lpImg.src=dOpt.img;lpImg.alt=dOpt.label;lpImg.style.cssText='height:60px;image-rendering:pixelated;';lpImg.onerror=function(){const s=document.createElement('span');s.textContent=dOpt.label;s.style.fontSize='36px';lpDiff.innerHTML=dOpt.emoji;};
+          const lpLbl=document.createElement('span');lpLbl.textContent=dOpt.label;lpLbl.style.cssText='font-family:Bebas Neue,cursive;font-size:22px;letter-spacing:2px;color:#aaa;margin-left:10px;';
+          lpDiff.appendChild(lpImg);lpDiff.appendChild(lpLbl);
+        }
+      }
+    } else {
+      lpDiff.innerHTML='<span style="font-family:Space Mono,monospace;font-size:11px;color:#555;">No difficulty rating yet</span>';
+    }
+    // Meta
+    const officialTag=d.author==='bartelsfamily5'?' ⭐':'';
+    document.getElementById('lp-meta').innerHTML='by <b style="color:#ccc;">'+d.author+'</b>'+officialTag+'&nbsp;&nbsp;▶ '+(d.plays||0)+' plays';
+    // Play button
+    document.getElementById('lp-play-btn').onclick=()=>playLevel(key);
+    // Author buttons
+    const abtns=document.getElementById('lp-author-btns');
+    abtns.innerHTML='';
+    if(hubUser===d.author){
+      const rb=document.createElement('button');rb.textContent='Rename';rb.style.cssText='background:#555;border:none;color:white;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;';rb.onclick=()=>renameLevel(key);abtns.appendChild(rb);
+      const eb=document.createElement('button');eb.textContent='Edit';eb.style.cssText='background:var(--primary);border:none;color:white;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;';eb.onclick=()=>editLevel(key);abtns.appendChild(eb);
+    }
+    if(hubUser==='bartelsfamily5'){
+      const db2=document.createElement('button');db2.textContent='Delete';db2.style.cssText='background:#eb4d4b;border:none;color:white;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;';db2.onclick=()=>{deleteLevel(key);showDashTab('play');};abtns.appendChild(db2);
+      // Admin diff
+      const sel=document.createElement('select');sel.style.cssText='background:#0f0f1a;border:1px solid #333;color:white;font-size:11px;padding:4px 8px;border-radius:4px;';
+      sel.innerHTML='<option value="">⚙ Set Difficulty</option>'+DIFF_OPTS.map(o=>'<option value="'+o.id+'">'+o.emoji+' '+o.label+'</option>').join('');
+      sel.onchange=()=>{if(sel.value){setDifficultyAdmin(key,sel.value);sel.value='';openLevelPage(key);}};
+      abtns.appendChild(sel);
+    }
+    // Recent ratings (last 5)
+    const rr=document.getElementById('lp-recent-ratings');
+    rr.innerHTML='<div style="font-family:Space Mono,monospace;font-size:9px;color:#555;letter-spacing:1px;margin-bottom:8px;">RECENT RATINGS</div>';
+    if(d.votes){
+      const entries=Object.entries(d.votes).slice(-5).reverse();
+      entries.forEach(([user,diffId])=>{
+        const dOpt=DIFF_OPTS.find(o=>o.id===diffId);
+        const div=document.createElement('div');
+        div.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #222;font-size:11px;';
+        const dispImg=dOpt?(useOldDifficulties?dOpt.emoji+' '+dOpt.label:'<img src="'+dOpt.img+'" alt="'+dOpt.label+'" style="height:16px;vertical-align:middle;image-rendering:pixelated;"> '+dOpt.label):'?';
+        div.innerHTML='<span style="color:#888;font-family:Space Mono,monospace;">'+user+'</span><span>'+dispImg+'</span>';
+        rr.appendChild(div);
+      });
+      if(!entries.length)rr.innerHTML+='<div style="font-size:11px;color:#555;">No ratings yet.</div>';
+    } else {
+      rr.innerHTML+='<div style="font-size:11px;color:#555;">No ratings yet.</div>';
+    }
+  });
+}
 function playLevel(key){
   db.ref('claredash_levels/'+key).once('value',snap=>{
     if(!snap.exists())return;
@@ -737,13 +815,42 @@ function resetDash(){
   dPX=start?start.x+10:120;
   dPY=DGH()-DSIZE;dVY=0;dScrollX=dPX-120;
   dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;
-  dWaveMode=false;dWaveHeld=false;
+  dWaveMode=false;dWaveHeld=false;dSpiderMode=false;dSpiderFlipped=false;
   dObs=dCurrentLevel.obs;
 }
 function restartDash(){stopDash();dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
 function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
 function dJump(){
+  if(dSpiderMode&&dRunning&&!dDied&&!dWon){spiderTeleport();return;}
   if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=DJUMP();dGrounded=false;dOrbUsed=false;}
+}
+function spiderTeleport(){
+  // Find nearest obstacle surface in the flip direction
+  const gh=DGH();
+  dSpiderFlipped=!dSpiderFlipped;
+  dVY=0;
+  if(dSpiderFlipped){
+    // Now on ceiling: find lowest ceiling above player
+    let bestY=0; // top of screen
+    for(const o of dObs){
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='startblock'||o.t==='endblock'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal')continue;
+      const ox=o.x-dScrollX;
+      if(ox+o.w<dPX||ox>dPX+DSIZE)continue; // no horizontal overlap
+      if(o.y+o.h<=dPY){bestY=Math.max(bestY,o.y+o.h);}
+    }
+    dPY=bestY;
+  } else {
+    // Back to floor: find highest floor below player
+    let bestY=gh-DSIZE;
+    for(const o of dObs){
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='startblock'||o.t==='endblock'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal')continue;
+      const ox=o.x-dScrollX;
+      if(ox+o.w<dPX||ox>dPX+DSIZE)continue;
+      if(o.y>=dPY+DSIZE){bestY=Math.min(bestY,o.y-DSIZE);}
+    }
+    dPY=bestY;
+  }
+  dGrounded=true;
 }
 function dOrbJump(bounce){
   dVY=DJUMP()*((bounce||50)/50);dOrbUsed=true;
@@ -767,16 +874,33 @@ function dPhysics(){
       else{dVY=Math.min(dVY+DWAVE_GRAV,4);}
       dPY+=dVY*dt;
       dGrounded=false;
+      // Wave mode: bounce off ground (not die), die only on obstacles
+      if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=Math.min(dVY,-1);}
+      if(dPY<=0){dPY=0;dVY=Math.max(dVY,1);}
+    } else if(dSpiderMode){
+      // Spider mode: gravity direction depends on dSpiderFlipped
+      if(dSpiderFlipped){
+        // On ceiling: "gravity" pulls upward (keeps you on ceiling)
+        dVY=Math.max(dVY-0.3,-3);
+        dPY+=dVY*dt;
+        if(dPY<=0){dPY=0;dVY=0;dGrounded=true;}else{dGrounded=false;}
+        // Fell off ceiling to ground
+        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dSpiderFlipped=false;dGrounded=true;}
+      } else {
+        // On floor: normal gravity
+        const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
+        dVY+=DGRAV()*apexFactor*dt;
+        dPY+=dVY*dt;
+        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
+      }
     } else {
       // Normal gravity
       const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
       dVY+=DGRAV()*apexFactor*dt;
       dPY+=dVY*dt;
+      // Ground - safe landing
+      if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=DJUMP();dGrounded=false;}}else{dGrounded=false;}
     }
-    // Ground
-    if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=dWaveMode?false:true;dOrbUsed=false;if(dWaveMode){dDie();return;}else if(dJumpHeld){dVY=DJUMP();dGrounded=false;}}else if(!dWaveMode){dGrounded=false;}
-    // Ceiling (wave mode: die if hit top)
-    if(dWaveMode&&dPY<=0){dDie();return;}
     const px=dPX,py=dPY,ps=DSIZE;
     for(const o of dObs){
       const ox=o.x-dScrollX;
@@ -803,11 +927,21 @@ function dPhysics(){
         }
         continue;
       }
+      if(o.t==='spiderportal'){
+        if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h&&!dSpiderMode){
+          dSpiderMode=true;dSpiderFlipped=false;dVY=0;
+        }
+        continue;
+      }
+      if(o.t==='blockportal'&&dSpiderMode){
+        // blockportal also exits spider mode
+      }
       if(o.t==='waveportal'||o.t==='blockportal'){
         // Portal: trigger on horizontal overlap within the portal column
         if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h){
           if(o.t==='waveportal'&&!dWaveMode){dWaveMode=true;dVY=0;}
           if(o.t==='blockportal'&&dWaveMode){dWaveMode=false;dVY=0;}
+          if(o.t==='blockportal'&&dSpiderMode){dSpiderMode=false;dSpiderFlipped=false;dVY=0;}
         }
         continue;
       }
@@ -823,31 +957,47 @@ function dPhysics(){
         if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
         continue;
       }
-      // block & plat: swept top collision and right-side death
+      // block & plat: swept collision
       const prevBot=prevPY+ps,curBot=py+ps;
+      const prevTop=prevPY,curTop=py;
       const horizOverlap=px+ps>ox+2&&px<ox+o.w-2;
       if(o.t==='plat'){
-        // Platform: land on top only (passthrough from below, no drop-down)
-        if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+4){
+        // Platform: pass-through from below, land on top, no side kill
+        if(!dSpiderFlipped&&horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
+          dPY=o.y-ps;dOrbUsed=false;
+          if(dJumpHeld){dVY=DJUMP();dGrounded=false;}else{dVY=0;dGrounded=true;}
+        } else if(dSpiderFlipped&&horizOverlap&&dVY<=0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-6){
+          // Spider on ceiling: stick to bottom of platform
+          dPY=o.y+o.h;dVY=0;dGrounded=true;
+        }
+        continue;
+      }
+      // Block: land on top (or ceiling if spider-flipped). Sides kill. Top/bottom don't kill.
+      if(!dSpiderFlipped){
+        if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
           dPY=o.y-ps;dOrbUsed=false;
           if(dJumpHeld){dVY=DJUMP();dGrounded=false;}else{dVY=0;dGrounded=true;}
           continue;
         }
-        // Don't kill from below or sides - just pass through
-        continue;
+        // Block bottom: bump head, don't die
+        if(horizOverlap&&dVY<0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-6){
+          dPY=o.y+o.h;dVY=Math.abs(dVY)*0.3; // bounce lightly
+          continue;
+        }
+      } else {
+        // Spider flipped: ceiling is top of block
+        if(horizOverlap&&dVY<=0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-6){
+          dPY=o.y+o.h;dVY=0;dGrounded=true;
+          continue;
+        }
+        // Spider flipped: bump floor of block, don't die
+        if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
+          dPY=o.y-ps;dVY=-Math.abs(dVY)*0.3;
+          continue;
+        }
       }
-      // Block: land on top, die on right-side OR if player top hits block bottom
-      if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+4){
-        dPY=o.y-ps;dOrbUsed=false;
-        if(dJumpHeld){dVY=DJUMP();dGrounded=false;}else{dVY=0;dGrounded=true;}
-        continue;
-      }
-      // Bottom-of-block kill: player top enters block bottom while moving up
-      const prevTop=prevPY,curTop=py;
-      const horizOverlapKill=px+ps>ox+2&&px<ox+o.w-2;
-      if(horizOverlapKill&&dVY<0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-4){dDie();return;}
-      // Right-side: player's right enters left face of block
-      if(px+ps>ox&&px+ps<ox+spd+8&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
+      // Side collision: die (right side hits left face of block)
+      if(px+ps>ox&&px+ps<ox+spd+10&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
     }
   }
   // progress
@@ -874,6 +1024,20 @@ function dRender(){
     ctx.restore();
   }
   const pc='rgb('+dR+','+dG+','+dB+')';
+  // Spider mode: draw upside-down indicator
+  if(dSpiderMode&&dSpiderFlipped){
+    ctx.save();
+    ctx.shadowColor='#cc44ff';ctx.shadowBlur=10;
+    ctx.fillStyle=pc||'#cc44ff';
+    // Flip the square vertically
+    ctx.translate(dPX+DSIZE/2,dPY+DSIZE/2);ctx.scale(1,-1);ctx.translate(-(dPX+DSIZE/2),-(dPY+DSIZE/2));
+    ctx.fillRect(dPX,dPY,DSIZE,DSIZE);
+    ctx.strokeStyle='#cc44ff';ctx.lineWidth=2;ctx.strokeRect(dPX+1,dPY+1,DSIZE-2,DSIZE-2);
+    // Small web on top (which is visually bottom when flipped)
+    ctx.strokeStyle='rgba(200,100,255,0.5)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(dPX+DSIZE/2,dPY+DSIZE);ctx.lineTo(dPX+DSIZE/2,dPY+DSIZE+8);ctx.stroke();
+    ctx.restore();
+  } else
   // Wave mode: draw ship-like triangle instead of square
   if(dWaveMode){
     ctx.save();
@@ -944,7 +1108,21 @@ function renderObs(ctx,o,rx){
     for(let r=6;r<o.w/2;r+=8){ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();}
     ctx.restore();
     ctx.fillStyle='#ffcc00';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('BLOCK',rx+o.w/2,o.y+o.h/2+4);
+  } else if(o.t==='spiderportal'){
+    // Spider portal: purple/violet
+    const grd3=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
+    grd3.addColorStop(0,'rgba(140,0,255,0.7)');grd3.addColorStop(1,'rgba(200,0,255,0.7)');
+    ctx.fillStyle=grd3;ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#cc44ff';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    // Web pattern
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+    const scx=rx+o.w/2,scy=o.y+o.h/2;
+    for(let ang=0;ang<Math.PI*2;ang+=Math.PI/4){ctx.beginPath();ctx.moveTo(scx,scy);ctx.lineTo(scx+Math.cos(ang)*o.w*0.6,scy+Math.sin(ang)*o.h*0.6);ctx.stroke();}
+    for(let r2=6;r2<Math.min(o.w,o.h)/2;r2+=7){ctx.beginPath();ctx.arc(scx,scy,r2,0,Math.PI*2);ctx.stroke();}
+    ctx.restore();
+    ctx.fillStyle='#ee88ff';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('SPIDER',rx+o.w/2,o.y+o.h/2+4);
   }
+  if(rot)ctx.restore();
 }
 
 // ── DIFFICULTY RATING ──
@@ -1017,7 +1195,7 @@ function setDifficultyAdmin(key,diffId){
 
 function dDie(){dDied=true;dRunning=false;showDashOver('YOU DIED',Math.round(dPct*100)+'% - Attempt '+dAttempts);}
 function showDashOver(t,s){document.getElementById('dash-over-title').textContent=t;document.getElementById('dash-over-sub').textContent=s;const rr=document.getElementById('dash-rate-row');if(rr)rr.remove();document.getElementById('dash-over').classList.remove('hidden');}
-function updDHUD(){document.getElementById('dash-pct').textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';document.getElementById('dash-att').textContent='Attempt '+dAttempts;const mh=document.getElementById('dash-mode-hud');if(mh)mh.textContent=dWaveMode?'WAVE — hold SPACE to fly':'SPACE / Click to jump';}
+function updDHUD(){document.getElementById('dash-pct').textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';document.getElementById('dash-att').textContent='Attempt '+dAttempts;const mh=document.getElementById('dash-mode-hud');if(mh)mh.textContent=dWaveMode?'WAVE — hold SPACE to fly':dSpiderMode?'SPIDER — SPACE to flip gravity':'SPACE / Click to jump';}
 function showDashSettings(){['dash-play-tab','dash-create-tab','dash-game','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});document.getElementById('dash-settings').classList.remove('hidden');stopDash();}
 function updBright(v){dBright=parseInt(v);document.getElementById('dash-bright-val').textContent=v;document.getElementById('claredash').style.filter='brightness('+v+'%)';}
 function updColor(){
@@ -1058,7 +1236,7 @@ const OBJ_DEFAULTS={
   startblock:{w:40,h:60},endblock:{w:40,h:60},
   block:{w:40,h:40},plat:{w:80,h:14},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
-  waveportal:{w:40,h:60},blockportal:{w:40,h:60}
+  waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60}
 };
 
 function initEditor(){
@@ -1157,6 +1335,7 @@ function edSelectObj(idx){
   document.getElementById('ed-alpha-in').value=o.alpha||0;
   document.getElementById('ed-alpha-val').textContent=o.alpha||0;
   document.getElementById('ed-touch-chk').checked=!!o.touchable;
+  const rotEl=document.getElementById('ed-rot-val');if(rotEl)rotEl.textContent=(o.rot||0)+'°';
   const bounceRow=document.getElementById('ed-bounce-row');
   if(o.t==='orb'||o.t==='pad'){
     bounceRow.style.display='flex';
@@ -1165,6 +1344,15 @@ function edSelectObj(idx){
   } else {
     bounceRow.style.display='none';
   }
+}
+function edRotate(delta){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  o.rot=((o.rot||0)+delta+360)%360;
+  // Swap w/h for 90/270
+  if(delta===90||delta===-90){const tmp=o.w;o.w=o.h;o.h=tmp;}
+  const rotEl=document.getElementById('ed-rot-val');if(rotEl)rotEl.textContent=o.rot+'°';
+  edRender();
 }
 function edSetProp(prop,val){
   if(edSelectedIdx<0)return;
@@ -1251,7 +1439,7 @@ function saveLevel(){
       edObs=[];edRender();loadLevelList();
     });
   } else {
-    if(hubUser!=='bartelsfamily5'){alert('Only bartelsfamily5 can create new levels!');return;}
+    // All users can create levels
     db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,created:Date.now()});
     alert('Level saved: '+name);
     document.getElementById('lvl-name-in').value='';
