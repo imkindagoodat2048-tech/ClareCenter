@@ -1013,7 +1013,7 @@ function dPhysics(){
         const prevBot=prevPY+ps,curBot=py+ps;
         if(px+ps>ox&&px<ox+o.w&&curBot>=padTop&&prevBot<=padTop+o.h+4&&dVY>=0){
           const bScale=(o.bounce||50)/50;
-          dVY=DJUMP()*1.45*bScale;dPY=padTop-ps;dGrounded=false;dOrbUsed=false;
+          dVY=-(DGRAV()*37.5*bScale);dPY=padTop-ps;dGrounded=false;dOrbUsed=false;
         }
         continue;
       }
