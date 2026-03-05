@@ -909,7 +909,7 @@ function resetDash(){
   // find startblock x for spawn
   const start=dCurrentLevel.obs.find(o=>o.t==='startblock');
   dPX=start?start.x+10:120;
-  dPY=DGH()-DSIZE;dVY=0;dScrollX=dPX-120;
+  dPY=start?start.y:DGH()-DSIZE;dVY=0;dScrollX=dPX-120;
   dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;
   dShipMode=false;dShipHeld=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;
   dObs=JSON.parse(JSON.stringify(dCurrentLevel.obs));
