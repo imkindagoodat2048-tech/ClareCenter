@@ -330,6 +330,8 @@
                 <option value="spiderportal">Spider Portal</option>
             </select>
             <button class="icon-btn" onclick="editorUndo()" style="background:#444;">Undo</button>
+            <button class="icon-btn" id="ed-del-btn" onclick="edDeleteSelected()" style="background:#eb4d4b;display:none;">Delete</button>
+            <button class="icon-btn" id="ed-dup-btn" onclick="edDuplicateSelected()" style="background:#5555aa;display:none;">Duplicate</button>
             <button class="icon-btn" onclick="saveLevel()" style="background:#2ed573;color:#000;">Save</button>
             <button class="icon-btn" onclick="testLevel()" style="background:#e8ff00;color:#000;">Test</button>
 
@@ -868,7 +870,7 @@ function resetDash(){
   dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;
   dShipMode=false;dShipHeld=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;
   dObs=JSON.parse(JSON.stringify(dCurrentLevel.obs));
-  dObs.forEach(o=>{if(o.t==='trigger')delete o._fired;if(o.t==='teleportin')delete o._used;});
+  dObs.forEach(o=>{if(o.t==='trigger')delete o._fired;if(o.t==='teleportin')delete o._used;delete o._orbUsed;});
   dLevelStartTime=Date.now();
   resetModifiers();
 }
@@ -876,7 +878,7 @@ function restartDash(){stopDash();dAttempts++;resetDash();document.getElementByI
 function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
 function dJump(){
   if(dSpiderMode&&dRunning&&!dDied&&!dWon){spiderTeleport();return;}
-  if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=dGravFlipped?DJUMP():DJUMP();dGrounded=false;dOrbUsed=false;}
+  if(dGrounded&&dRunning&&!dDied&&!dWon){dVY=dGravFlipped?-DJUMP():DJUMP();dGrounded=false;dOrbUsed=false;}
 }
 function spiderTeleport(){
   // Find nearest obstacle surface in the flip direction
@@ -907,7 +909,7 @@ function spiderTeleport(){
   dGrounded=true;
 }
 function dOrbJump(bounce){
-  dVY=DJUMP()*((bounce||50)/50);dOrbUsed=true;
+  dVY=DJUMP()*((bounce||50)/50);
 }
 function dLoop(){if(!dRunning)return;dRAF=requestAnimationFrame(dLoop);tickModifiers(1);dPhysics();dRender();}
 function dPhysics(){
@@ -961,11 +963,11 @@ function dPhysics(){
       dPY+=dVY*dt;
       if(!dGravFlipped){
         // Normal: ground at bottom
-        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=DJUMP()*-1;dGrounded=false;}}else{dGrounded=false;}
+        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=dGravFlipped?-DJUMP():DJUMP();dGrounded=false;}}else{dGrounded=false;}
         if(dPY<=0){dPY=0;dVY=Math.abs(dVY)*0.3;}
       } else {
         // Flipped: "ground" is ceiling (y=0), normal ground is safe
-        if(dPY<=0){dPY=0;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=DJUMP();dGrounded=false;}}else{dGrounded=false;}
+        if(dPY<=0){dPY=0;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=-DJUMP();dGrounded=false;}}else{dGrounded=false;}
         if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=-Math.abs(dVY)*0.3;} // bounce off floor
       }
     }
@@ -1035,12 +1037,16 @@ function dPhysics(){
       if(o.t==='orb'||o.t==='gravityorb'){
         const cx2=ox+o.w/2,cy2=o.y+o.h/2,r=o.w/2+4;
         const nearX=px+ps/2,nearY=py+ps/2;
-        if(Math.abs(nearX-cx2)<r+ps/2&&Math.abs(nearY-cy2)<r+ps/2&&!dOrbUsed&&!dGrounded&&dOrbJumpQueued){
+        if(Math.abs(nearX-cx2)<r+ps/2&&Math.abs(nearY-cy2)<r+ps/2&&!o._orbUsed&&!dGrounded&&dOrbJumpQueued){
+          o._orbUsed=true;
           if(o.t==='gravityorb'){
-            dGravFlipped=!dGravFlipped;dVY=0;dOrbUsed=true;dOrbJumpQueued=false;
+            dGravFlipped=!dGravFlipped;dVY=0;dOrbJumpQueued=false;
           } else {
             dOrbJump();dOrbJumpQueued=false;
           }
+        } else if(o._orbUsed&&Math.abs(nearX-cx2)>r+ps/2+4){
+          // player has moved away — reset so it could retrigger if revisited
+          o._orbUsed=false;
         }
         continue;
       }
@@ -1763,25 +1769,24 @@ function edMouseUp(e){
   edPanDragging=false;edMouseDownPos=null;
 }
 function edMouseClick(e){
-  if(edDragMode){
-    // in drag mode, click selects object
-    const {wx,wy}=edWorldPos(e);
-    let hit=-1;
-    for(let i=edObs.length-1;i>=0;i--){
-      const o=edObs[i];
-      if(wx>=o.x&&wx<=o.x+o.w&&wy>=o.y&&wy<=o.y+o.h){hit=i;break;}
-    }
-    edSelectObj(hit);
-    return;
-  }
-  // place mode
   const {wx,wy}=edWorldPos(e);
+  // Always try to select existing object first (both modes)
+  let hit=-1;
+  for(let i=edObs.length-1;i>=0;i--){
+    const o=edObs[i];
+    if(wx>=o.x&&wx<=o.x+o.w&&wy>=o.y&&wy<=o.y+o.h){hit=i;break;}
+  }
+  if(hit>=0){edSelectObj(hit);edRender();return;}
+  // In drag mode, clicking empty space deselects
+  if(edDragMode){edSelectObj(-1);edRender();return;}
+  // Place mode: place new object on empty space
   const gh=ED_GH();
   const type=document.getElementById('obj-type-sel').value;
   const def=OBJ_DEFAULTS[type];
+  if(!def)return;
   let px=wx-def.w/2,py;
   if(type==='spike'||type==='pad'||type==='startblock'||type==='endblock')py=gh-def.h;
-  else if(type==='orb')py=wy-def.h/2;
+  else if(type==='orb'||type==='gravityorb')py=wy-def.h/2;
   else py=wy-def.h;
   if(edGridOn){px=Math.round(px/edGridSize)*edGridSize;py=Math.round(py/edGridSize)*edGridSize;}
   const newY=(type==='trigger')?0:Math.round(py);
@@ -1798,8 +1803,19 @@ function edSelectObj(idx){
   edSelectedIdx=idx;
   const panel=document.getElementById('ed-sel-props');
   const mBtn=document.getElementById('mod-btn');
-  if(idx<0){panel.style.display='none';if(mBtn)mBtn.style.display='none';document.getElementById('mod-panel').style.display='none';return;}
+  const delBtn=document.getElementById('ed-del-btn');
+  const dupBtn=document.getElementById('ed-dup-btn');
+  if(idx<0){
+    panel.style.display='none';
+    if(mBtn)mBtn.style.display='none';
+    if(delBtn)delBtn.style.display='none';
+    if(dupBtn)dupBtn.style.display='none';
+    document.getElementById('mod-panel').style.display='none';
+    return;
+  }
   if(mBtn)mBtn.style.display='';
+  if(delBtn)delBtn.style.display='';
+  if(dupBtn)dupBtn.style.display='';
   panel.style.display='block';
   const o=edObs[idx];
   document.getElementById('ed-color-in').value=o.color||'#2a2a5a';
@@ -1830,6 +1846,21 @@ function edSelectObj(idx){
       const pid=document.getElementById('ed-portal-id');if(pid)pid.value=o.portalId||0;
     }
   }
+}
+function edDeleteSelected(){
+  if(edSelectedIdx<0)return;
+  edObs.splice(edSelectedIdx,1);
+  edSelectObj(-1);
+  edRender();
+}
+function edDuplicateSelected(){
+  if(edSelectedIdx<0)return;
+  const orig=edObs[edSelectedIdx];
+  const copy=JSON.parse(JSON.stringify(orig));
+  copy.x+=40;copy.y+=0; // offset slightly so it's visible
+  edObs.push(copy);
+  edSelectObj(edObs.length-1);
+  edRender();
 }
 function edRotate(delta){
   if(edSelectedIdx<0)return;
