@@ -334,6 +334,13 @@
             <button class="icon-btn" id="ed-dup-btn" onclick="edDuplicateSelected()" style="background:#5555aa;display:none;">Duplicate</button>
             <button class="icon-btn" onclick="saveLevel()" style="background:#2ed573;color:#000;">Save</button>
             <button class="icon-btn" onclick="testLevel()" style="background:#e8ff00;color:#000;">Test</button>
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;flex-shrink:0;">
+              <input type="checkbox" id="ed-private-chk" onchange="document.getElementById('ed-share-row').style.display=this.checked?'flex':'none';">
+              <span style="color:#aaa;">Private</span>
+            </label>
+            <div id="ed-share-row" style="display:none;align-items:center;gap:4px;flex-shrink:0;">
+              <input id="ed-share-in" placeholder="Share with (usernames, comma-separated)" style="background:#0f0f1a;border:1px solid #555;color:white;padding:3px 7px;font-size:10px;border-radius:4px;outline:none;width:200px;">
+            </div>
 
             <!-- MODIFIER button (shows when object selected) -->
             <div style="position:relative;display:inline-block;" id="mod-btn-wrap" style="display:none;">
@@ -621,11 +628,42 @@ async function openMembers(){
       else{acts+=`<button class="m-btn" style="background:#2ed573;color:#000;" onclick="unbanUser('${u}')">U</button>`;}
       acts+=`<button class="m-btn" style="background:#333;color:#aaa;" onclick="delUser('${u}')">D</button>`;
     }
+    acts+=`<button class="m-btn" style="background:#4834d4;color:#fff;" onclick="openProfile('${u}')">Profile</button>`;
     html+=`<div class="mem-row"><div class="mem-info"><div class="mem-dot ${isOnline?'on':'off'}"></div><div><div class="${nc}">${u}${badges}</div></div></div><div class="mem-acts">${acts}</div></div>`;
   });
   document.getElementById('modal-content').innerHTML=html+`<button class="modal-close" onclick="closeModal()">Close</button>`;
 }
 async function warnUser(u){if(!confirm('Warn '+u+'?'))return;await db.ref("users/"+u).update({warned:true});openMembers();}
+function openProfile(u){
+  showModal('<div style="font-family:\'Bebas Neue\',cursive;font-size:28px;letter-spacing:3px;color:var(--accent);">'+u+'</div><div style="font-family:\'Space Mono\',monospace;font-size:10px;color:#555;margin-bottom:14px;letter-spacing:1px;">PROFILE</div><div style="font-size:11px;color:#666;font-family:\'Space Mono\',monospace;padding:4px 0;">Loading levels...</div>');
+  db.ref('claredash_levels').once('value',snap=>{
+    let levels=[];
+    snap.forEach(c=>{
+      const lv={key:c.key,...c.val()};
+      if(lv.author!==u)return;
+      if(lv.private&&lv.author!==hubUser&&!(lv.sharedWith&&lv.sharedWith.includes(hubUser)))return;
+      levels.push(lv);
+    });
+    levels.sort((a,b)=>(b.created||0)-(a.created||0));
+    let html='<div style="font-family:\'Bebas Neue\',cursive;font-size:28px;letter-spacing:3px;color:var(--accent);">'+u+'</div>';
+    const isAdmin=ADMINS.includes(u);
+    const officialDot=u==='bartelsfamily5'?'<span style="font-size:10px;color:#e8ff00;margin-left:6px;">⭐ Official</span>':'';
+    html+='<div style="font-family:\'Space Mono\',monospace;font-size:10px;color:#555;margin-bottom:14px;display:flex;align-items:center;gap:6px;">'+(isAdmin?'<span style="color:var(--accent);">[ADMIN]</span>':'')+officialDot+'</div>';
+    html+='<div style="font-family:\'Space Mono\',monospace;font-size:9px;color:#555;letter-spacing:1px;margin-bottom:8px;">LEVELS ('+levels.length+')</div>';
+    if(!levels.length){html+='<div style="font-size:12px;color:#444;padding:8px 0;">No public levels yet.</div>';}
+    levels.forEach(d=>{
+      const diff=d.difficulty?getDiffDisplay(d.difficulty):'';
+      const privTag=d.private?'<span style="font-size:9px;color:#eb4d4b;margin-left:4px;">🔒</span>':'';
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #2a2a3a;gap:8px;">'
+        +'<div style="flex:1;min-width:0;cursor:pointer;" onclick="closeModal();openLevelPage(\''+d.key+'\')">'
+        +'<div style="font-family:\'Bebas Neue\',cursive;font-size:18px;letter-spacing:1px;display:flex;align-items:center;">'+d.name+privTag+'</div>'
+        +'<div style="font-size:10px;color:#555;display:flex;align-items:center;gap:4px;">'+diff+'▶ '+(d.plays||0)+' plays</div></div>'
+        +'<button class="game-play" onclick="closeModal();playLevel(\''+d.key+'\')">Play</button>'
+        +'</div>';
+    });
+    document.getElementById('modal-content').innerHTML=html+'<button class="modal-close" onclick="closeModal()">Close</button>';
+  });
+}
 async function banUser(u){if(!confirm('Ban '+u+'?'))return;await db.ref("users/"+u).update({banned:true});await db.ref("claretown_kick/"+u).set({by:hubUser,time:Date.now()});openMembers();}
 async function unbanUser(u){await db.ref("users/"+u).update({banned:false});openMembers();}
 async function delUser(u){if(!confirm('Delete '+u+'?'))return;await db.ref("users/"+u).remove();await db.ref("claretown_kick/"+u).set({by:hubUser,time:Date.now()});openMembers();}
@@ -711,7 +749,11 @@ function loadLevelList(){
     list.innerHTML='';
     if(!snap.exists()){list.innerHTML='<div style="font-size:12px;color:#555;text-align:center;">No levels yet!</div>';return;}
     let levels=[];
-    snap.forEach(c=>{levels.push({key:c.key,...c.val()});});
+    snap.forEach(c=>{
+      const lv={key:c.key,...c.val()};
+      if(lv.private){if(lv.author!==hubUser&&!(lv.sharedWith&&lv.sharedWith.includes(hubUser)))return;}
+      levels.push(lv);
+    });
     // sort
     if(sort==='recent')levels.sort((a,b)=>(b.created||0)-(a.created||0));
     else if(sort==='oldest')levels.sort((a,b)=>(a.created||0)-(b.created||0));
@@ -737,6 +779,7 @@ function loadLevelList(){
       const diffHtml=diff?('<span style="font-size:11px;margin-left:5px;">'+getDiffDisplay(diff)+'</span>'):'';
       const playsHtml=d.plays?('<span style="font-size:9px;color:#444;margin-left:5px;">▶ '+d.plays+'</span>'):'';
       const officialBadge=d.author==='bartelsfamily5'?'<span style="font-size:9px;color:#e8ff00;margin-left:4px;">⭐</span>':'';
+      const privBadge=d.private?'<span style="font-size:9px;color:#eb4d4b;margin-left:4px;">🔒</span>':'';
       let adminDiffBtn='';
       if(hubUser==='bartelsfamily5'){
         adminDiffBtn='<select onchange="setDifficultyAdmin(\''+d.key+'\',this.value);this.value=\'\';" style="background:#0f0f1a;border:1px solid #333;color:white;font-size:9px;padding:2px 4px;border-radius:3px;margin-left:4px;" title="Set difficulty">'
@@ -744,7 +787,7 @@ function loadLevelList(){
           +DIFF_OPTS.map(o=>'<option value="'+o.id+'">'+o.emoji+' '+o.label+'</option>').join('')
           +'</select>';
       }
-      row.innerHTML='<div style="flex:1;min-width:0;cursor:pointer;" onclick="openLevelPage(\''+d.key+'\')"><div class="lvl-name" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;">'+d.name+officialBadge+'</div>'
+      row.innerHTML='<div style="flex:1;min-width:0;cursor:pointer;" onclick="openLevelPage(\''+d.key+'\')"><div class="lvl-name" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;">'+d.name+officialBadge+privBadge+'</div>'
         +'<div class="lvl-diff" style="font-size:10px;color:#555;display:flex;align-items:center;flex-wrap:wrap;gap:2px;">by '+d.author+diffHtml+playsHtml+'</div></div>'
         +'<button class="game-play" onclick="event.stopPropagation();playLevel(\''+d.key+'\')">Play</button>'
         +adminDiffBtn
@@ -807,7 +850,7 @@ function openLevelPage(key){
     }
     // Meta
     const officialTag=d.author==='bartelsfamily5'?' ⭐':'';
-    document.getElementById('lp-meta').innerHTML='by <b style="color:#ccc;">'+d.author+'</b>'+officialTag+'&nbsp;&nbsp;▶ '+(d.plays||0)+' plays';
+    document.getElementById('lp-meta').innerHTML='by <b style="color:#ccc;cursor:pointer;text-decoration:underline;" onclick="openProfile(\'+d.author+\'\')">'+d.author+'</b>'+officialTag+'&nbsp;&nbsp;▶ '+(d.plays||0)+' plays';
     // Play button
     document.getElementById('lp-play-btn').onclick=()=>playLevel(key);
     // Author buttons
@@ -1728,7 +1771,7 @@ function edMouseDown(e){
     for(let i=edObs.length-1;i>=0;i--){
       const o=edObs[i];
       if(wx>=o.x&&wx<=o.x+o.w&&wy>=o.y&&wy<=o.y+o.h){
-        edDragIdx=i;edDragOffX=wx-o.x;edDragOffY=wy-o.y;
+        edDragIdx=i;edDragOffX=wx-o.x;edDragOffY=wy-o.y;edSelectObj(i);edRender();
         edCanvas.style.cursor='grabbing';
         return;
       }
@@ -1954,7 +1997,9 @@ function saveLevel(){
   const editKey=window._editingLevelKey;
   if(editKey){
     // overwrite existing level (author editing their own)
-    db.ref('claredash_levels/'+editKey).update({name,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor},()=>{
+    const isPrivEdit=document.getElementById('ed-private-chk')&&document.getElementById('ed-private-chk').checked;
+    const sharedWithEdit=isPrivEdit?(document.getElementById('ed-share-in').value.trim().toLowerCase().split(',').map(s=>s.trim()).filter(Boolean)):[];
+    db.ref('claredash_levels/'+editKey).update({name,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,private:isPrivEdit||false,sharedWith:sharedWithEdit},()=>{
       alert('Level updated: '+name);
       window._editingLevelKey=null;
       document.getElementById('lvl-name-in').value='';
@@ -1962,7 +2007,9 @@ function saveLevel(){
     });
   } else {
     // All users can create levels
-    db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,created:Date.now()});
+    const isPriv=document.getElementById('ed-private-chk')&&document.getElementById('ed-private-chk').checked;
+    const sharedWith=isPriv?(document.getElementById('ed-share-in').value.trim().toLowerCase().split(',').map(s=>s.trim()).filter(Boolean)):[];
+    db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,created:Date.now(),private:isPriv||false,sharedWith});
     alert('Level saved: '+name);
     document.getElementById('lvl-name-in').value='';
     edObs=[];edRender();loadLevelList();
