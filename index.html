@@ -429,9 +429,14 @@
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;margin-top:7px;">
                             <span style="font-size:11px;width:90px;">Rotate</span>
-                            <button onclick="edRotate(-90)" style="background:#2f3542;border:none;color:white;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:12px;">↺</button>
+                            <button onclick="edRotate(-edRotStep())" style="background:#2f3542;border:none;color:white;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:12px;">↺</button>
                             <span id="ed-rot-val" style="font-size:10px;color:var(--accent);width:28px;">0°</span>
-                            <button onclick="edRotate(90)" style="background:#2f3542;border:none;color:white;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:12px;">↻</button>
+                            <button onclick="edRotate(edRotStep())" style="background:#2f3542;border:none;color:white;padding:3px 9px;border-radius:4px;cursor:pointer;font-size:12px;">↻</button>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:5px;">
+                            <span style="font-size:11px;width:90px;color:#666;">Rotate by</span>
+                            <input type="number" id="ed-rot-step" value="90" min="1" max="360" style="width:48px;background:#0f0f1a;border:1px solid #333;color:white;padding:3px 6px;border-radius:4px;font-size:11px;text-align:center;">
+                            <span style="font-size:10px;color:#555;">°</span>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;margin-top:7px;">
                             <span style="font-size:11px;width:90px;">Scale</span>
@@ -1058,7 +1063,7 @@ function dPhysics(){
       } else {
        
         if(dPY<=0){dPY=0;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=_jump;dGrounded=false;}}else{dGrounded=false;}
-        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=-Math.abs(dVY)*0.3;} // bounce off floor
+        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;} // stop at floor when grav flipped
       }
     }
     const px=dPX,py=dPY,ps=DSIZE;
@@ -2040,7 +2045,40 @@ function initEditor(){
   edRender();
 }
 
+function edCanvasScaleHit(e){
+  if(edSelectedIdx<0)return null;
+  const o=edObs[edSelectedIdx];
+  const rect=edCanvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const rx=o.x-edScrollX;
+  const selRot=(o.rot||0)*Math.PI/180;
+  // Transform mouse into rotated object space
+  let lmx=mx,lmy=my;
+  if(selRot){
+    const ocx=rx+o.w/2,ocy=o.y+o.h/2;
+    const cos=Math.cos(-selRot),sin=Math.sin(-selRot);
+    const dx=mx-ocx,dy=my-ocy;
+    lmx=ocx+dx*cos-dy*sin;
+    lmy=ocy+dx*sin+dy*cos;
+  }
+  const handles=[
+    {id:'top',    x:rx+o.w/2,  y:o.y-8},
+    {id:'bottom', x:rx+o.w/2,  y:o.y+o.h+8},
+    {id:'left',   x:rx-8,      y:o.y+o.h/2},
+    {id:'right',  x:rx+o.w+8,  y:o.y+o.h/2},
+  ];
+  for(const h of handles){
+    if(Math.abs(lmx-h.x)<10&&Math.abs(lmy-h.y)<10)return h.id;
+  }
+  return null;
+}
 function edMouseDown(e){
+  const dir=edCanvasScaleHit(e);
+  if(dir&&edSelectedIdx>=0){
+    const o=edObs[edSelectedIdx];
+    _edCanvasScaleDrag={dir,startX:e.clientX,startY:e.clientY,origW:o.w,origH:o.h,origX:o.x,origY:o.y};
+    e.preventDefault();e.stopPropagation();return;
+  }
   const {wx,wy}=edWorldPos(e);
   if(edDragMode){
    
@@ -2060,6 +2098,16 @@ function edMouseDown(e){
   }
 }
 function edMouseMove(e){
+  if(_edCanvasScaleDrag&&edSelectedIdx>=0){
+    const o=edObs[edSelectedIdx],d=_edCanvasScaleDrag;
+    const dx=e.clientX-d.startX,dy=e.clientY-d.startY;
+    const minSz=8;
+    if(d.dir==='right'){o.w=Math.max(minSz,d.origW+Math.round(dx));}
+    else if(d.dir==='left'){const dw=Math.round(dx);o.w=Math.max(minSz,d.origW-dw);o.x=d.origX+(d.origW-o.w);}
+    else if(d.dir==='bottom'){o.h=Math.max(minSz,d.origH+Math.round(dy));}
+    else if(d.dir==='top'){const dh=Math.round(dy);o.h=Math.max(minSz,d.origH-dh);o.y=d.origY+(d.origH-o.h);}
+    edScaleDrawCanvas();edRender();return;
+  }
   const rect=edCanvas.getBoundingClientRect();
   const wx=e.clientX-rect.left+edScrollX;
   document.getElementById('ed-x').textContent=Math.round(wx);
@@ -2081,6 +2129,7 @@ function edMouseMove(e){
   edRender();
 }
 function edMouseUp(e){
+  if(_edCanvasScaleDrag){_edCanvasScaleDrag=null;edRender();return;}
   if(edDragIdx>=0){edDragIdx=-1;edCanvas.style.cursor=edDragMode?'grab':'crosshair';edMouseDownPos=null;return;}
   if(!edDragMode&&!edPanDragging&&edMouseDownPos){
     edMouseClick(e); // place object on clean click
@@ -2183,6 +2232,7 @@ function edDuplicateSelected(){
   edRender();
 }
 let _edScaleDrag=null; // {dir, startX, startY, origW, origH, origX, origY}
+let _edCanvasScaleDrag=null; // same but driven from main editor canvas
 
 function edScaleDrawCanvas(){
   const cv=document.getElementById('ed-scale-canvas');
@@ -2278,6 +2328,10 @@ function edScaleEnd(){
   edScaleDrawCanvas();
 }
 
+function edRotStep(){
+  const el=document.getElementById('ed-rot-step');
+  return el?Math.max(1,parseInt(el.value)||90):90;
+}
 function edRotate(delta){
   if(edSelectedIdx<0)return;
   const o=edObs[edSelectedIdx];
@@ -2348,13 +2402,25 @@ function edRender(){
       renderObs(ctx,o,rx);
     }
     ctx.restore();
-    // selection highlight
+    // selection highlight + scale handles
     if(i===edSelectedIdx){
       const selRot=(o.rot||0)*Math.PI/180;
       ctx.save();
       if(selRot){ctx.translate(rx+o.w/2,o.y+o.h/2);ctx.rotate(selRot);ctx.translate(-(rx+o.w/2),-(o.y+o.h/2));}
       ctx.strokeStyle='#e8ff00';ctx.lineWidth=2;ctx.setLineDash([4,3]);
       ctx.strokeRect(rx-2,o.y-2,o.w+4,o.h+4);ctx.setLineDash([]);
+      // Scale handle dots
+      const hdots=[
+        {x:rx+o.w/2, y:o.y-8},
+        {x:rx+o.w/2, y:o.y+o.h+8},
+        {x:rx-8,     y:o.y+o.h/2},
+        {x:rx+o.w+8, y:o.y+o.h/2},
+      ];
+      hdots.forEach(h=>{
+        ctx.beginPath();ctx.arc(h.x,h.y,5,0,Math.PI*2);
+        ctx.fillStyle='#e8ff00';ctx.fill();
+        ctx.strokeStyle='#1a1a2e';ctx.lineWidth=1.5;ctx.stroke();
+      });
       ctx.restore();
     }
   }
