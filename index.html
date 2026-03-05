@@ -1007,6 +1007,7 @@ function dPhysics(){
   const _grav=0.38+dJumpHeight*0.008; // cache DGRAV for this frame
   const _jump=-(4+dJumpHeight*0.14);  // cache DJUMP for this frame
   dScrollX+=spd;
+  dPX=dScrollX+120; // keep player screen X fixed at 120
  
   const absVY=Math.abs(dVY);
   const steps=Math.max(1,Math.ceil(absVY/3));
@@ -1137,7 +1138,7 @@ function dPhysics(){
       }
       if(o.t==='spiderportal'){
         if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h&&!dSpiderMode){
-          dSpiderMode=true;dSpiderFlipped=false;dVY=0;dPX=dScrollX+120;
+          dSpiderMode=true;dSpiderFlipped=false;dVY=0;
         }
         continue;
       }
@@ -1146,9 +1147,9 @@ function dPhysics(){
       }
       if(o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'){
         if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h){
-          if(o.t==='shipportal'&&!dShipMode){dShipMode=true;dWaveMode=false;dVY=0;dPX=dScrollX+120;}
-          if(o.t==='waveportal'&&!dWaveMode){dWaveMode=true;dShipMode=false;dVY=0;dPX=dScrollX+120;}
-          if(o.t==='blockportal'){dShipMode=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;dVY=0;dPX=dScrollX+120;}
+          if(o.t==='shipportal'&&!dShipMode){dShipMode=true;dWaveMode=false;dVY=0;}
+          if(o.t==='waveportal'&&!dWaveMode){dWaveMode=true;dShipMode=false;dVY=0;}
+          if(o.t==='blockportal'){dShipMode=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;dVY=0;}
         }
         continue;
       }
@@ -1490,7 +1491,7 @@ function tickModifiers(dt60){
       if(!m._fired){
         const trig=m.trigger||'y';
         let fire=false;
-        if(trig==='x'){ const tx=m.triggerVal||0; fire=((dScrollX+dPX)>=tx); }
+        if(trig==='x'){ const tx=m.triggerVal||0; fire=((dScrollX+120)>=tx); }
         else if(trig==='y'){ const ty=m.triggerVal||0; fire=(dPY<=ty); }
         else if(trig==='touch'){ /* handled in collision */ }
         else if(trig==='time'){ fire=((Date.now()-dLevelStartTime)/1000>=(m.triggerVal||0)); }
