@@ -302,6 +302,7 @@
         <div id="lp-diff-img" style="display:flex;align-items:center;justify-content:center;min-height:60px;"></div>
         <div id="lp-meta" style="font-family:'Space Mono',monospace;font-size:11px;color:#777;text-align:center;"></div>
         <button id="lp-play-btn" onclick="" style="font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:3px;background:var(--primary);border:none;color:white;padding:12px 40px;cursor:pointer;border-radius:6px;">Play</button>
+        <div id="lp-best-pct" style="font-family:'Space Mono',monospace;font-size:11px;color:#555;text-align:center;min-height:16px;"></div>
         <div id="lp-recent-ratings" style="width:100%;max-width:340px;"></div>
         <div id="lp-author-btns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"></div>
     </div>
@@ -862,6 +863,13 @@ function openLevelPage(key){
     document.getElementById('lp-meta').innerHTML='by <b style="color:#ccc;cursor:pointer;text-decoration:underline;" onclick="openProfile(\'+d.author+\'\')">'+d.author+'</b>'+officialTag+'&nbsp;&nbsp;▶ '+(d.plays||0)+' plays';
     // Play button
     document.getElementById('lp-play-btn').onclick=()=>playLevel(key);
+    // Load best %
+    const bpEl=document.getElementById('lp-best-pct');
+    if(bpEl){bpEl.textContent='';db.ref('claredash_best/'+hubUser+'/'+key).once('value',bs=>{
+      const bp=bs.val();
+      if(bp!=null)bpEl.innerHTML='Your best: <span style="color:var(--accent);font-weight:700;">'+bp+'%</span>';
+      else bpEl.textContent='No attempts yet';
+    });}
     // Author buttons
     const abtns=document.getElementById('lp-author-btns');
     abtns.innerHTML='';
@@ -1057,6 +1065,7 @@ function dPhysics(){
         if(px+ps>=ox){dWon=true;
           const attempts=dAttempts;
           showDashOver('LEVEL COMPLETE!','Finished in '+attempts+' attempt'+(attempts>1?'s':'')+'!');
+          if(dCurrentLevelKey&&hubUser)db.ref('claredash_best/'+hubUser+'/'+dCurrentLevelKey).set(100);
           if(dCurrentLevelKey&&dCurrentLevel&&dCurrentLevel.author!==hubUser){
             setTimeout(()=>showRatingPrompt(dCurrentLevelKey),400);
           }
@@ -1739,7 +1748,16 @@ function setDifficultyAdmin(key,diffId){
   loadLevelList();
 }
 
-function dDie(){dDied=true;dRunning=false;showDashOver('YOU DIED',Math.round(dPct*100)+'% - Attempt '+dAttempts);}
+function dDie(){
+  dDied=true;dRunning=false;
+  const pct=Math.round(dPct*100);
+  if(dCurrentLevelKey&&hubUser){
+    db.ref('claredash_best/'+hubUser+'/'+dCurrentLevelKey).once('value',snap=>{
+      if(snap.val()==null||pct>snap.val())db.ref('claredash_best/'+hubUser+'/'+dCurrentLevelKey).set(pct);
+    });
+  }
+  showDashOver('YOU DIED',pct+'% - Attempt '+dAttempts);
+}
 function showDashOver(t,s){document.getElementById('dash-over-title').textContent=t;document.getElementById('dash-over-sub').textContent=s;const rr=document.getElementById('dash-rate-row');if(rr)rr.remove();document.getElementById('dash-over').classList.remove('hidden');}
 function updDHUD(){document.getElementById('dash-pct').textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';document.getElementById('dash-att').textContent='Attempt '+dAttempts;const mh=document.getElementById('dash-mode-hud');if(mh)mh.textContent=dShipMode?'SHIP — hold SPACE to fly':dWaveMode?'WAVE — SPACE=up, release=down':dSpiderMode?'SPIDER — SPACE to flip gravity':'SPACE / Click to jump';}
 function showDashSettings(){['dash-play-tab','dash-create-tab','dash-game','dash-settings'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});document.getElementById('dash-settings').classList.remove('hidden');stopDash();}
