@@ -328,6 +328,7 @@
                 <option value="teleportout">Teleport (Blue/Exit)</option>
                 <option value="blockportal">Block Portal</option>
                 <option value="spiderportal">Spider Portal</option>
+                <option value="coin" id="coin-option" style="display:none;">🪙 Coin</option>
             </select>
             <button class="icon-btn" onclick="editorUndo()" style="background:#444;">Undo</button>
             <button class="icon-btn" id="ed-del-btn" onclick="edDeleteSelected()" style="background:#eb4d4b;display:none;">Delete</button>
@@ -447,7 +448,10 @@
         <canvas id="dash-canvas" style="display:block;position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
         <div id="dash-hud" style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:10px 16px;pointer-events:none;">
             <div><div id="dash-pct" style="font-family:'Bebas Neue',cursive;font-size:26px;color:var(--accent);">0%</div><div id="dash-att" style="font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-top:3px;">Attempt 1</div></div>
-            <div id="dash-mode-hud" style="font-family:'Space Mono',monospace;font-size:10px;color:#555;text-align:right;margin-top:8px;">SPACE / Click to jump</div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+              <div id="dash-mode-hud" style="font-family:'Space Mono',monospace;font-size:10px;color:#555;text-align:right;">SPACE / Click to jump</div>
+              <div id="dash-coin-hud" style="font-family:'Space Mono',monospace;font-size:11px;color:#ffd700;text-align:right;"></div>
+            </div>
         </div>
         <div id="dash-over" class="hidden" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(26,26,46,0.9);">
             <div id="dash-over-title" style="font-family:'Bebas Neue',cursive;font-size:52px;letter-spacing:4px;color:var(--accent);margin-bottom:4px;">DIED</div>
@@ -648,10 +652,13 @@ function openProfile(u){
     let html='<div style="font-family:\'Bebas Neue\',cursive;font-size:28px;letter-spacing:3px;color:var(--accent);">'+u+'</div>';
     const isAdmin=ADMINS.includes(u);
     const officialDot=u==='bartelsfamily5'?'<span style="font-size:10px;color:#e8ff00;margin-left:6px;">⭐ Official</span>':'';
-    html+='<div style="font-family:\'Space Mono\',monospace;font-size:10px;color:#555;margin-bottom:14px;display:flex;align-items:center;gap:6px;">'+(isAdmin?'<span style="color:var(--accent);">[ADMIN]</span>':'')+officialDot+'</div>';
-    html+='<div style="font-family:\'Space Mono\',monospace;font-size:9px;color:#555;letter-spacing:1px;margin-bottom:8px;">LEVELS ('+levels.length+')</div>';
-    if(!levels.length){html+='<div style="font-size:12px;color:#444;padding:8px 0;">No public levels yet.</div>';}
-    levels.forEach(d=>{
+    db.ref('claredash_coincount/'+u).once('value',coinSnap=>{
+      const coinTotal=coinSnap.val()||0;
+      const coinDisplay=coinTotal>0?'<span style="font-size:13px;margin-top:2px;">🪙 '+coinTotal+'</span>':'';
+      html+='<div style="font-family:\'Space Mono\',monospace;font-size:10px;color:#555;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'+(isAdmin?'<span style="color:var(--accent);">[ADMIN]</span>':'')+officialDot+coinDisplay+'</div>';
+      html+='<div style="font-family:\'Space Mono\',monospace;font-size:9px;color:#555;letter-spacing:1px;margin-bottom:8px;">LEVELS ('+levels.length+')</div>';
+      if(!levels.length){html+='<div style="font-size:12px;color:#444;padding:8px 0;">No public levels yet.</div>';}
+      levels.forEach(d=>{
       const diff=d.difficulty?getDiffDisplay(d.difficulty):'';
       const privTag=d.private?'<span style="font-size:9px;color:#eb4d4b;margin-left:4px;">🔒</span>':'';
       html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #2a2a3a;gap:8px;">'
@@ -661,7 +668,8 @@ function openProfile(u){
         +'<button class="game-play" onclick="closeModal();playLevel(\''+d.key+'\')">Play</button>'
         +'</div>';
     });
-    document.getElementById('modal-content').innerHTML=html+'<button class="modal-close" onclick="closeModal()">Close</button>';
+      document.getElementById('modal-content').innerHTML=html+'<button class="modal-close" onclick="closeModal()">Close</button>';
+    });
   });
 }
 async function banUser(u){if(!confirm('Ban '+u+'?'))return;await db.ref("users/"+u).update({banned:true});await db.ref("claretown_kick/"+u).set({by:hubUser,time:Date.now()});openMembers();}
@@ -675,6 +683,7 @@ function launchClareDash(){
   document.getElementById('claredash').classList.remove('hidden');
   // Show Create tab for all users
   document.getElementById('tab-create-btn').style.display='';
+  const coinOpt=document.getElementById('coin-option');if(coinOpt)coinOpt.style.display=hubUser==='bartelsfamily5'?'':'none';
   showDashTab('play');
 }
 function launchClareTown(){
@@ -689,7 +698,7 @@ function exitGame(id){
 
 // ===== CLAREDASH ENGINE =====
 let dCtx,dCanvas,dRAF,dAttempts=1,dRunning=false;
-let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false,dOrbUsed=false;
+let dPct=0,dDied=false,dWon=false,dVY=0,dGrounded=false,dOrbUsed=false,dCoinsCollected=0;
 let dShipMode=false; // true = ship (hold=up, release=down)
 let dShipHeld=false; // is space held in ship mode
 let dWaveMode=false; // true = wave portal (instant up on press, instant down on release)
@@ -910,10 +919,24 @@ function resetDash(){
   const start=dCurrentLevel.obs.find(o=>o.t==='startblock');
   dPX=start?start.x+10:120;
   dPY=start?start.y:DGH()-DSIZE;dVY=0;dScrollX=dPX-120;
-  dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;
+  dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;dCoinsCollected=0;
   dShipMode=false;dShipHeld=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;
   dObs=JSON.parse(JSON.stringify(dCurrentLevel.obs));
-  dObs.forEach(o=>{if(o.t==='trigger')delete o._fired;if(o.t==='teleportin')delete o._used;delete o._orbUsed;});
+  let _coinIdx=0;
+  dObs.forEach(o=>{
+    if(o.t==='trigger')delete o._fired;
+    if(o.t==='teleportin')delete o._used;
+    delete o._orbUsed;
+    if(o.t==='coin'){o._coinId='c'+(++_coinIdx);o._collected=false;}
+  });
+  // Mark already-collected coins
+  if(dCurrentLevelKey){
+    db.ref('claredash_coins/'+hubUser+'/'+dCurrentLevelKey).once('value',snap=>{
+      if(!snap.exists())return;
+      const got=snap.val();
+      dObs.forEach(o=>{if(o.t==='coin'&&got[o._coinId])o._collected=true;});
+    });
+  }
   dLevelStartTime=Date.now();
   resetModifiers();
 }
@@ -932,7 +955,7 @@ function spiderTeleport(){
     // Now on ceiling: find lowest ceiling above player
     let bestY=0; // top of screen
     for(const o of dObs){
-      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='coin'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
       const ox=o.x-dScrollX;
       if(ox+o.w<dPX||ox>dPX+DSIZE)continue; // no horizontal overlap
       if(o.y+o.h<=dPY){bestY=Math.max(bestY,o.y+o.h);}
@@ -1018,6 +1041,17 @@ function dPhysics(){
     for(const o of dObs){
       const ox=o.x-dScrollX;
       if(ox>dCanvas.width+120||ox+o.w<-120)continue;
+      if(o.t==='coin'){
+        if(!o._collected&&px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h){
+          o._collected=true;
+          dCoinsCollected++;
+          if(dCurrentLevelKey){
+            db.ref('claredash_coins/'+hubUser+'/'+dCurrentLevelKey+'/'+o._coinId).set(true);
+            db.ref('claredash_coincount/'+hubUser).transaction(n=>(n||0)+1);
+          }
+        }
+        continue;
+      }
       if(o.touchable===false&&o.t!=='endblock'&&o.t!=='startblock')continue;
       if(o.t==='endblock'){
         if(px+ps>=ox){dWon=true;
@@ -1250,6 +1284,9 @@ function renderObs(ctx,o,rx){
     // Center dot
     ctx.beginPath();ctx.arc(gcx,gcy,1.5,0,Math.PI*2);ctx.fill();
     ctx.restore();
+  } else if(o.t==='coin'){
+    if(o._collected){ctx.save();ctx.globalAlpha=0.25;ctx.font='18px sans-serif';ctx.textAlign='center';ctx.fillText('🪙',rx+o.w/2,o.y+o.h/2+7);ctx.restore();}
+    else{ctx.save();ctx.font='18px sans-serif';ctx.textAlign='center';ctx.shadowColor='#ffd700';ctx.shadowBlur=8;ctx.fillText('🪙',rx+o.w/2,o.y+o.h/2+7);ctx.restore();}
   } else if(o.t==='solidblock'){
     const scol=o.color||'#ffffff';
     ctx.fillStyle=scol;ctx.fillRect(rx,o.y,o.w,o.h);
@@ -1746,7 +1783,7 @@ const OBJ_DEFAULTS={
   block:{w:40,h:40},solidblock:{w:40,h:40},plat:{w:80,h:14},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
   shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},
-  gravityorb:{w:28,h:28},trigger:{w:8,h:360},
+  gravityorb:{w:28,h:28},trigger:{w:8,h:360},coin:{w:24,h:24},
   teleportin:{w:40,h:60},teleportout:{w:40,h:60}
 };
 
