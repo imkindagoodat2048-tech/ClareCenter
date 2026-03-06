@@ -1328,20 +1328,19 @@ function dRender(){
   }
   const pc='rgb('+dR+','+dG+','+dB+')';
  
-  if(dSpiderMode&&dSpiderFlipped){
+  if(dSpiderMode){
     ctx.save();
     ctx.shadowColor='#cc44ff';ctx.shadowBlur=10;
-    ctx.fillStyle=pc||'#cc44ff';
-    // Flip the square vertically
-    ctx.translate(dPX+DSIZE/2,dPY+DSIZE/2);ctx.scale(1,-1);ctx.translate(-(dPX+DSIZE/2),-(dPY+DSIZE/2));
+    if(dSpiderFlipped){
+      ctx.translate(dPX+DSIZE/2,dPY+DSIZE/2);ctx.scale(1,-1);ctx.translate(-(dPX+DSIZE/2),-(dPY+DSIZE/2));
+    }
     drawSpiderSkinInGame(ctx,dPX,dPY,pc||'#cc44ff');
-    // Small web on top (which is visually bottom when flipped)
+    // Web thread
     ctx.strokeStyle='rgba(200,100,255,0.5)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(dPX+DSIZE/2,dPY+DSIZE);ctx.lineTo(dPX+DSIZE/2,dPY+DSIZE+8);ctx.stroke();
+    const webY=dSpiderFlipped?dPY+DSIZE:dPY;
+    ctx.beginPath();ctx.moveTo(dPX+DSIZE/2,webY);ctx.lineTo(dPX+DSIZE/2,webY+(dSpiderFlipped?8:-8));ctx.stroke();
     ctx.restore();
-  } else
- 
-  if(dShipMode){
+  } else if(dShipMode){
     ctx.save();
     ctx.shadowColor='#00ffcc';ctx.shadowBlur=10;
     drawShipSkinInGame(ctx,dPX,dPY,pc);
