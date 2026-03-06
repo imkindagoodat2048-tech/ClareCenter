@@ -1276,7 +1276,7 @@ function dPhysics(){
           continue;
         }
         if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
-          dPY=o.y-ps;dVY=-Math.abs(dVY)*0.3;
+          dPY=o.y-ps;dVY=0;
           continue;
         }
       } else if(dGravFlipped){
@@ -1906,32 +1906,32 @@ function resetDashData(){
   alert('All ClareDash data has been reset.');
 }
 const DASH_SKINS=[
-  {id:'square',   label:'Square',         desc:'Default.',                            unlock:'default'},
-  {id:'hollow',   label:'Hollow',         desc:'Beat 1 official level.',              unlock:'official1'},
-  {id:'face',     label:'Face',           desc:'Default.',                            unlock:'default'},
-  {id:'admin',    label:'Admin',          desc:'Admin only.',                         unlock:'admin'},
-  {id:'master',   label:'Master',         desc:'Collect 5 coins.',                    unlock:'coins5'},
-  {id:'slider',   label:'Skilled Slider', desc:'Beat 5 official levels.',             unlock:'beats5'},
-  {id:'collector',label:'Coin Collector', desc:'Collect 10 coins.',                   unlock:'coins10'},
-  {id:'orbit',    label:'Orbit',          desc:'Jump 1000 times.',                    unlock:'jumps1000'},
-  {id:'noir',     label:'Noir',           desc:'Beat NoirScapes.',                    unlock:'beatNoir'},
-  {id:'blockboy', label:'BlockBoy',       desc:'First to rate 3 levels.',             unlock:'firstRater3'},
-  {id:'official', label:'Officiality',    desc:'Beat every official level.',          unlock:'allOfficial'},
-  {id:'why',      label:'Why.',           desc:'Beat 3 Extremes or Deadlys.',         unlock:'extreme3'},
+  {id:'square',   label:'Square',         desc:"Default.",                            unlock:'default'},
+  {id:'hollow',   label:'Hollow',         desc:"Beat 1 official level. Wow, you did it. Want a cookie?",              unlock:'official1'},
+  {id:'face',     label:'Face',           desc:"Default.",                            unlock:'default'},
+  {id:'admin',    label:'Admin',          desc:"Admin only. For the COOLEST of clares.",                         unlock:'admin'},
+  {id:'master',   label:'Master',         desc:"Collect 5 coins. Shop coming next update..?",                    unlock:'coins5'},
+  {id:'slider',   label:'Skilled Slider', desc:"Beat 5 official levels. You can now call yourself a ClareDash player.",             unlock:'beats5'},
+  {id:'collector',label:'Coin Collector', desc:"Collect 10 coins. Your greedy.",                   unlock:'coins10'},
+  {id:'orbit',    label:'Orbit',          desc:"Jump 1000 times. Become an ORBit",                    unlock:'jumps1000'},
+  {id:'noir',     label:'Noir',           desc:"Beat NoirScapes. Pretty shady hat.",                    unlock:'beatNoir'},
+  {id:'blockboy', label:'BlockBoy',       desc:"First to rate 3 levels. Now YOU can be a block boy!!",             unlock:'firstRater3'},
+  {id:'official', label:'Officiality',    desc:"Beat every official level. Now your official.",          unlock:'allOfficial'},
+  {id:'why',      label:'Why.',           desc:"Beat 3 Extremes or Deadlys. WHY??",         unlock:'extreme3'},
 ];
 const SHIP_SKINS=[
-  {id:'cursor',   label:'Cursor',         desc:'Default.',                            unlock:'default'},
-  {id:'grabhand', label:'Grab Hand',      desc:'Rate a level.',                       unlock:'rated1'},
-  {id:'cake',     label:'Cake',           desc:'Beat CakeWalk.',                      unlock:'beatCakeWalk'},
-  {id:'flipper',  label:'Flipper',        desc:'Beat FlipSide.',                      unlock:'beatFlipSide'},
-  {id:'admincursor',label:'Admin',        desc:'Admin only.',                         unlock:'admin'},
-  {id:'skull',      label:'Skull',         desc:'Beat 1 Deadly.',                      unlock:'beatDeadly'},
+  {id:'cursor',   label:'Cursor',         desc:"Default.",                            unlock:'default'},
+  {id:'grabhand', label:'Grab Hand',      desc:"Rate a level. NEVER rate levels incorrectly.",                       unlock:'rated1'},
+  {id:'cake',     label:'Cake',           desc:"Beat CakeWalk. That was a CAKEWALK!!! Get it?",                      unlock:'beatCakeWalk'},
+  {id:'flipper',  label:'Flipper',        desc:"Beat FlipSide. UR PRO!!!!!!.",                      unlock:'beatFlipSide'},
+  {id:'admincursor',label:'Admin',        desc:"Admin only. For the COOLEST of clares.",                         unlock:'admin'},
+  {id:'skull',    label:'Skull',          desc:"Beat 1 Deadly. Your SUPA skilled now.",                      unlock:'beatDeadly'},
 ];
 const SPIDER_SKINS=[
-  {id:'eyes8',    label:'8Eyes',          desc:'Default.',                            unlock:'default'},
-  {id:'trophy',   label:'Trophy',         desc:'Beat 10 rated levels.',               unlock:'beats10rated'},
-  {id:'monkey',   label:'Monkey',         desc:'Flip gravity 500 times.',             unlock:'flips500'},
-  {id:'adminspider',label:'Admin',        desc:'Admin only.',                         unlock:'admin'},
+  {id:'eyes8',    label:'8Eyes',          desc:"Default.",                            unlock:'default'},
+  {id:'trophy',   label:'Trophy',         desc:"Beat 10 rated levels. How long did that take you?",               unlock:'beats10rated'},
+  {id:'monkey',   label:'Monkey',         desc:"Flip gravity 500 times. I feel dizzy...",             unlock:'flips500'},
+  {id:'adminspider',label:'Admin',        desc:"Admin only. For the COOLEST of clares.",                         unlock:'admin'},
 ];
 
 function loadDashSkins(){
