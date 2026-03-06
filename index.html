@@ -2270,6 +2270,7 @@ let dOrbJumpQueued=false;
 let dJumpHeld=false; // for hold-to-jump and wave mode
 function dJumpPress(){
   if(document.getElementById('dash-game').classList.contains('hidden'))return;
+  if(dSpiderMode){dJump();return;} // spider: only teleport, no held/queued state
   dJumpHeld=true;dShipHeld=true;
   if(!dWaveMode){dJump();dOrbJumpQueued=true;}
 }
