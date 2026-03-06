@@ -482,7 +482,7 @@
         </div>
     </div>
     <!-- SETTINGS -->
-    <div id="dash-settings" class="hidden" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:30px;">
+    <div id="dash-settings" class="hidden" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding:30px;overflow-y:auto;">
         <div class="sett-title">Settings</div>
         <div class="sett-row">
             <div><div class="sett-label">Brightness</div><div class="sett-sub">0 - 100</div></div>
@@ -2136,12 +2136,10 @@ function drawShipSkinInGame(ctx,x,y,pc){
   const skin=dActiveShipSkin||'cursor';
   ctx.save();
   if(skin==='cursor'||skin==='admincursor'){
-    ctx.fillStyle=pc||'#00ffcc';ctx.strokeStyle='#00ffcc';ctx.lineWidth=1.5;
-    ctx.beginPath();
-    ctx.moveTo(x,y+2);ctx.lineTo(x,y+s-2);
-    ctx.lineTo(x+s*0.35,y+s*0.62);ctx.lineTo(x+s*0.55,y+s);
-    ctx.lineTo(x+s*0.68,y+s*0.92);ctx.lineTo(x+s*0.48,y+s*0.55);
-    ctx.lineTo(x+s,y+s*0.55);ctx.closePath();ctx.fill();ctx.stroke();
+    // Original ship shape
+    ctx.fillStyle=pc||'#00ffcc';
+    ctx.beginPath();ctx.moveTo(x+s,y+s/2);ctx.lineTo(x,y+2);ctx.lineTo(x+6,y+s/2);ctx.lineTo(x,y+s-2);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#00ffcc';ctx.lineWidth=1.5;ctx.stroke();
     if(skin==='admincursor'){
       ctx.font=Math.round(s*0.28)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText('👁',x+s*0.72,y+s*0.3);
