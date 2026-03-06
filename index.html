@@ -1008,7 +1008,7 @@ function restartDash(){stopDash();dAttempts++;resetDash();document.getElementByI
 function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
 function dJump(){
   if(dSpiderMode&&dRunning&&!dDied&&!dWon){spiderTeleport();return;}
-  if(dBallMode&&dRunning&&!dDied&&!dWon&&dGrounded){
+  if(dBallMode&&dRunning&&!dDied&&!dWon&&(dGrounded||Math.abs(dVY)<0.5)){
     dGravFlipped=!dGravFlipped;dVY=0;dGrounded=false;
     dGravFlipCount++;db.ref('claredash_skins/'+hubUser+'/gravFlipCount').set(dGravFlipCount);
     checkSkinUnlocksLocal();return;
