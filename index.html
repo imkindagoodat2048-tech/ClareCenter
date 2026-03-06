@@ -325,6 +325,7 @@
                 <option value="shipportal">Ship Portal</option>
                 <option value="waveportal">Wave Portal</option>
                 <option value="gravityorb">Gravity Orb</option>
+                <option value="negorb">Negative Orb</option>
                 <option value="trigger">Trigger</option>
                 <option value="teleportin">Teleport (Red/Entry)</option>
                 <option value="teleportout">Teleport (Blue/Exit)</option>
@@ -908,6 +909,7 @@ function openLevelPage(key){
       const eb=document.createElement('button');eb.textContent='Edit';eb.style.cssText='background:var(--primary);border:none;color:white;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;';eb.onclick=()=>editLevel(key);abtns.appendChild(eb);
     }
     if(hubUser==='bartelsfamily5'){
+      const rnb=document.createElement('button');rnb.textContent='Rename';rnb.style.cssText='background:#555;border:none;color:white;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;';rnb.onclick=()=>renameLevel(key);abtns.appendChild(rnb);
       const db2=document.createElement('button');db2.textContent='Delete';db2.style.cssText='background:#eb4d4b;border:none;color:white;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;';db2.onclick=()=>{deleteLevel(key);showDashTab('play');};abtns.appendChild(db2);
       // Admin diff
       const sel=document.createElement('select');sel.style.cssText='background:#0f0f1a;border:1px solid #333;color:white;font-size:11px;padding:4px 8px;border-radius:4px;';
@@ -984,7 +986,8 @@ function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
 function dJump(){
   if(dSpiderMode&&dRunning&&!dDied&&!dWon){spiderTeleport();return;}
   if(dGrounded&&dRunning&&!dDied&&!dWon){
-    dVY=dGravFlipped?4+dJumpHeight*0.14:-(4+dJumpHeight*0.14);dGrounded=false;dOrbUsed=false;
+    const jv=4+dJumpHeight*0.14;
+    dVY=dGravFlipped?jv:-jv;dGrounded=false;dOrbUsed=false;
     dJumpCount++;checkSkinUnlocks();
     db.ref('claredash_skins/'+hubUser+'/jumpCount').set(dJumpCount);
   }
@@ -998,7 +1001,7 @@ function spiderTeleport(){
     // Now on ceiling: find lowest ceiling above player
     let bestY=0; // top of screen
     for(const o of dObs){
-      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='coin'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='negorb'||o.t==='coin'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
       const ox=o.x-dScrollX;
       if(ox+o.w<dPX||ox>dPX+DSIZE)continue;
       if(o.y+o.h<=dPY){bestY=Math.max(bestY,o.y+o.h);}
@@ -1008,7 +1011,7 @@ function spiderTeleport(){
    
     let bestY=gh-DSIZE;
     for(const o of dObs){
-      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='negorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
       const ox=o.x-dScrollX;
       if(ox+o.w<dPX||ox>dPX+DSIZE)continue;
       if(o.y>=dPY+DSIZE){bestY=Math.min(bestY,o.y-DSIZE);}
@@ -1077,7 +1080,7 @@ function dPhysics(){
         if(dPY<=0){dPY=0;dVY=Math.abs(dVY)*0.3;}
       } else {
        
-        if(dPY<=0){dPY=0;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=_jump;dGrounded=false;}}else{dGrounded=false;}
+        if(dPY<=0){dPY=0;dVY=0;dGrounded=true;dOrbUsed=false;if(dJumpHeld){dVY=-_jump;dGrounded=false;}}else{dGrounded=false;}
         if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;} // stop at floor when grav flipped
       }
     }
@@ -1192,7 +1195,7 @@ function dPhysics(){
         }
         continue;
       }
-      if(o.t==='orb'||o.t==='gravityorb'){
+      if(o.t==='orb'||o.t==='gravityorb'||o.t==='negorb'){
         const cx2=ox+o.w/2,cy2=o.y+o.h/2,r=o.w/2+4;
         const nearX=px+ps/2,nearY=py+ps/2;
         if(Math.abs(nearX-cx2)<r+ps/2&&Math.abs(nearY-cy2)<r+ps/2&&!o._orbUsed&&!dGrounded&&dOrbJumpQueued){
@@ -1201,11 +1204,13 @@ function dPhysics(){
             dGravFlipped=!dGravFlipped;dVY=0;dOrbJumpQueued=false;
             dGravFlipCount++;db.ref('claredash_skins/'+hubUser+'/gravFlipCount').set(dGravFlipCount);
             checkSkinUnlocks();
+          } else if(o.t==='negorb'){
+            // Negative orb: forces player downward
+            dVY=Math.abs(_jump)*1.2;dOrbJumpQueued=false;
           } else {
             dOrbJump();dOrbJumpQueued=false;
           }
         } else if(o._orbUsed&&Math.abs(nearX-cx2)>r+ps/2+4){
-         
           o._orbUsed=false;
         }
         continue;
@@ -1259,13 +1264,22 @@ function dPhysics(){
           dPY=o.y+o.h;dVY=Math.abs(dVY)*0.3;
           continue;
         }
-      } else {
-       
+      } else if(dSpiderFlipped){
         if(horizOverlap&&dVY<=0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-6){
           dPY=o.y+o.h;dVY=0;dGrounded=true;
           continue;
         }
-       
+        if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
+          dPY=o.y-ps;dVY=-Math.abs(dVY)*0.3;
+          continue;
+        }
+      } else if(dGravFlipped){
+        // Gravity orb flipped: land on underside of blocks
+        if(horizOverlap&&dVY<=0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-6){
+          dPY=o.y+o.h;dVY=0;dGrounded=true;dOrbUsed=false;
+          if(dJumpHeld){const jv=4+dJumpHeight*0.14;dVY=jv;dGrounded=false;}
+          continue;
+        }
         if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
           dPY=o.y-ps;dVY=-Math.abs(dVY)*0.3;
           continue;
@@ -1295,7 +1309,7 @@ function dRender(){
     if(rx>W+120||rx+o.w<-120)continue;
     ctx.save();
     if(o.alpha>0)ctx.globalAlpha=Math.max(0,1-(o.alpha/100));
-    if(o.color&&o.t!=='spike'&&o.t!=='pad'&&o.t!=='orb'&&o.t!=='gravityorb'&&o.t!=='solidblock'&&o.t!=='startblock'&&o.t!=='endblock'){
+    if(o.color&&o.t!=='spike'&&o.t!=='pad'&&o.t!=='orb'&&o.t!=='gravityorb'&&o.t!=='negorb'&&o.t!=='solidblock'&&o.t!=='startblock'&&o.t!=='endblock'){
       renderObs(ctx,o,rx);
       ctx.globalCompositeOperation='source-atop';
       ctx.fillStyle=o.color;ctx.globalAlpha=(ctx.globalAlpha||1)*0.55;
@@ -1360,18 +1374,22 @@ function renderObs(ctx,o,rx){
     ctx.fillStyle='#ffdd00';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
     ctx.fillText('★',rx+o.w/2,o.y+o.h/2+5);ctx.restore();
   } else if(o.t==='gravityorb'){
-    // Gravity orb: red circle with ↕ symbol
     ctx.save();ctx.strokeStyle='#ff4444';ctx.fillStyle='rgba(255,50,50,0.18)';ctx.lineWidth=2.5;
     ctx.beginPath();ctx.arc(rx+o.w/2,o.y+o.h/2,o.w/2,0,Math.PI*2);ctx.fill();ctx.stroke();
-    // Draw ↕ arrows (up and down triangles)
     ctx.fillStyle='#ffffff';
     const gcx=rx+o.w/2,gcy=o.y+o.h/2;
-    // Up arrow
     ctx.beginPath();ctx.moveTo(gcx,gcy-8);ctx.lineTo(gcx-5,gcy-2);ctx.lineTo(gcx+5,gcy-2);ctx.closePath();ctx.fill();
-   
     ctx.beginPath();ctx.moveTo(gcx,gcy+8);ctx.lineTo(gcx-5,gcy+2);ctx.lineTo(gcx+5,gcy+2);ctx.closePath();ctx.fill();
-    // Center dot
     ctx.beginPath();ctx.arc(gcx,gcy,1.5,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  } else if(o.t==='negorb'){
+    // Negative orb: blue-purple circle with downward arrow
+    ctx.save();ctx.strokeStyle='#8844ff';ctx.fillStyle='rgba(100,50,255,0.18)';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(rx+o.w/2,o.y+o.h/2,o.w/2,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#ffffff';
+    const ncx=rx+o.w/2,ncy=o.y+o.h/2;
+    // Down arrow (large)
+    ctx.beginPath();ctx.moveTo(ncx,ncy+9);ctx.lineTo(ncx-6,ncy);ctx.lineTo(ncx-2.5,ncy);ctx.lineTo(ncx-2.5,ncy-8);ctx.lineTo(ncx+2.5,ncy-8);ctx.lineTo(ncx+2.5,ncy);ctx.lineTo(ncx+6,ncy);ctx.closePath();ctx.fill();
     ctx.restore();
   } else if(o.t==='coin'){
     if(o._collected){ctx.save();ctx.globalAlpha=0.25;ctx.font='18px sans-serif';ctx.textAlign='center';ctx.fillText('🪙',rx+o.w/2,o.y+o.h/2+7);ctx.restore();}
@@ -1782,18 +1800,15 @@ const DIFF_OPTS=[
   {id:'deadly',  emoji:'☠️', label:'Deadly',   img:'difficulty/deadly.png'},
 ];
 let useOldDifficulties=false; // toggled in settings
-// Weighted average: tally each vote, pick highest count (ties go to harder)
+// Average vote index, round down on ties (easier option)
 function calcDifficulty(votes){
   if(!votes)return null;
-  const counts={cakewalk:0,easy:0,medium:0,hard:0,extreme:0,deadly:0};
-  Object.values(votes).forEach(v=>{if(counts[v]!==undefined)counts[v]++;});
-  const total=Object.values(counts).reduce((a,b)=>a+b,0);
-  if(!total)return null;
-  // Pick difficulty with most votes; ties broken by harder
-  const order=['deadly','extreme','hard','normal','easy'];
-  let best=null,bestCount=0;
-  order.forEach(id=>{if(counts[id]>=bestCount){bestCount=counts[id];best=id;}});
-  return best;
+  const order=['cakewalk','easy','medium','hard','extreme','deadly'];
+  const indices=Object.values(votes).map(v=>order.indexOf(v)).filter(i=>i>=0);
+  if(!indices.length)return null;
+  // Average all vote indices, floor (ties go to easier)
+  const avg=indices.reduce((a,b)=>a+b,0)/indices.length;
+  return order[Math.floor(avg)];
 }
 function getDiffDisplay(diff){
   if(!diff)return '';
@@ -2260,7 +2275,7 @@ const OBJ_DEFAULTS={
   textblock:{w:120,h:50},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
   shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},
-  gravityorb:{w:28,h:28},trigger:{w:8,h:360},coin:{w:24,h:24},
+  gravityorb:{w:28,h:28},negorb:{w:28,h:28},trigger:{w:8,h:360},coin:{w:24,h:24},
   teleportin:{w:40,h:60},teleportout:{w:40,h:60}
 };
 
@@ -2633,7 +2648,7 @@ function edRender(){
     if(rx>W+120||rx+o.w<-120)continue;
     ctx.save();
     if(o.alpha>0)ctx.globalAlpha=1-(o.alpha/100);
-    if(o.color&&o.t!=='spike'&&o.t!=='pad'&&o.t!=='orb'&&o.t!=='gravityorb'&&o.t!=='solidblock'&&o.t!=='startblock'&&o.t!=='endblock'){
+    if(o.color&&o.t!=='spike'&&o.t!=='pad'&&o.t!=='orb'&&o.t!=='gravityorb'&&o.t!=='negorb'&&o.t!=='solidblock'&&o.t!=='startblock'&&o.t!=='endblock'){
      
       renderObs(ctx,o,rx);
       ctx.globalCompositeOperation='source-atop';
@@ -2684,11 +2699,21 @@ function saveLevel(){
     // overwrite existing level (author editing their own)
     const isPrivEdit=document.getElementById('ed-private-chk')&&document.getElementById('ed-private-chk').checked;
     const sharedWithEdit=isPrivEdit?(document.getElementById('ed-share-in').value.trim().toLowerCase().split(',').map(s=>s.trim()).filter(Boolean)):[];
-    db.ref('claredash_levels/'+editKey).update({name,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,private:isPrivEdit||false,sharedWith:sharedWithEdit},()=>{
-      alert('Level updated: '+name);
-      window._editingLevelKey=null;
-      document.getElementById('lvl-name-in').value='';
-      edObs=[];edRender();loadLevelList();
+    // Preserve immutable fields: difficulty, votes, views, created, author
+    db.ref('claredash_levels/'+editKey).once('value',existSnap=>{
+      const existing=existSnap.val()||{};
+      const preserved={};
+      if(existing.difficulty!=null)preserved.difficulty=existing.difficulty;
+      if(existing.votes!=null)preserved.votes=existing.votes;
+      if(existing.views!=null)preserved.views=existing.views;
+      if(existing.created!=null)preserved.created=existing.created;
+      if(existing.author!=null)preserved.author=existing.author;
+      db.ref('claredash_levels/'+editKey).set({...preserved,name,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,private:isPrivEdit||false,sharedWith:sharedWithEdit},()=>{
+        alert('Level updated: '+name);
+        window._editingLevelKey=null;
+        document.getElementById('lvl-name-in').value='';
+        edObs=[];edRender();loadLevelList();
+      });
     });
   } else {
     // All users can create levels
