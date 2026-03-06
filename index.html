@@ -1131,7 +1131,13 @@ function dPhysics(){
               });
             }
             if(dCurrentLevel&&(dCurrentLevel.difficulty==='extreme'||dCurrentLevel.difficulty==='deadly')){
-              db.ref('claredash_skins/'+hubUser+'/beatExtreme').set(true);checkSkinUnlocks();
+              db.ref('claredash_skins/'+hubUser+'/extremeBeatsMap/'+dCurrentLevelKey).set(true,()=>{
+                db.ref('claredash_skins/'+hubUser+'/extremeBeatsMap').once('value',xs=>{
+                  db.ref('claredash_skins/'+hubUser+'/extremeBeats').set(xs.numChildren());
+                  if(dCurrentLevel.difficulty==='deadly')db.ref('claredash_skins/'+hubUser+'/beatDeadly').set(true);
+                  checkSkinUnlocks();
+                });
+              });
             }
             if(dCurrentLevel&&dCurrentLevel.difficulty){
               db.ref('claredash_skins/'+hubUser+'/ratedBeatsMap/'+dCurrentLevelKey).set(true,()=>{
@@ -1911,7 +1917,7 @@ const DASH_SKINS=[
   {id:'noir',     label:'Noir',           desc:'Beat NoirScapes.',                    unlock:'beatNoir'},
   {id:'blockboy', label:'BlockBoy',       desc:'First to rate 3 levels.',             unlock:'firstRater3'},
   {id:'official', label:'Officiality',    desc:'Beat every official level.',          unlock:'allOfficial'},
-  {id:'why',      label:'Why',            desc:'Beat an Extreme or Deadly.',          unlock:'extremeOrDeadly'},
+  {id:'why',      label:'Why.',           desc:'Beat 3 Extremes or Deadlys.',         unlock:'extreme3'},
 ];
 const SHIP_SKINS=[
   {id:'cursor',   label:'Cursor',         desc:'Default.',                            unlock:'default'},
@@ -1919,6 +1925,7 @@ const SHIP_SKINS=[
   {id:'cake',     label:'Cake',           desc:'Beat CakeWalk.',                      unlock:'beatCakeWalk'},
   {id:'flipper',  label:'Flipper',        desc:'Beat FlipSide.',                      unlock:'beatFlipSide'},
   {id:'admincursor',label:'Admin',        desc:'Admin only.',                         unlock:'admin'},
+  {id:'skull',      label:'Skull',         desc:'Beat 1 Deadly.',                      unlock:'beatDeadly'},
 ];
 const SPIDER_SKINS=[
   {id:'eyes8',    label:'8Eyes',          desc:'Default.',                            unlock:'default'},
@@ -1959,7 +1966,9 @@ function computeUnlockedSkins(d){
   if(d.beatNoir)dUnlockedSkins.push('noir');
   if(d.firstRater3)dUnlockedSkins.push('blockboy');
   if(d.allOfficial)dUnlockedSkins.push('official');
-  if(d.beatExtreme)dUnlockedSkins.push('why');
+  if((d.extremeBeats||0)>=3)dUnlockedSkins.push('why');
+  // Ship skull
+  if(d.beatDeadly)dUnlockedShipSkins.push('skull');
   // Ship/wave skins
   const prevShip=[...dUnlockedShipSkins];
   dUnlockedShipSkins=['cursor'];
@@ -2183,6 +2192,20 @@ function drawShipSkinInGame(ctx,x,y,pc){
       ctx.beginPath();if(ctx.roundRect)ctx.roundRect(fx-s*0.1,y+s*0.04,s*0.18,s*0.44,5);else ctx.rect(fx-s*0.1,y+s*0.04,s*0.18,s*0.44);ctx.fill();ctx.stroke();
     });
     ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x+s*0.08,y+s*0.52,s*0.84,s*0.36,5);else ctx.rect(x+s*0.08,y+s*0.52,s*0.84,s*0.36);ctx.fill();ctx.stroke();
+  } else if(skin==='skull'){
+    // Skull shape
+    ctx.fillStyle=pc||'#ffffff';ctx.strokeStyle='#888';ctx.lineWidth=1.5;
+    // Cranium
+    ctx.beginPath();ctx.arc(x+s/2,y+s*0.42,s*0.32,Math.PI,0);ctx.lineTo(x+s*0.72,y+s*0.62);ctx.lineTo(x+s*0.28,y+s*0.62);ctx.closePath();ctx.fill();ctx.stroke();
+    // Eye sockets
+    ctx.fillStyle='#1a1a2e';
+    ctx.beginPath();ctx.ellipse(x+s*0.37,y+s*0.42,s*0.1,s*0.09,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(x+s*0.63,y+s*0.42,s*0.1,s*0.09,0,0,Math.PI*2);ctx.fill();
+    // Nose
+    ctx.beginPath();ctx.moveTo(x+s*0.5,y+s*0.5);ctx.lineTo(x+s*0.44,y+s*0.58);ctx.lineTo(x+s*0.56,y+s*0.58);ctx.closePath();ctx.fill();
+    // Teeth
+    ctx.fillStyle=pc||'#ffffff';ctx.strokeStyle='#888';ctx.lineWidth=1;
+    for(let i=0;i<4;i++){ctx.fillRect(x+s*(0.3+i*0.1),y+s*0.62,s*0.07,s*0.1);ctx.strokeRect(x+s*(0.3+i*0.1),y+s*0.62,s*0.07,s*0.1);}
   }
   ctx.restore();
 }
