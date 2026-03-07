@@ -1401,6 +1401,26 @@ function dPhysics(){
         if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
         continue;
       }
+      // Stair block: no kill, steps boost player up
+      if(o.t==='stair'){
+        // Fast early-out: player must overlap the stair's bounding box
+        if(px+ps<=ox||px>=ox+o.w||py+ps<=o.y||py>=o.y+o.h){continue;}
+        const steps=Math.max(2,Math.round(o.w/o.h*1.5)||4);
+        const sw=o.w/steps;
+        const sh=o.h/steps;
+        // Which column is the player's centre in?
+        const pcx=px+ps/2;
+        const col=Math.floor((pcx-ox)/sw);
+        const ci=Math.max(0,Math.min(steps-1,col));
+        const stepTop=o.y+o.h-(ci+1)*sh;
+        // If player bottom is at/below step top snap them up with small boost
+        if(py+ps>=stepTop&&prevPY+ps<=stepTop+spd+6){
+          dPY=stepTop-ps;
+          dVY=-(DGRAV()*37.5*0.3);
+          dGrounded=false;dOrbUsed=false;
+        }
+        continue;
+      }
       // block & plat: swept collision
       const prevBot=prevPY+ps,curBot=py+ps;
       const prevTop=prevPY,curTop=py;
@@ -1468,24 +1488,6 @@ function dPhysics(){
         }
       }
      
-      // Stair block — no kill collision, step tops give small boost
-      if(o.t==='stair'){
-        const steps=Math.max(2,Math.round(o.w/o.h*1.5)||4);
-        const sw=o.w/steps;
-        const sh=o.h/steps;
-        // Check each step's top surface (steps go left=low to right=high)
-        for(let i=0;i<steps;i++){
-          const sx=ox+i*sw;
-          const sy=o.y+o.h-(i+1)*sh; // top of this step
-          const stepHorizOverlap=px+ps>sx+1&&px<sx+sw-1;
-          if(stepHorizOverlap&&curBot>=sy&&prevBot<=sy+spd+4){
-            dPY=sy-ps;
-            dVY=-(DGRAV()*37.5*0.3); // small step boost
-            dGrounded=false;dOrbUsed=false;break;
-          }
-        }
-        continue;
-      }
       if(px+ps>ox&&px+ps<ox+spd+10&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
     }
   }
@@ -2935,11 +2937,12 @@ function edMouseMove(e){
   if(_edCanvasScaleDrag&&edSelectedIdx>=0){
     const o=edObs[edSelectedIdx],d=_edCanvasScaleDrag;
     const dx=e.clientX-d.startX,dy=e.clientY-d.startY;
-    const minSz=8;
-    if(d.dir==='right'){o.w=Math.max(minSz,d.origW+Math.round(dx));}
-    else if(d.dir==='left'){const dw=Math.round(dx);o.w=Math.max(minSz,d.origW-dw);o.x=d.origX+(d.origW-o.w);}
-    else if(d.dir==='bottom'){o.h=Math.max(minSz,d.origH+Math.round(dy));}
-    else if(d.dir==='top'){const dh=Math.round(dy);o.h=Math.max(minSz,d.origH-dh);o.y=d.origY+(d.origH-o.h);}
+    const snap=v=>edGridOn?Math.round(v/edGridSize)*edGridSize:Math.round(v);
+    const minSz=edGridOn?edGridSize:8;
+    if(d.dir==='right'){o.w=Math.max(minSz,snap(d.origW+dx));}
+    else if(d.dir==='left'){const nw=Math.max(minSz,snap(d.origW-dx));o.x=snap(d.origX+(d.origW-nw));o.w=nw;}
+    else if(d.dir==='bottom'){o.h=Math.max(minSz,snap(d.origH+dy));}
+    else if(d.dir==='top'){const nh=Math.max(minSz,snap(d.origH-dy));o.y=snap(d.origY+(d.origH-nh));o.h=nh;}
     edScaleDrawCanvas();edRender();return;
   }
   const rect=edCanvas.getBoundingClientRect();
