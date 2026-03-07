@@ -1542,7 +1542,7 @@ function dRender(){
   ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,H-4,W,4);
   ctx.fillStyle='rgb('+(dR||232)+','+(dG||255)+','+(dB||0)+')';ctx.fillRect(0,H-4,W*dPct,4);
 }
-function renderObs(ctx,o,rx){
+function renderObs(ctx,o,rx,_obsArr){
   const rot=(o.rot||0)*Math.PI/180;
   ctx.save();
   if(rot){ctx.translate(rx+o.w/2,o.y+o.h/2);ctx.rotate(rot);ctx.translate(-(rx+o.w/2),-(o.y+o.h/2));}
@@ -1785,7 +1785,7 @@ function renderObs(ctx,o,rx){
       const off=thick/2;
       if(ol.connect){
         // Only draw edges that don't touch another object (any type with outline or solid)
-        const obs=typeof dObs!=='undefined'?dObs:(typeof edObs!=='undefined'?edObs:[]);
+        const obs=_obsArr||dObs||[];
         const tol=2; // pixel tolerance for adjacency
         const hasNeighbor=(side)=>{
           for(const nb of obs){
@@ -1858,6 +1858,7 @@ function lerpColor(from,to,t){
 
 function tickModifiers(dt60){
   // dt60 = fraction of 60fps frame (1 normally)
+  const dtSec=dt60/60;
   const gh=GROUND_Y;
   dObs.forEach(o=>{
     if(!o.mods||!o.mods.length)return;
@@ -1879,7 +1880,7 @@ function tickModifiers(dt60){
       // Animate active anim
       if(m._anim){
         const a=m._anim;
-        a.elapsed+=dt60/60;
+        a.elapsed+=dtSec;
         const dur=a.duration||0;
         const t=dur>0?Math.min(1,a.elapsed/dur):1;
         const et=a.smooth?(t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2)):t;
@@ -1902,15 +1903,17 @@ function tickModifiers(dt60){
 function fireModifier(o,m){
   const fast=m.fast?3:1;
   if(m.type==='move'){
-    const tx=(m.moveX!=null?(o._ox||o.x)+(m.moveX||0):o.x);
-    const ty=(m.moveY!=null?(o._oy||o.y)+(m.moveY||0):o.y);
+    if(o._ox==null)o._ox=o.x;
+    if(o._oy==null)o._oy=o.y;
+    const tx=(m.moveX!=null?o._ox+(m.moveX||0):o.x);
+    const ty=(m.moveY!=null?o._oy+(m.moveY||0):o.y);
     const dur=(parseFloat(m.moveTime)||0)/fast;
     if(dur===0||!m.smooth&&dur>0){
       // instant or non-smooth: wait dur then snap
       if(dur>0&&!m.smooth){setTimeout(()=>{o.x=tx;o.y=ty;},dur*1000);}
       else{o.x=tx;o.y=ty;}
     } else {
-      m._anim={sx:o.x,sy:o.y,tx,ty,duration:dur,elapsed:0,smooth:m.smooth!==false};
+      m._anim={sx:o.x,sy:o.y,tx,ty,duration:dur,elapsed:0,smooth:!!m.smooth};
     }
   } else if(m.type==='rotate'){
     const deg=m.rotateBack?-(m.rotateDeg||0):(m.rotateDeg||0);
@@ -3053,6 +3056,14 @@ function edScaleDrawCanvas(){
   const ctx=cv.getContext('2d');
   const W=cv.width,H=cv.height;
   ctx.clearRect(0,0,W,H);
+  // Draw grid if enabled
+  if(edGridOn){
+    ctx.strokeStyle='rgba(80,80,160,0.25)';ctx.lineWidth=0.5;
+    ctx.beginPath();
+    for(let x=0;x<W;x+=edGridSize){ctx.moveTo(x,0);ctx.lineTo(x,H);}
+    for(let y=0;y<H;y+=edGridSize){ctx.moveTo(0,y);ctx.lineTo(W,y);}
+    ctx.stroke();
+  }
   if(edSelectedIdx<0){
     ctx.fillStyle='#333';ctx.font='9px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('select obj',W/2,H/2);return;
@@ -3118,19 +3129,20 @@ function edScaleMove(e){
   const dy=e.clientY-_edScaleDrag.startY;
   // Scale factor: 70px canvas represents the object, so 1px drag = ~2px real
   const spd=2;
-  const minSz=8;
+  const minSz=edGridOn?edGridSize:8;
+  const snapV=v=>edGridOn?Math.max(minSz,Math.round(v/edGridSize)*edGridSize):Math.max(minSz,Math.round(v));
   if(_edScaleDrag.dir==='right'){
-    o.w=Math.max(minSz,_edScaleDrag.origW+Math.round(dx*spd));
+    o.w=snapV(_edScaleDrag.origW+dx*spd);
   } else if(_edScaleDrag.dir==='left'){
-    const dw=Math.round(dx*spd);
-    o.w=Math.max(minSz,_edScaleDrag.origW-dw);
-    o.x=_edScaleDrag.origX+(_edScaleDrag.origW-o.w);
+    const newW=snapV(_edScaleDrag.origW-dx*spd);
+    o.x=_edScaleDrag.origX+(_edScaleDrag.origW-newW);
+    o.w=newW;
   } else if(_edScaleDrag.dir==='bottom'){
-    o.h=Math.max(minSz,_edScaleDrag.origH+Math.round(dy*spd));
+    o.h=snapV(_edScaleDrag.origH+dy*spd);
   } else if(_edScaleDrag.dir==='top'){
-    const dh=Math.round(dy*spd);
-    o.h=Math.max(minSz,_edScaleDrag.origH-dh);
-    o.y=_edScaleDrag.origY+(_edScaleDrag.origH-o.h);
+    const newH=snapV(_edScaleDrag.origH-dy*spd);
+    o.y=_edScaleDrag.origY+(_edScaleDrag.origH-newH);
+    o.h=newH;
   }
   edScaleDrawCanvas();
   edRender();
@@ -3206,13 +3218,13 @@ function edRender(){
     if(o.alpha>0)ctx.globalAlpha=1-(o.alpha/100);
     if(o.color&&o.t!=='spike'&&o.t!=='pad'&&o.t!=='orb'&&o.t!=='gravityorb'&&o.t!=='negorb'&&o.t!=='solidblock'&&o.t!=='startblock'&&o.t!=='endblock'){
      
-      renderObs(ctx,o,rx);
+      renderObs(ctx,o,rx,edObs);
       ctx.globalCompositeOperation='source-atop';
       ctx.fillStyle=o.color;ctx.globalAlpha=(ctx.globalAlpha)*0.55;
       ctx.fillRect(rx,o.y,o.w,o.h);
       ctx.globalCompositeOperation='source-over';
     } else {
-      renderObs(ctx,o,rx);
+      renderObs(ctx,o,rx,edObs);
     }
     ctx.restore();
     // selection highlight + scale handles
