@@ -333,6 +333,7 @@
                 <option value="spiderportal">Spider Portal</option>
                 <option value="ballportal">Ball Portal</option>
                 <option value="gravflipblock">Gravity Flip Block</option>
+                <option value="stair">Stair Block</option>
                 <option value="glowblock">Glow (Gradient)</option>
                 <option value="coin" id="coin-option" style="display:none;">🪙 Coin</option>
             </select>
@@ -1467,6 +1468,29 @@ function dPhysics(){
         }
       }
      
+      // Stair block — no kill on any side, step landing gives tiny boost
+      if(o.t==='stair'){
+        const steps=Math.max(2,Math.round(o.w/o.h*1.5)||3);
+        const sw=o.w/steps;
+        const sh=o.h/steps;
+        // Check each step surface
+        let landed=false;
+        for(let i=0;i<steps;i++){
+          const sx=ox+i*sw;
+          const sy=o.y+o.h-(i+1)*sh;
+          // Top surface of this step
+          if(px+ps>sx+2&&px<sx+sw-2&&dVY>=0&&curBot>=sy&&prevBot<=sy+8){
+            dPY=sy-ps;
+            dVY=-(DGRAV()*37.5*0.25); // small boost
+            dGrounded=false;dOrbUsed=false;landed=true;break;
+          }
+        }
+        // Also land on the flat top of the whole stair block (leftmost top)
+        if(!landed&&horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+8){
+          dPY=o.y-ps;dVY=0;dGrounded=true;dOrbUsed=false;
+        }
+        continue;
+      }
       if(px+ps>ox&&px+ps<ox+spd+10&&py+ps>o.y+4&&py<o.y+o.h-4){dDie();return;}
     }
   }
@@ -1579,6 +1603,30 @@ function renderObs(ctx,o,rx,_obsArr){
   } else if(o.t==='coin'){
     if(o._collected){ctx.save();ctx.globalAlpha=0.25;ctx.font='18px sans-serif';ctx.textAlign='center';ctx.fillText('🪙',rx+o.w/2,o.y+o.h/2+7);ctx.restore();}
     else{ctx.save();ctx.font='18px sans-serif';ctx.textAlign='center';ctx.fillText('🪙',rx+o.w/2,o.y+o.h/2+7);ctx.restore();}
+  } else if(o.t==='stair'){
+    // Draw stair steps left-to-right, ascending
+    const steps=Math.max(2,Math.round(o.w/o.h*1.5)||3);
+    const sw=o.w/steps;
+    const sh=o.h/steps;
+    ctx.fillStyle='#3a5a3a';ctx.strokeStyle='#77cc77';ctx.lineWidth=1.5;
+    for(let i=0;i<steps;i++){
+      const sx=rx+i*sw;
+      const sy=o.y+o.h-(i+1)*sh;
+      ctx.fillRect(sx,sy,sw,sh*(i+1));
+    }
+    // Outline the stair profile
+    ctx.beginPath();
+    ctx.moveTo(rx,o.y+o.h);
+    for(let i=0;i<steps;i++){
+      const sx=rx+i*sw;
+      const sy=o.y+o.h-(i+1)*sh;
+      ctx.lineTo(sx,sy+sh);
+      ctx.lineTo(sx,sy);
+      ctx.lineTo(sx+sw,sy);
+    }
+    ctx.lineTo(rx+o.w,o.y+o.h);
+    ctx.closePath();
+    ctx.stroke();
   } else if(o.t==='solidblock'){
     const scol=o.color||'#ffffff';
     ctx.fillStyle=scol;ctx.fillRect(rx,o.y,o.w,o.h);
@@ -2817,7 +2865,7 @@ const OBJ_DEFAULTS={
   block:{w:40,h:40},solidblock:{w:40,h:40},plat:{w:80,h:14},
   textblock:{w:120,h:50},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
-  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},gravflipblock:{w:40,h:40},glowblock:{w:80,h:80},
+  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},gravflipblock:{w:40,h:40},glowblock:{w:80,h:80},stair:{w:120,h:80},
   gravityorb:{w:28,h:28},negorb:{w:28,h:28},trigger:{w:8,h:360},coin:{w:24,h:24},
   teleportin:{w:40,h:60},teleportout:{w:40,h:60}
 };
