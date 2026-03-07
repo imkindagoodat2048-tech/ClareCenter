@@ -1401,21 +1401,22 @@ function dPhysics(){
         if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
         continue;
       }
-      // Stair block: only check top surface of each step, falling onto it gives small boost
+      // Stair block: land on step top from above OR walk into step from the side
       if(o.t==='stair'){
         const steps=Math.max(2,Math.round(o.w/o.h*1.5)||4);
         const sw=o.w/steps;
         const sh=o.h/steps;
-        for(let i=0;i<steps;i++){
-          const stepTop=o.y+o.h-(i+1)*sh;
-          const stepLeft=ox+i*sw;
-          const stepRight=ox+(i+1)*sw;
-          // Only land on top surface: player bottom crosses it from above this frame
-          if(px+ps>stepLeft&&px<stepRight&&prevPY+ps<=stepTop+2&&py+ps>=stepTop){
+        // Which step column is the player's right edge entering?
+        const col=Math.max(0,Math.min(steps-1,Math.floor((px+ps-ox)/sw)));
+        const stepTop=o.y+o.h-(col+1)*sh;
+        const stepLeft=ox+col*sw;
+        // Player overlaps this step horizontally
+        if(px+ps>stepLeft&&px<stepLeft+sw){
+          // Player bottom is at or crosses step top (from above OR walking in)
+          if(py+ps>=stepTop&&py<stepTop+sh*2){
             dPY=stepTop-ps;
             dVY=-(DGRAV()*37.5*0.3);
             dGrounded=false;dOrbUsed=false;
-            break;
           }
         }
         continue;
@@ -2936,12 +2937,27 @@ function edMouseMove(e){
   if(_edCanvasScaleDrag&&edSelectedIdx>=0){
     const o=edObs[edSelectedIdx],d=_edCanvasScaleDrag;
     const dx=e.clientX-d.startX,dy=e.clientY-d.startY;
-    const snap=v=>edGridOn?Math.round(v/edGridSize)*edGridSize:Math.round(v);
+    // Snap the moving edge to grid, then derive size from fixed opposite edge
+    const sg=edGridOn?edGridSize:1;
+    const snapG=v=>Math.round(v/sg)*sg;
     const minSz=edGridOn?edGridSize:8;
-    if(d.dir==='right'){o.w=Math.max(minSz,snap(d.origW+dx));}
-    else if(d.dir==='left'){const nw=Math.max(minSz,snap(d.origW-dx));o.x=snap(d.origX+(d.origW-nw));o.w=nw;}
-    else if(d.dir==='bottom'){o.h=Math.max(minSz,snap(d.origH+dy));}
-    else if(d.dir==='top'){const nh=Math.max(minSz,snap(d.origH-dy));o.y=snap(d.origY+(d.origH-nh));o.h=nh;}
+    if(d.dir==='right'){
+      const newRight=snapG(d.origX+d.origW+dx);
+      o.w=Math.max(minSz,newRight-d.origX);
+    } else if(d.dir==='left'){
+      const newLeft=snapG(d.origX+dx);
+      const newRight=d.origX+d.origW;
+      o.x=Math.min(newLeft,newRight-minSz);
+      o.w=Math.max(minSz,newRight-o.x);
+    } else if(d.dir==='bottom'){
+      const newBot=snapG(d.origY+d.origH+dy);
+      o.h=Math.max(minSz,newBot-d.origY);
+    } else if(d.dir==='top'){
+      const newTop=snapG(d.origY+dy);
+      const newBot=d.origY+d.origH;
+      o.y=Math.min(newTop,newBot-minSz);
+      o.h=Math.max(minSz,newBot-o.y);
+    }
     edScaleDrawCanvas();edRender();return;
   }
   const rect=edCanvas.getBoundingClientRect();
