@@ -1401,23 +1401,24 @@ function dPhysics(){
         if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
         continue;
       }
-      // Stair block: no kill, steps boost player up
+      // Stair block: each step is a solid box, landing on top gives small boost
       if(o.t==='stair'){
-        // Fast early-out: player must overlap the stair's bounding box
-        if(px+ps<=ox||px>=ox+o.w||py+ps<=o.y||py>=o.y+o.h){continue;}
         const steps=Math.max(2,Math.round(o.w/o.h*1.5)||4);
         const sw=o.w/steps;
         const sh=o.h/steps;
-        // Which column is the player's centre in?
-        const pcx=px+ps/2;
-        const col=Math.floor((pcx-ox)/sw);
-        const ci=Math.max(0,Math.min(steps-1,col));
-        const stepTop=o.y+o.h-(ci+1)*sh;
-        // If player bottom is at/below step top snap them up with small boost
-        if(py+ps>=stepTop&&prevPY+ps<=stepTop+spd+6){
-          dPY=stepTop-ps;
-          dVY=-(DGRAV()*37.5*0.3);
+        for(let i=0;i<steps;i++){
+          // Each step i is a solid column: x from ox+i*sw, top at o.y+o.h-(i+1)*sh, bottom at o.y+o.h
+          const bx=ox+i*sw;
+          const by=o.y+o.h-(i+1)*sh;
+          const bw=sw;
+          const bh=(i+1)*sh; // full column height down to ground of block
+          // AABB overlap check
+          if(px+ps<=bx||px>=bx+bw||py+ps<=by||py>=by+bh) continue;
+          // Player overlaps this step column — push them to the top
+          dPY=by-ps;
+          dVY=-(DGRAV()*37.5*0.3); // small boost per step
           dGrounded=false;dOrbUsed=false;
+          break;
         }
         continue;
       }
