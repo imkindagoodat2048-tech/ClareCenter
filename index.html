@@ -333,6 +333,7 @@
                 <option value="spiderportal">Spider Portal</option>
                 <option value="ballportal">Ball Portal</option>
                 <option value="gravflipblock">Gravity Flip Block</option>
+                <option value="glowblock">Glow (Gradient)</option>
                 <option value="coin" id="coin-option" style="display:none;">🪙 Coin</option>
             </select>
             <button class="icon-btn" onclick="editorUndo()" style="background:#444;">Undo</button>
@@ -351,12 +352,89 @@
             <!-- MODIFIER button (shows when object selected) -->
             <div style="position:relative;display:inline-block;" id="mod-btn-wrap" style="display:none;">
                 <button class="icon-btn" onclick="toggleModPanel()" id="mod-btn" style="display:none;">Modifiers ▾</button>
-                <div id="mod-panel" style="display:none;position:absolute;top:30px;left:0;background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:0;z-index:200;width:300px;box-shadow:0 4px 24px rgba(0,0,0,0.8);overflow:hidden;">
-                    <div style="padding:8px 12px;border-bottom:1px solid #2a2a3a;display:flex;align-items:center;justify-content:space-between;">
-                        <span style="font-family:'Space Mono',monospace;font-size:9px;color:#888;letter-spacing:1px;">MODIFIERS</span>
-                        <button onclick="modAddNew()" style="background:var(--primary);border:none;color:white;padding:2px 10px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:700;">+ Add</button>
+                <div id="mod-panel" style="display:none;position:absolute;top:30px;left:0;background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:0;z-index:200;width:310px;box-shadow:0 4px 24px rgba(0,0,0,0.8);overflow:hidden;">
+                    <!-- Tab bar -->
+                    <div style="display:flex;border-bottom:1px solid #2a2a3a;">
+                      <button id="mod-tab-move" onclick="modSwitchTab('movement')" style="flex:1;padding:7px 0;background:var(--primary);border:none;color:white;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:1px;">MOVEMENT</button>
+                      <button id="mod-tab-vis" onclick="modSwitchTab('visual')" style="flex:1;padding:7px 0;background:#111;border:none;color:#888;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:1px;">VISUAL</button>
                     </div>
-                    <div id="mod-list" style="max-height:320px;overflow-y:auto;padding:6px 0;"></div>
+                    <!-- Movement tab -->
+                    <div id="mod-tab-movement" style="display:block;">
+                      <div style="padding:6px 12px;border-bottom:1px solid #2a2a3a;display:flex;align-items:center;justify-content:space-between;">
+                        <span style="font-family:'Space Mono',monospace;font-size:9px;color:#888;letter-spacing:1px;">MOVEMENT MODIFIERS</span>
+                        <button onclick="modAddNew()" style="background:var(--primary);border:none;color:white;padding:2px 10px;border-radius:3px;cursor:pointer;font-size:10px;font-weight:700;">+ Add</button>
+                      </div>
+                      <div id="mod-list" style="max-height:300px;overflow-y:auto;padding:6px 0;"></div>
+                    </div>
+                    <!-- Visual tab -->
+                    <div id="mod-tab-visual" style="display:none;max-height:370px;overflow-y:auto;">
+                      <div id="vis-outline-section" style="padding:8px 12px;border-bottom:1px solid #2a2a3a;">
+                        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:8px;">OUTLINE</div>
+                        <div style="display:flex;gap:8px;margin-bottom:6px;">
+                          <button onclick="visCreateOutline()" style="background:var(--primary);border:none;color:white;padding:3px 10px;border-radius:3px;cursor:pointer;font-size:10px;">Create Outline</button>
+                          <button id="vis-outline-del" onclick="visDeleteOutline()" style="display:none;background:#eb4d4b;border:none;color:white;padding:3px 10px;border-radius:3px;cursor:pointer;font-size:10px;">Remove</button>
+                        </div>
+                        <div id="vis-outline-props" style="display:none;">
+                          <div style="margin-bottom:4px;font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                            <label><input type="checkbox" id="vis-ol-connect" onchange="visProp('olConnect',this.checked)"> Connect Outlines</label>
+                          </div>
+                          <div style="margin-bottom:4px;font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                            <label><input type="checkbox" id="vis-ol-transpAffects" onchange="visProp('olTranspAffects',this.checked)"> Part Transparency Affects Outlines</label>
+                          </div>
+                          <div id="vis-ol-color-row" style="margin-bottom:4px;font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                            <span style="width:90px;">Outline Color</span>
+                            <input type="color" id="vis-ol-color" value="#ffffff" onchange="visProp('olColor',this.value)" style="width:32px;height:22px;border:none;background:none;cursor:pointer;">
+                          </div>
+                          <div style="margin-bottom:4px;font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                            <span style="width:90px;">Transparency</span>
+                            <input type="range" id="vis-ol-transp" min="0" max="100" value="0" oninput="visProp('olTransp',parseInt(this.value));document.getElementById('vis-ol-transp-val').textContent=this.value" style="width:80px;">
+                            <span id="vis-ol-transp-val" style="color:var(--accent);font-size:10px;width:20px;">0</span>
+                          </div>
+                          <div style="margin-bottom:4px;font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                            <span style="width:90px;">Thickness (px)</span>
+                            <input type="range" id="vis-ol-thick" min="1" max="25" value="2" oninput="visProp('olThickness',parseInt(this.value));document.getElementById('vis-ol-thick-val').textContent=this.value" style="width:80px;">
+                            <span id="vis-ol-thick-val" style="color:var(--accent);font-size:10px;width:20px;">2</span>
+                          </div>
+                          <div style="margin-bottom:4px;font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                            <label><input type="checkbox" id="vis-ol-gradient" onchange="visToggleOutlineGradient(this.checked)"> Outline Gradient</label>
+                          </div>
+                          <div id="vis-ol-gradient-props" style="display:none;padding-left:12px;">
+                            <div style="margin-bottom:4px;font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                              <span style="width:80px;">Color 1</span>
+                              <input type="color" id="vis-ol-gc1" value="#ffffff" onchange="visProp('olGc1',this.value)" style="width:32px;height:22px;border:none;background:none;cursor:pointer;">
+                            </div>
+                            <div style="font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                              <span style="width:80px;">Color 2</span>
+                              <input type="color" id="vis-ol-gc2" value="#000000" onchange="visProp('olGc2',this.value)" style="width:32px;height:22px;border:none;background:none;cursor:pointer;">
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="vis-outerglow-section" style="padding:8px 12px;border-bottom:1px solid #2a2a3a;">
+                        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:8px;">OUTER GLOW</div>
+                        <div style="display:flex;gap:8px;margin-bottom:6px;">
+                          <button onclick="visCreateGlow()" style="background:var(--primary);border:none;color:white;padding:3px 10px;border-radius:3px;cursor:pointer;font-size:10px;">Create Glow</button>
+                          <button id="vis-glow-del" onclick="visDeleteGlow()" style="display:none;background:#eb4d4b;border:none;color:white;padding:3px 10px;border-radius:3px;cursor:pointer;font-size:10px;">Remove</button>
+                        </div>
+                        <div id="vis-glow-props" style="display:none;">
+                          <div style="margin-bottom:4px;font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                            <span style="width:90px;">Thickness (px)</span>
+                            <input type="range" id="vis-glow-thick" min="1" max="25" value="8" oninput="visProp('ogThickness',parseInt(this.value));document.getElementById('vis-glow-thick-val').textContent=this.value" style="width:80px;">
+                            <span id="vis-glow-thick-val" style="color:var(--accent);font-size:10px;width:20px;">8</span>
+                          </div>
+                          <div style="margin-bottom:4px;font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                            <span style="width:90px;">Transparency</span>
+                            <input type="range" id="vis-glow-transp" min="0" max="100" value="0" oninput="visProp('ogTransp',parseInt(this.value));document.getElementById('vis-glow-transp-val').textContent=this.value" style="width:80px;">
+                            <span id="vis-glow-transp-val" style="color:var(--accent);font-size:10px;width:20px;">0</span>
+                          </div>
+                          <div style="font-size:10px;color:#aaa;display:flex;align-items:center;gap:6px;">
+                            <span style="width:90px;">Glow Color</span>
+                            <input type="color" id="vis-glow-color" value="#ffffff" onchange="visProp('ogColor',this.value)" style="width:32px;height:22px;border:none;background:none;cursor:pointer;">
+                          </div>
+                        </div>
+                      </div>
+                      <div style="padding:8px 12px;font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;">MORE COMING SOON..</div>
+                    </div>
                 </div>
             </div>
             <!-- ADDITIONAL dropdown -->
@@ -456,6 +534,32 @@
                                 <span id="ed-text-size-val" style="font-size:10px;color:var(--accent);width:24px;">24</span>
                             </div>
                         </div>
+        <div id="ed-glow-row" style="display:none;margin-top:6px;border-top:1px solid #2a2a3a;padding-top:6px;">
+          <div style="font-size:10px;color:#888;margin-bottom:4px;font-family:Space Mono,monospace;">GRADIENT</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:10px;color:#aaa;">
+            <span style="width:70px;">Start Color</span>
+            <input type="color" id="ed-glow-c1" value="#ff0000" oninput="edGlowProp('glowColor1',this.value)" style="width:32px;height:22px;border:none;background:none;cursor:pointer;">
+            <span>Alpha</span>
+            <input type="range" id="ed-glow-a1" min="0" max="100" value="100" oninput="edGlowProp('glowAlpha1',parseInt(this.value));document.getElementById('ed-glow-a1-val').textContent=this.value" style="width:60px;">
+            <span id="ed-glow-a1-val" style="color:var(--accent);font-size:10px;width:22px;">100</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:10px;color:#aaa;">
+            <span style="width:70px;">End Color</span>
+            <input type="color" id="ed-glow-c2" value="#0000ff" oninput="edGlowProp('glowColor2',this.value)" style="width:32px;height:22px;border:none;background:none;cursor:pointer;">
+            <span>Alpha</span>
+            <input type="range" id="ed-glow-a2" min="0" max="100" value="0" oninput="edGlowProp('glowAlpha2',parseInt(this.value));document.getElementById('ed-glow-a2-val').textContent=this.value" style="width:60px;">
+            <span id="ed-glow-a2-val" style="color:var(--accent);font-size:10px;width:22px;">0</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#aaa;">
+            <span style="width:70px;">Direction</span>
+            <select id="ed-glow-dir" onchange="edGlowProp('glowDir',this.value)" style="background:#0f0f1a;border:1px solid #333;color:white;font-size:10px;padding:2px 4px;border-radius:3px;">
+              <option value="horizontal">Horizontal →</option>
+              <option value="vertical">Vertical ↓</option>
+              <option value="diagonal">Diagonal ↘</option>
+              <option value="radial">Radial ◎</option>
+            </select>
+          </div>
+        </div>
                     </div>
                 </div>
             </div>
@@ -1030,7 +1134,7 @@ function spiderTeleport(){
     // Now on ceiling: find lowest ceiling above player
     let bestY=0; // top of screen
     for(const o of dObs){
-      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='negorb'||o.t==='coin'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='negorb'||o.t==='coin'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger'||o.t==='glowblock')continue;
       const ox=o.x-dScrollX;
       if(ox+o.w<dPX||ox>dPX+DSIZE)continue;
       if(o.y+o.h<=dPY){bestY=Math.max(bestY,o.y+o.h);}
@@ -1040,7 +1144,7 @@ function spiderTeleport(){
    
     let bestY=gh-DSIZE;
     for(const o of dObs){
-      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='negorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger')continue;
+      if(o.t==='spike'||o.t==='pad'||o.t==='orb'||o.t==='gravityorb'||o.t==='negorb'||o.t==='startblock'||o.t==='endblock'||o.t==='shipportal'||o.t==='waveportal'||o.t==='blockportal'||o.t==='spiderportal'||o.t==='teleportin'||o.t==='teleportout'||o.t==='trigger'||o.t==='glowblock')continue;
       const ox=o.x-dScrollX;
       if(ox+o.w<dPX||ox>dPX+DSIZE)continue;
       if(o.y>=dPY+DSIZE){bestY=Math.min(bestY,o.y-DSIZE);}
@@ -1608,6 +1712,28 @@ function renderObs(ctx,o,rx){
     o.w=Math.ceil(tw)+10;o.h=Math.ceil(fs*1.2)+6;
     ctx.fillStyle=tcol;
     ctx.fillText(txt,rx+5,o.y+3);
+  } else if(o.t==='glowblock'){
+    // Gradient glow block — no collision, purely visual
+    const gc1=o.glowColor1||'#ff0000';
+    const gc2=o.glowColor2||'#0000ff';
+    const gc1a=(o.glowAlpha1!=null?o.glowAlpha1:100)/100;
+    const gc2a=(o.glowAlpha2!=null?o.glowAlpha2:0)/100;
+    const gdir=o.glowDir||'horizontal';
+    const gg=gdir==='horizontal'?ctx.createLinearGradient(rx,o.y,rx+o.w,o.y):
+              gdir==='vertical'?ctx.createLinearGradient(rx,o.y,rx,o.y+o.h):
+              gdir==='diagonal'?ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h):
+              ctx.createRadialGradient(rx+o.w/2,o.y+o.h/2,0,rx+o.w/2,o.y+o.h/2,Math.max(o.w,o.h)/2);
+    const toRgba=(hex,a)=>{
+      const r2=parseInt(hex.slice(1,3),16),g2=parseInt(hex.slice(3,5),16),b2=parseInt(hex.slice(5,7),16);
+      return 'rgba('+r2+','+g2+','+b2+','+a+')';
+    };
+    gg.addColorStop(0,toRgba(gc1,gc1a));
+    gg.addColorStop(1,toRgba(gc2,gc2a));
+    ctx.fillStyle=gg;ctx.fillRect(rx,o.y,o.w,o.h);
+    if(ctx._editorMode){
+      ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+      ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);ctx.setLineDash([]);
+    }
   } else if(o.t==='trigger'){
     // Trigger: tall thin vertical gate, orange
     ctx.fillStyle='rgba(255,160,0,0.18)';ctx.fillRect(rx,o.y,o.w,o.h);
@@ -1622,6 +1748,43 @@ function renderObs(ctx,o,rx){
     const jh=o.trigJump!=null?o.trigJump:'?';
     ctx.fillStyle='rgba(255,160,0,0.9)';ctx.font='7px monospace';
     ctx.fillText('S:'+sp,tx,ty+14);ctx.fillText('J:'+jh,tx,ty+22);
+  }
+  // ── Outer Glow ──
+  if(o.outerGlow){
+    const og=o.outerGlow;
+    const ogAlpha=(1-(og.transp||0)/100);
+    if(ogAlpha>0){
+      const thick=og.thickness||8;
+      const col=og.color||'#ffffff';
+      const hr=parseInt(col.slice(1,3),16),hg=parseInt(col.slice(3,5),16),hb=parseInt(col.slice(5,7),16);
+      for(let i=thick;i>0;i--){
+        const t=i/thick;
+        ctx.strokeStyle='rgba('+hr+','+hg+','+hb+','+(ogAlpha*t*0.35)+')';
+        ctx.lineWidth=i*2;
+        ctx.strokeRect(rx-i,o.y-i,o.w+i*2,o.h+i*2);
+      }
+    }
+  }
+  // ── Outline ──
+  if(o.outline){
+    const ol=o.outline;
+    const useAlpha=ol.transpAffects?(1-(o.alpha||0)/100):1;
+    const olAlpha=(1-(ol.transp||0)/100)*useAlpha;
+    if(olAlpha>0){
+      const thick=ol.thickness||2;
+      ctx.lineWidth=thick;
+      if(ol.gradient){
+        const og2=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
+        og2.addColorStop(0,ol.gc1||'#ffffff');og2.addColorStop(1,ol.gc2||'#000000');
+        ctx.strokeStyle=og2;
+      } else {
+        const hc=ol.color||'#ffffff';
+        const rr=parseInt(hc.slice(1,3),16),rg=parseInt(hc.slice(3,5),16),rb=parseInt(hc.slice(5,7),16);
+        ctx.strokeStyle='rgba('+rr+','+rg+','+rb+','+olAlpha+')';
+      }
+      const off=thick/2;
+      ctx.strokeRect(rx-off,o.y-off,o.w+thick,o.h+thick);
+    }
   }
   ctx.restore();
 }
@@ -1769,9 +1932,104 @@ function toggleModPanel(){
   // close additional
   document.getElementById('additional-panel').style.display='none';
   p.style.display=open?'block':'none';
-  if(open)renderModList();
+  if(open){if(_modActiveTab==='movement')renderModList();else renderVisualPanel();}
 }
 
+// ── VISUAL MODIFIER SYSTEM ──
+let _modActiveTab='movement';
+function modSwitchTab(tab){
+  _modActiveTab=tab;
+  document.getElementById('mod-tab-movement').style.display=tab==='movement'?'block':'none';
+  document.getElementById('mod-tab-visual').style.display=tab==='visual'?'block':'none';
+  document.getElementById('mod-tab-move').style.background=tab==='movement'?'var(--primary)':'#111';
+  document.getElementById('mod-tab-move').style.color=tab==='movement'?'white':'#888';
+  document.getElementById('mod-tab-vis').style.background=tab==='visual'?'var(--primary)':'#111';
+  document.getElementById('mod-tab-vis').style.color=tab==='visual'?'white':'#888';
+  if(tab==='visual')renderVisualPanel();
+}
+function renderVisualPanel(){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  // Outline
+  const hasOl=!!(o.outline);
+  document.getElementById('vis-outline-del').style.display=hasOl?'':'none';
+  document.getElementById('vis-outline-props').style.display=hasOl?'block':'none';
+  if(hasOl){
+    const ol=o.outline;
+    document.getElementById('vis-ol-connect').checked=!!ol.connect;
+    document.getElementById('vis-ol-transpAffects').checked=!!ol.transpAffects;
+    document.getElementById('vis-ol-color').value=ol.color||'#ffffff';
+    document.getElementById('vis-ol-transp').value=ol.transp||0;
+    document.getElementById('vis-ol-transp-val').textContent=ol.transp||0;
+    document.getElementById('vis-ol-thick').value=ol.thickness||2;
+    document.getElementById('vis-ol-thick-val').textContent=ol.thickness||2;
+    document.getElementById('vis-ol-gradient').checked=!!ol.gradient;
+    document.getElementById('vis-ol-gradient-props').style.display=ol.gradient?'block':'none';
+    document.getElementById('vis-ol-color-row').style.display=ol.gradient?'none':'flex';
+    if(ol.gradient){
+      document.getElementById('vis-ol-gc1').value=ol.gc1||'#ffffff';
+      document.getElementById('vis-ol-gc2').value=ol.gc2||'#000000';
+    }
+  }
+  // Outer glow
+  const hasOg=!!(o.outerGlow);
+  document.getElementById('vis-glow-del').style.display=hasOg?'':'none';
+  document.getElementById('vis-glow-props').style.display=hasOg?'block':'none';
+  if(hasOg){
+    const og=o.outerGlow;
+    document.getElementById('vis-glow-thick').value=og.thickness||8;
+    document.getElementById('vis-glow-thick-val').textContent=og.thickness||8;
+    document.getElementById('vis-glow-transp').value=og.transp||0;
+    document.getElementById('vis-glow-transp-val').textContent=og.transp||0;
+    document.getElementById('vis-glow-color').value=og.color||'#ffffff';
+  }
+}
+function visCreateOutline(){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  if(!o.outline)o.outline={color:'#ffffff',transp:0,thickness:2,connect:false,transpAffects:false,gradient:false,gc1:'#ffffff',gc2:'#000000'};
+  renderVisualPanel();edRender();
+}
+function visDeleteOutline(){
+  if(edSelectedIdx<0)return;
+  delete edObs[edSelectedIdx].outline;
+  renderVisualPanel();edRender();
+}
+function visCreateGlow(){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  if(!o.outerGlow)o.outerGlow={thickness:8,transp:0,color:'#ffffff'};
+  renderVisualPanel();edRender();
+}
+function visDeleteGlow(){
+  if(edSelectedIdx<0)return;
+  delete edObs[edSelectedIdx].outerGlow;
+  renderVisualPanel();edRender();
+}
+function visProp(key,val){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  // Route to correct sub-object
+  if(key.startsWith('ol')){
+    if(!o.outline)return;
+    const k=key.slice(2,3).toLowerCase()+key.slice(3);
+    o.outline[k]=val;
+  } else if(key.startsWith('og')){
+    if(!o.outerGlow)return;
+    const k=key.slice(2,3).toLowerCase()+key.slice(3);
+    o.outerGlow[k]=val;
+  }
+  edRender();
+}
+function visToggleOutlineGradient(on){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  if(!o.outline)return;
+  o.outline.gradient=on;
+  document.getElementById('vis-ol-gradient-props').style.display=on?'block':'none';
+  document.getElementById('vis-ol-color-row').style.display=on?'none':'flex';
+  edRender();
+}
 function renderModList(){
   const list=document.getElementById('mod-list');
   if(!list)return;
@@ -2522,7 +2780,7 @@ const OBJ_DEFAULTS={
   block:{w:40,h:40},solidblock:{w:40,h:40},plat:{w:80,h:14},
   textblock:{w:120,h:50},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
-  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},gravflipblock:{w:40,h:40},
+  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},gravflipblock:{w:40,h:40},glowblock:{w:80,h:80},
   gravityorb:{w:28,h:28},negorb:{w:28,h:28},trigger:{w:8,h:360},coin:{w:24,h:24},
   teleportin:{w:40,h:60},teleportout:{w:40,h:60}
 };
@@ -2720,6 +2978,22 @@ function edSelectObj(idx){
       const tsv=document.getElementById('ed-text-size-val');if(tsv)tsv.textContent=o.textSize||24;
     }
   }
+  const gr=document.getElementById('ed-glow-row');
+  if(gr){
+    gr.style.display=o.t==='glowblock'?'block':'none';
+    if(o.t==='glowblock'){
+      const gc1=document.getElementById('ed-glow-c1');if(gc1)gc1.value=o.glowColor1||'#ff0000';
+      const ga1=document.getElementById('ed-glow-a1');if(ga1){ga1.value=o.glowAlpha1!=null?o.glowAlpha1:100;document.getElementById('ed-glow-a1-val').textContent=o.glowAlpha1!=null?o.glowAlpha1:100;}
+      const gc2=document.getElementById('ed-glow-c2');if(gc2)gc2.value=o.glowColor2||'#0000ff';
+      const ga2=document.getElementById('ed-glow-a2');if(ga2){ga2.value=o.glowAlpha2!=null?o.glowAlpha2:0;document.getElementById('ed-glow-a2-val').textContent=o.glowAlpha2!=null?o.glowAlpha2:0;}
+      const gd=document.getElementById('ed-glow-dir');if(gd)gd.value=o.glowDir||'horizontal';
+    }
+  }
+}
+function edGlowProp(key,val){
+  if(edSelectedIdx<0)return;
+  const o=edObs[edSelectedIdx];
+  o[key]=val;edRender();
 }
 function edDeleteSelected(){
   if(edSelectedIdx<0)return;
