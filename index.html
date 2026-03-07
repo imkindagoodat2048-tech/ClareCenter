@@ -1468,26 +1468,21 @@ function dPhysics(){
         }
       }
      
-      // Stair block — no kill on any side, step landing gives tiny boost
+      // Stair block — no kill collision, step tops give small boost
       if(o.t==='stair'){
-        const steps=Math.max(2,Math.round(o.w/o.h*1.5)||3);
+        const steps=Math.max(2,Math.round(o.w/o.h*1.5)||4);
         const sw=o.w/steps;
         const sh=o.h/steps;
-        // Check each step surface
-        let landed=false;
+        // Check each step's top surface (steps go left=low to right=high)
         for(let i=0;i<steps;i++){
           const sx=ox+i*sw;
-          const sy=o.y+o.h-(i+1)*sh;
-          // Top surface of this step
-          if(px+ps>sx+2&&px<sx+sw-2&&dVY>=0&&curBot>=sy&&prevBot<=sy+8){
+          const sy=o.y+o.h-(i+1)*sh; // top of this step
+          const stepHorizOverlap=px+ps>sx+1&&px<sx+sw-1;
+          if(stepHorizOverlap&&curBot>=sy&&prevBot<=sy+spd+4){
             dPY=sy-ps;
-            dVY=-(DGRAV()*37.5*0.25); // small boost
-            dGrounded=false;dOrbUsed=false;landed=true;break;
+            dVY=-(DGRAV()*37.5*0.3); // small step boost
+            dGrounded=false;dOrbUsed=false;break;
           }
-        }
-        // Also land on the flat top of the whole stair block (leftmost top)
-        if(!landed&&horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+8){
-          dPY=o.y-ps;dVY=0;dGrounded=true;dOrbUsed=false;
         }
         continue;
       }
@@ -2865,7 +2860,7 @@ const OBJ_DEFAULTS={
   block:{w:40,h:40},solidblock:{w:40,h:40},plat:{w:80,h:14},
   textblock:{w:120,h:50},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
-  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},gravflipblock:{w:40,h:40},glowblock:{w:80,h:80},stair:{w:120,h:80},
+  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},gravflipblock:{w:40,h:40},glowblock:{w:80,h:80},stair:{w:40,h:40},
   gravityorb:{w:28,h:28},negorb:{w:28,h:28},trigger:{w:8,h:360},coin:{w:24,h:24},
   teleportin:{w:40,h:60},teleportout:{w:40,h:60}
 };
@@ -3104,12 +3099,14 @@ function edScaleDrawCanvas(){
   const ctx=cv.getContext('2d');
   const W=cv.width,H=cv.height;
   ctx.clearRect(0,0,W,H);
-  // Draw grid if enabled
+  // Draw grid if enabled — use a fixed small step for the scale preview canvas
+  ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
   if(edGridOn){
-    ctx.strokeStyle='rgba(80,80,160,0.25)';ctx.lineWidth=0.5;
+    const sg=14; // fixed preview grid
+    ctx.strokeStyle='rgba(80,80,160,0.35)';ctx.lineWidth=0.5;
     ctx.beginPath();
-    for(let x=0;x<W;x+=edGridSize){ctx.moveTo(x,0);ctx.lineTo(x,H);}
-    for(let y=0;y<H;y+=edGridSize){ctx.moveTo(0,y);ctx.lineTo(W,y);}
+    for(let x=0;x<W;x+=sg){ctx.moveTo(x,0);ctx.lineTo(x,H);}
+    for(let y=0;y<H;y+=sg){ctx.moveTo(0,y);ctx.lineTo(W,y);}
     ctx.stroke();
   }
   if(edSelectedIdx<0){
