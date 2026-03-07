@@ -1783,7 +1783,41 @@ function renderObs(ctx,o,rx){
         ctx.strokeStyle='rgba('+rr+','+rg+','+rb+','+olAlpha+')';
       }
       const off=thick/2;
-      ctx.strokeRect(rx-off,o.y-off,o.w+thick,o.h+thick);
+      if(ol.connect){
+        // Only draw edges that don't touch another object (any type with outline or solid)
+        const obs=typeof dObs!=='undefined'?dObs:(typeof edObs!=='undefined'?edObs:[]);
+        const tol=2; // pixel tolerance for adjacency
+        const hasNeighbor=(side)=>{
+          for(const nb of obs){
+            if(nb===o)continue;
+            // Check if nb is adjacent on the given side
+            const nx=nb.x,ny=nb.y,nw=nb.w,nh=nb.h;
+            if(side==='top'){
+              // nb bottom edge aligns with o top edge, and overlaps horizontally
+              if(Math.abs((ny+nh)-o.y)<=tol&&nx<o.x+o.w&&nx+nw>o.x)return true;
+            } else if(side==='bottom'){
+              if(Math.abs(ny-(o.y+o.h))<=tol&&nx<o.x+o.w&&nx+nw>o.x)return true;
+            } else if(side==='left'){
+              if(Math.abs((nx+nw)-o.x)<=tol&&ny<o.y+o.h&&ny+nh>o.y)return true;
+            } else if(side==='right'){
+              if(Math.abs(nx-(o.x+o.w))<=tol&&ny<o.y+o.h&&ny+nh>o.y)return true;
+            }
+          }
+          return false;
+        };
+        ctx.beginPath();
+        // Top edge
+        if(!hasNeighbor('top')){ctx.moveTo(rx-off,o.y-off);ctx.lineTo(rx+o.w+off,o.y-off);}
+        // Bottom edge
+        if(!hasNeighbor('bottom')){ctx.moveTo(rx-off,o.y+o.h+off);ctx.lineTo(rx+o.w+off,o.y+o.h+off);}
+        // Left edge
+        if(!hasNeighbor('left')){ctx.moveTo(rx-off,o.y-off);ctx.lineTo(rx-off,o.y+o.h+off);}
+        // Right edge
+        if(!hasNeighbor('right')){ctx.moveTo(rx+o.w+off,o.y-off);ctx.lineTo(rx+o.w+off,o.y+o.h+off);}
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(rx-off,o.y-off,o.w+thick,o.h+thick);
+      }
     }
   }
   ctx.restore();
