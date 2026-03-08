@@ -3875,12 +3875,12 @@ function saveLevel(){
     const sharedWith=isPriv?(document.getElementById('ed-share-in').value.trim().toLowerCase().split(',').map(s=>s.trim()).filter(Boolean)):[];
     db.ref('claredash_levels').once('value',allSnap=>{
       const nextId=(allSnap.numChildren()||0)+1;
-      db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,created:Date.now(),private:isPriv||false,sharedWith,mapId:nextId});
+      db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,created:Date.now(),private:isPriv||false,sharedWith,mapId:nextId},()=>{
+        alert('Level saved: '+name);
+        document.getElementById('lvl-name-in').value='';
+        edObs=[];edRender();loadLevelList();
+      });
     });
-    alert('Level saved: '+name);
-    document.getElementById('lvl-name-in').value='';
-    edObs=[];edRender();loadLevelList();
-  }
 }
 function testLevel(){
   if(!edObs.find(o=>o.t==='startblock')){alert('Need a Start Block!');return;}
