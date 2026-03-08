@@ -1092,6 +1092,7 @@ function assignMapId(){
     }
     writeNext(0);
   });
+}
 function renamePack(key){
   db.ref('claredash_packs/'+key+'/name').once('value',snap=>{
     const cur=snap.val()||'';
