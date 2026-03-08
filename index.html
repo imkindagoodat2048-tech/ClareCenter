@@ -1433,6 +1433,7 @@ function submitVaultCode(){
       if(s.exists()){resp.style.color='#555';resp.textContent='Already redeemed.';return;}
       db.ref(alreadyKey).set(true);
       db.ref('claredash_skins/'+hubUser+'/vaultDeadlySkin').set(true,()=>{
+        _cachedSkinData.vaultDeadlySkin=true;
         checkSkinUnlocksLocal();
         resp.style.color='#cc44ff';resp.textContent='🕷️ Deadly spider skin unlocked...';
       });
