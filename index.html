@@ -826,7 +826,10 @@ function openProfile(u){
     db.ref('claredash_coincount/'+u).once('value',coinSnap=>{
       const coinTotal=coinSnap.val()||0;
       const coinDisplay=coinTotal>0?'<span style="font-size:13px;margin-top:2px;">🪙 '+coinTotal+'</span>':'';
-      html+='<div style="font-family:\'Space Mono\',monospace;font-size:10px;color:#555;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'+(isAdmin?'<span style="color:var(--accent);">[ADMIN]</span>':'')+officialDot+coinDisplay+'</div>';
+      db.ref('claredash_gems/'+u+'/total').once('value',gemSnap=>{
+      const gemTotal=gemSnap.val()||0;
+      const gemDisplay=gemTotal>0?'<span style="font-size:13px;margin-top:2px;">💎 '+gemTotal+'</span>':'';
+      html+='<div style="font-family:\'Space Mono\',monospace;font-size:10px;color:#555;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'+(isAdmin?'<span style="color:var(--accent);">[ADMIN]</span>':'')+officialDot+coinDisplay+gemDisplay+'</div>';
       html+='<div style="font-family:\'Space Mono\',monospace;font-size:9px;color:#555;letter-spacing:1px;margin-bottom:8px;">LEVELS ('+levels.length+')</div>';
       if(!levels.length){html+='<div style="font-size:12px;color:#444;padding:8px 0;">No public levels yet.</div>';}
       levels.forEach(d=>{
@@ -840,7 +843,7 @@ function openProfile(u){
         +'</div>';
     });
       document.getElementById('modal-content').innerHTML=html+'<button class="modal-close" onclick="closeModal()">Close</button>';
-    });    });
+    });    });    });
 
   });
 }
@@ -895,6 +898,7 @@ let dUnlockedBallSkins=['balldefault'];
 let dUserPfp='';
 let dJumpCount=0;
 let dGravFlipCount=0; // total gravity flips for Monkey unlock
+let dGemCount=0; // total gems earned
 
 let dBgColor='#1a1a2e',dGroundColor='#252545';
 let dModTimers=[]; // runtime modifier animations
@@ -1014,6 +1018,7 @@ function loadPacksList(){
         +(hubUser==='bartelsfamily5'
           ?'<button class="game-play" style="background:#555;font-size:10px;padding:4px 10px;" onclick="event.stopPropagation();renamePack(\''+p.key+'\')">Rename</button>'
            +'<button class="game-play" style="background:#4a4a7a;font-size:10px;padding:4px 10px;margin-left:4px;" onclick="event.stopPropagation();editPack(\''+p.key+'\')">Edit IDs</button>'
+           +'<button class="game-play" style="background:#2e7a4a;font-size:10px;padding:4px 10px;margin-left:4px;" onclick="event.stopPropagation();openPackRewardsAdmin(\''+p.key+'\')">Rewards</button>'
            +'<button class="game-play" style="background:#eb4d4b;font-size:10px;padding:4px 10px;margin-left:4px;" onclick="event.stopPropagation();deletePack(\''+p.key+'\')">Del</button>'
           :'');
       list.appendChild(card);
@@ -1040,6 +1045,15 @@ function openPackPage(key){
       title.style.cssText='font-family:Bebas Neue,cursive;font-size:20px;color:var(--accent);letter-spacing:2px;margin:4px 0;';
       title.textContent=p.name;
       list.appendChild(title);
+      // Show rewards if any
+      const rewards=p.rewards||[];
+      if(rewards.length){
+        const rwDiv=document.createElement('div');
+        rwDiv.style.cssText='background:#12121f;border:1px solid #2a2a3a;border-radius:6px;padding:8px 12px;margin-bottom:4px;';
+        rwDiv.innerHTML='<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:5px;">PACK REWARDS (beat all levels)</div>'
+          +rewards.map(r=>{const t=PACK_REWARD_TYPES.find(x=>x.id===r.type)||{icon:'?',label:r.type};return'<div style="font-size:11px;color:#aaa;margin-bottom:2px;">'+t.icon+' '+t.label+(r.value?' × '+r.value:'')+'</div>';}).join('');
+        list.appendChild(rwDiv);
+      }
       // Build mapId→key map
       const byId={};
       allSnap.forEach(c=>{const v=c.val();if(v.mapId!=null)byId[v.mapId]={key:c.key,...v};});
@@ -1141,6 +1155,127 @@ function deletePack(key){
   if(!confirm('Delete this pack?'))return;
   db.ref('claredash_packs/'+key).remove(()=>loadPacksList());
 }
+
+// ══════════════════════════════════════════
+// PACK REWARDS
+// ══════════════════════════════════════════
+// Pack rewards are stored on the pack: claredash_packs/{key}/rewards = [{type,value,label}]
+// User claimed: claredash_pack_rewards/{hubUser}/{packKey}/{rewardIdx} = true
+// Pack completion: user has beaten ALL levels in pack (by mapId)
+
+const PACK_REWARD_TYPES=[
+  {id:'coins',   label:'Coins',             icon:'🪙'},
+  {id:'skin_intermediacy', label:'Intermediacy Skin', icon:'⭐'},
+  {id:'gems',    label:'Gems',              icon:'💎'},
+];
+
+function openPackRewardsAdmin(packKey){
+  db.ref('claredash_packs/'+packKey).once('value',snap=>{
+    if(!snap.exists())return;
+    const p=snap.val();
+    const rewards=p.rewards||[];
+    let html='<div style="font-family:Bebas Neue,cursive;font-size:20px;color:var(--accent);letter-spacing:2px;margin-bottom:10px;">'+p.name+' — Rewards</div>';
+    html+='<div id="prw-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">';
+    if(!rewards.length) html+='<div style="font-size:11px;color:#555;text-align:center;padding:8px;">No rewards yet.</div>';
+    rewards.forEach((r,i)=>{
+      const t=PACK_REWARD_TYPES.find(x=>x.id===r.type)||{icon:'?',label:r.type};
+      html+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#12121f;border:1px solid #333;border-radius:6px;">
+        <span style="font-size:12px;">${t.icon} ${t.label}${r.value?' × '+r.value:''}</span>
+        <button onclick="deletePackReward('${packKey}',${i})" style="background:#eb4d4b;border:none;color:white;padding:2px 8px;border-radius:3px;cursor:pointer;font-size:10px;">✕</button>
+      </div>`;
+    });
+    html+='</div>';
+    // Add reward form
+    html+=`<div style="border-top:1px solid #2a2a3a;padding-top:10px;">
+      <div style="font-size:9px;color:#888;font-family:Space Mono,monospace;letter-spacing:1px;margin-bottom:6px;">ADD REWARD</div>
+      <select id="prw-type" style="background:#0f0f1a;border:1px solid #333;color:white;padding:5px 8px;border-radius:4px;font-size:11px;width:100%;margin-bottom:6px;" onchange="prwTypeChange()">
+        ${PACK_REWARD_TYPES.map(t=>`<option value="${t.id}">${t.icon} ${t.label}</option>`).join('')}
+      </select>
+      <div id="prw-value-row" style="margin-bottom:6px;">
+        <input type="number" id="prw-value" placeholder="Amount..." min="1" value="100" style="background:#0f0f1a;border:1px solid #333;color:white;padding:5px 8px;border-radius:4px;font-size:11px;width:100%;box-sizing:border-box;">
+      </div>
+      <button onclick="addPackReward('${packKey}')" style="background:var(--primary);border:none;color:white;padding:7px 0;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;width:100%;">+ Add Reward</button>
+    </div>`;
+    showModal(html);
+  });
+}
+
+function prwTypeChange(){
+  const t=document.getElementById('prw-type').value;
+  const vr=document.getElementById('prw-value-row');
+  // skin rewards don't need a value
+  vr.style.display=(t.startsWith('skin_'))?'none':'block';
+}
+
+function addPackReward(packKey){
+  const type=document.getElementById('prw-type').value;
+  const valEl=document.getElementById('prw-value');
+  const value=type.startsWith('skin_')?null:parseInt(valEl.value)||0;
+  const t=PACK_REWARD_TYPES.find(x=>x.id===type);
+  const reward={type,value,label:t?t.label:type};
+  db.ref('claredash_packs/'+packKey+'/rewards').once('value',snap=>{
+    const cur=snap.val()||[];
+    cur.push(reward);
+    db.ref('claredash_packs/'+packKey+'/rewards').set(cur,()=>openPackRewardsAdmin(packKey));
+  });
+}
+
+function deletePackReward(packKey,idx){
+  db.ref('claredash_packs/'+packKey+'/rewards').once('value',snap=>{
+    const cur=snap.val()||[];
+    cur.splice(idx,1);
+    db.ref('claredash_packs/'+packKey+'/rewards').set(cur,()=>openPackRewardsAdmin(packKey));
+  });
+}
+
+// Check if user just completed a pack and grant unclaimed rewards
+function checkPackRewards(levelKey){
+  if(!hubUser||!levelKey)return;
+  db.ref('claredash_packs').once('value',packsSnap=>{
+    packsSnap.forEach(packC=>{
+      const pack=packC.val();const packKey=packC.key;
+      const rewards=pack.rewards;if(!rewards||!rewards.length)return;
+      const ids=pack.mapIds||[];if(!ids.length)return;
+      // Load all levels to check if user beat all in pack
+      db.ref('claredash_levels').once('value',allSnap=>{
+        const byId={};
+        allSnap.forEach(c=>{const v=c.val();if(v.mapId!=null)byId[v.mapId]={key:c.key,...v};});
+        const packLevelKeys=ids.map(id=>byId[Number(id)]?.key).filter(Boolean);
+        if(!packLevelKeys.length)return;
+        db.ref('claredash_best/'+hubUser).once('value',bestSnap=>{
+          const best=bestSnap.val()||{};
+          const allBeaten=packLevelKeys.every(k=>best[k]===100);
+          if(!allBeaten)return;
+          // All levels beaten — grant unclaimed rewards
+          rewards.forEach((r,i)=>{
+            db.ref('claredash_pack_rewards/'+hubUser+'/'+packKey+'/'+i).once('value',claimedSnap=>{
+              if(claimedSnap.exists())return; // already granted
+              db.ref('claredash_pack_rewards/'+hubUser+'/'+packKey+'/'+i).set(true);
+              grantPackReward(r,pack.name);
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
+function grantPackReward(r,packName){
+  const t=PACK_REWARD_TYPES.find(x=>x.id===r.type)||{icon:'?',label:r.type};
+  if(r.type==='coins'&&r.value){
+    db.ref('claredash_coincount/'+hubUser).transaction(n=>(n||0)+r.value);
+    showSkinUnlockToast('Pack reward: '+t.icon+' +'+r.value+' Coins!');
+  } else if(r.type==='gems'&&r.value){
+    db.ref('claredash_gems/'+hubUser+'/total').transaction(n=>{dGemCount=(n||0)+r.value;return dGemCount;});
+    showSkinUnlockToast('Pack reward: 💎 +'+r.value+' Gems!');
+  } else if(r.type==='skin_intermediacy'){
+    db.ref('claredash_skins/'+hubUser+'/packRewardIntermediacySkin').set(true,()=>{
+      checkSkinUnlocksLocal();
+      showSkinUnlockToast('Pack reward: Intermediacy skin!');
+    });
+  }
+}
+
 
 function renameLevel(key){
   db.ref('claredash_levels/'+key+'/name').once('value',snap=>{
@@ -1450,6 +1585,21 @@ function dPhysics(){
           showDashOver('LEVEL COMPLETE!','Finished in '+attempts+' attempt'+(attempts>1?'s':'')+'!');
           if(dCurrentLevelKey&&hubUser){
             db.ref('claredash_best/'+hubUser+'/'+dCurrentLevelKey).set(100);
+            // ── Gem earning (first clear only) ──
+            if(dCurrentLevel&&dCurrentLevel.difficulty){
+              const GEM_VALUES={cakewalk:1,easy:2,medium:3,hard:4,extreme:5,deadly:10};
+              const gemVal=GEM_VALUES[dCurrentLevel.difficulty]||0;
+              if(gemVal>0){
+                db.ref('claredash_gems/'+hubUser+'/earned/'+dCurrentLevelKey).once('value',gsnap=>{
+                  if(!gsnap.exists()){
+                    db.ref('claredash_gems/'+hubUser+'/earned/'+dCurrentLevelKey).set(gemVal);
+                    db.ref('claredash_gems/'+hubUser+'/total').transaction(n=>{dGemCount=(n||0)+gemVal;return dGemCount;});
+                  }
+                });
+              }
+            }
+            // ── Pack rewards: check if this level is in a pack with rewards ──
+            checkPackRewards(dCurrentLevelKey);
             // Track beats for skin unlocks
             if(dCurrentLevel&&dCurrentLevel.author==='bartelsfamily5'){
               const lvlName=(dCurrentLevel.name||'').toLowerCase().replace(/\s/g,'');
@@ -2511,6 +2661,7 @@ const DASH_SKINS=[
   {id:'blockboy', label:'BlockBoy',       desc:"First to rate 3 levels. Now YOU can be a block boy!!",             unlock:'firstRater3'},
   {id:'official', label:'Officiality',    desc:"Beat every official level. Now your official.",          unlock:'allOfficial'},
   {id:'why',      label:'Why.',           desc:"Beat 3 Extremes or Deadlys. WHY??",         unlock:'extreme3'},
+  {id:'intermediacy',label:'Intermediacy',desc:"Awarded from a Pack reward.",                unlock:'packReward'},
 ];
 const SHIP_SKINS=[
   {id:'cursor',   label:'Cursor',         desc:"Default.",                            unlock:'default'},
@@ -2551,6 +2702,8 @@ function loadDashSkins(){
     _cachedSkinData=d;
     computeUnlockedSkins(d);
     buildSkinGrid();
+    // Load gem total
+    db.ref('claredash_gems/'+hubUser+'/total').once('value',gs=>{dGemCount=gs.val()||0;});
   });
 }
 
@@ -2573,6 +2726,7 @@ function computeUnlockedSkins(d){
   if(d.firstRater3)dUnlockedSkins.push('blockboy');
   if(d.allOfficial)dUnlockedSkins.push('official');
   if((d.extremeBeats||0)>=3)dUnlockedSkins.push('why');
+  if(d.packRewardIntermediacySkin)dUnlockedSkins.push('intermediacy');
   // Ship skull
   if(d.beatDeadly)dUnlockedShipSkins.push('skull');
   // Ship/wave skins
@@ -2829,6 +2983,14 @@ function drawSkinShape(ctx,x,y,s,pc,skinId,strokeOverride){
     ctx.strokeStyle='#ff4444';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,s-2,s-2);
     ctx.fillStyle='#ff4444';ctx.font='bold '+Math.round(s*0.35)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('WHY',cx,cy);
+  } else if(skinId==='intermediacy'){
+    ctx.fillStyle=pc;ctx.fillRect(x,y,s,s);
+    ctx.strokeStyle='#88aaff';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,s-2,s-2);
+    // 4 stars in corners
+    ctx.fillStyle='#88aaff';
+    ctx.font='bold '+Math.round(s*0.28)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const offsets=[[0.26,0.26],[0.74,0.26],[0.26,0.74],[0.74,0.74]];
+    offsets.forEach(([ox2,oy2])=>ctx.fillText('\u2605',x+s*ox2,y+s*oy2));
   }
   ctx.restore();
 }
