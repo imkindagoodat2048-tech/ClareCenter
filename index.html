@@ -2752,7 +2752,7 @@ function buildModCard(m,i){
   }
   // Type-specific options
   if(m.type==='move'){
-    html+=modRow('Move X (offset)',i,'moveX',m.moveX||0,'number',0,1000);
+    html+=modRow('Move X (offset)',i,'moveX',m.moveX||0,'number',0,25000);
     html+=modRow('Move Y (offset)',i,'moveY',m.moveY||0,'number',-1000,1000);
     html+=modTimeRow('Move Time (s)',i,'moveTime',m.moveTime||0);
   } else if(m.type==='rotate'){
