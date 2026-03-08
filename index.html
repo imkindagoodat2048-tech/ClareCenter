@@ -1358,33 +1358,32 @@ function buyGemShopItem(itemId){
   if(!hubUser)return;
   const item=GEM_SHOP_ITEMS.find(i=>i.id===itemId);
   if(!item||dGemCount<item.cost)return;
-  // Deduct gems
-  db.ref('claredash_gems/'+hubUser+'/total').transaction(n=>{
-    if((n||0)<item.cost)return; // abort
-    dGemCount=(n||0)-item.cost;
-    return dGemCount;
-  },(_e,committed)=>{
-    if(!committed)return;
-    // Grant reward
-    if(item.type==='skin'){
-      db.ref('claredash_skins/'+hubUser+'/'+item.dbKey).set(true,()=>{
-        checkSkinUnlocksLocal();
-        // Unlock vault for coin purchase
-        if(item.id==='shopCoin')unlockVaultAccess();
-        renderGemShop();
-        const countEl=document.getElementById('gem-shop-count');
-        if(countEl)countEl.textContent='💎 '+dGemCount;
-      });
-    } else if(item.type==='coin'){
-      db.ref('claredash_coincount/'+hubUser).transaction(n=>(n||0)+1);
-      db.ref('claredash_gem_purchases/'+hubUser+'/'+item.dbKey).set(true,()=>{
-        unlockVaultAccess();
-        renderGemShop();
-        const countEl=document.getElementById('gem-shop-count');
-        if(countEl)countEl.textContent='💎 '+dGemCount;
-        showSkinUnlockToast('🪙 Got a strange coin... and something unlocked.');
-      });
-    }
+  // Re-read gem total from DB to be safe, then deduct
+  db.ref('claredash_gems/'+hubUser+'/total').once('value',snap=>{
+    const current=snap.val()||0;
+    if(current<item.cost){alert("Not enough gems!");return;}
+    db.ref('claredash_gems/'+hubUser+'/total').set(current-item.cost,err=>{
+      if(err)return;
+      dGemCount=current-item.cost;
+      // Grant reward
+      if(item.type==='skin'){
+        db.ref('claredash_skins/'+hubUser+'/'+item.dbKey).set(true,()=>{
+          checkSkinUnlocksLocal();
+          renderGemShop();
+          const countEl=document.getElementById('gem-shop-count');
+          if(countEl)countEl.textContent='💎 '+dGemCount;
+        });
+      } else if(item.type==='coin'){
+        db.ref('claredash_coincount/'+hubUser).transaction(n=>(n||0)+1);
+        db.ref('claredash_gem_purchases/'+hubUser+'/'+item.dbKey).set(true,()=>{
+          unlockVaultAccess();
+          renderGemShop();
+          const countEl=document.getElementById('gem-shop-count');
+          if(countEl)countEl.textContent='💎 '+dGemCount;
+          showSkinUnlockToast('🪙 Got a strange coin... and something unlocked.');
+        });
+      }
+    });
   });
 }
 
