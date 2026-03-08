@@ -273,6 +273,7 @@
         <div style="display:flex;gap:6px;align-items:center;">
             <div id="dash-tab-btns" style="display:flex;gap:4px;">
                 <button class="icon-btn" id="tab-play-btn" onclick="showDashTab('play')">Play</button>
+                <button class="icon-btn" id="tab-packs-btn" onclick="showDashTab('packs')">Packs</button>
                 <button class="icon-btn" id="tab-create-btn" style="display:none;" onclick="showDashTab('create')">Create</button>
                 <button class="icon-btn" onclick="showDashSettings()">Settings</button>
             </div>
@@ -295,10 +296,35 @@
         </div>
         <div id="dash-level-list" style="display:flex;flex-direction:column;gap:8px;width:320px;"></div>
     </div>
+    <!-- PACKS TAB -->
+    <div id="dash-packs-tab" class="hidden" style="flex:1;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:16px;gap:10px;">
+      <div style="font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:3px;color:var(--accent);margin-bottom:2px;">Packs</div>
+      <div id="dash-packs-admin" class="hidden" style="display:flex;gap:6px;margin-bottom:4px;">
+        <button class="game-play" onclick="showCreatePackModal()">+ New Pack</button>
+      </div>
+      <div id="dash-packs-list" style="display:flex;flex-direction:column;gap:8px;width:320px;">
+        <div style="font-size:11px;color:#555;text-align:center;">Loading...</div>
+      </div>
+    </div>
+    <!-- CREATE PACK MODAL -->
+    <div id="pack-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999;">
+      <div style="background:#12121f;border:1px solid #333;border-radius:12px;padding:22px;width:320px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-family:'Bebas Neue',cursive;font-size:20px;color:var(--accent);" id="pack-modal-title">New Pack</div>
+        <input id="pack-name-in" placeholder="Pack name..." style="background:#0f0f1a;border:1px solid #333;color:white;padding:7px 10px;border-radius:6px;font-size:12px;font-family:'Space Mono',monospace;outline:none;">
+        <textarea id="pack-ids-in" placeholder="Map IDs (comma or newline separated)&#10;e.g. 1, 2, 5" rows="4" style="background:#0f0f1a;border:1px solid #333;color:white;padding:7px 10px;border-radius:6px;font-size:12px;font-family:'Space Mono',monospace;outline:none;resize:vertical;"></textarea>
+        <div style="font-size:9px;color:#555;">Enter numeric map IDs. You can view a level's ID in its page.</div>
+        <div style="display:flex;gap:6px;justify-content:flex-end;">
+          <button class="icon-btn" onclick="closePackModal()">Cancel</button>
+          <button class="game-play" onclick="savePackModal()">Save</button>
+        </div>
+        <input type="hidden" id="pack-edit-key" value="">
+      </div>
+    </div>
     <!-- LEVEL PAGE -->
     <div id="dash-level-page" class="hidden" style="flex:1;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:20px;gap:14px;">
         <button onclick="showDashTab('play')" style="align-self:flex-start;background:#2f3542;border:none;color:#aaa;padding:5px 14px;border-radius:4px;cursor:pointer;font-size:11px;">← Back</button>
         <div id="lp-name" style="font-family:'Bebas Neue',cursive;font-size:36px;letter-spacing:3px;color:var(--accent);text-align:center;"></div>
+        <div id="lp-map-id" style="font-family:'Space Mono',monospace;font-size:9px;color:#555;text-align:center;margin-top:-4px;letter-spacing:1px;"></div>
         <div id="lp-diff-img" style="display:flex;align-items:center;justify-content:center;min-height:60px;"></div>
         <div id="lp-meta" style="font-family:'Space Mono',monospace;font-size:11px;color:#777;text-align:center;"></div>
         <button id="lp-play-btn" onclick="" style="font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:3px;background:var(--primary);border:none;color:white;padding:12px 40px;cursor:pointer;border-radius:6px;">Play</button>
@@ -333,7 +359,6 @@
                 <option value="spiderportal">Spider Portal</option>
                 <option value="ballportal">Ball Portal</option>
                 <option value="gravflipblock">Gravity Flip Block</option>
-                <option value="stair">Stair Block</option>
                 <option value="glowblock">Glow (Gradient)</option>
                 <option value="coin" id="coin-option" style="display:none;">🪙 Coin</option>
             </select>
@@ -893,7 +918,7 @@ function initDCanvas(){
 }
 
 function showDashTab(tab){
-  ['dash-play-tab','dash-create-tab','dash-game','dash-settings','dash-level-page'].forEach(id=>{
+  ['dash-play-tab','dash-packs-tab','dash-create-tab','dash-game','dash-settings','dash-level-page'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.classList.add('hidden');
   });
   stopDash();window._editingLevelKey=null;
@@ -901,6 +926,7 @@ function showDashTab(tab){
   else if(tab==='create'){document.getElementById('dash-create-tab').classList.remove('hidden');initEditor();}
   else if(tab==='settings'){document.getElementById('dash-settings').classList.remove('hidden');}
   else if(tab==='levelpage'){document.getElementById('dash-level-page').classList.remove('hidden');}
+  else if(tab==='packs'){document.getElementById('dash-packs-tab').classList.remove('hidden');loadPacksList();}
 }
 
 const DIFF_ORDER=['cakewalk','easy','medium','hard','extreme','deadly'];
@@ -960,6 +986,139 @@ function loadLevelList(){
     });
   });
 }
+// ══════════════════════════════════════════
+// PACKS SYSTEM
+// ══════════════════════════════════════════
+function loadPacksList(){
+  const list=document.getElementById('dash-packs-list');
+  if(!list)return;
+  list.innerHTML='<div style="font-size:11px;color:#555;text-align:center;">Loading...</div>';
+  // Show admin button only for bartelsfamily5
+  const adminDiv=document.getElementById('dash-packs-admin');
+  if(adminDiv)adminDiv.classList.toggle('hidden',hubUser!=='bartelsfamily5');
+  db.ref('claredash_packs').once('value',snap=>{
+    list.innerHTML='';
+    if(!snap.exists()){
+      list.innerHTML='<div style="font-size:12px;color:#555;text-align:center;padding:16px;">No packs yet!</div>';
+      return;
+    }
+    snap.forEach(c=>{
+      const p={key:c.key,...c.val()};
+      const card=document.createElement('div');
+      card.className='lvl-btn';
+      card.style.cursor='pointer';
+      const idCount=p.mapIds?p.mapIds.length:0;
+      card.innerHTML='<div style="flex:1;" onclick="openPackPage(\''+p.key+'\')"><div class="lvl-name">'+p.name+'</div>'
+        +'<div class="lvl-diff" style="font-size:10px;color:#555;">'+idCount+' level'+(idCount!==1?'s':'')+'</div></div>'
+        +(hubUser==='bartelsfamily5'
+          ?'<button class="game-play" style="background:#555;font-size:10px;padding:4px 10px;" onclick="event.stopPropagation();renamePack(\''+p.key+'\')">Rename</button>'
+           +'<button class="game-play" style="background:#4a4a7a;font-size:10px;padding:4px 10px;margin-left:4px;" onclick="event.stopPropagation();editPack(\''+p.key+'\')">Edit IDs</button>'
+           +'<button class="game-play" style="background:#eb4d4b;font-size:10px;padding:4px 10px;margin-left:4px;" onclick="event.stopPropagation();deletePack(\''+p.key+'\')">Del</button>'
+          :'');
+      list.appendChild(card);
+    });
+  });
+}
+
+function openPackPage(key){
+  db.ref('claredash_packs/'+key).once('value',snap=>{
+    if(!snap.exists())return;
+    const p=snap.val();
+    const ids=p.mapIds||[];
+    if(!ids.length){alert('This pack has no levels!');return;}
+    // Load all levels, filter by mapId
+    db.ref('claredash_levels').once('value',allSnap=>{
+      const list=document.getElementById('dash-packs-list');
+      list.innerHTML='';
+      // Back button
+      const back=document.createElement('button');
+      back.className='icon-btn';back.textContent='← Back';back.style.alignSelf='flex-start';
+      back.onclick=()=>loadPacksList();
+      list.appendChild(back);
+      const title=document.createElement('div');
+      title.style.cssText='font-family:Bebas Neue,cursive;font-size:20px;color:var(--accent);letter-spacing:2px;margin:4px 0;';
+      title.textContent=p.name;
+      list.appendChild(title);
+      // Build mapId→key map
+      const byId={};
+      allSnap.forEach(c=>{const v=c.val();if(v.mapId!=null)byId[v.mapId]={key:c.key,...v};});
+      let found=0;
+      ids.forEach(id=>{
+        const lv=byId[Number(id)];
+        if(!lv)return;
+        found++;
+        const row=document.createElement('div');
+        row.className='lvl-btn';
+        const diff=lv.difficulty||null;
+        const diffHtml=diff?('<span style="font-size:11px;margin-left:5px;">'+getDiffDisplay(diff)+'</span>'):'';
+        row.innerHTML='<div style="flex:1;cursor:pointer;" onclick="openLevelPage(\''+lv.key+'\')">'
+          +'<div class="lvl-name" style="display:flex;align-items:center;gap:2px;"><span style="font-size:9px;color:#555;margin-right:4px;">#'+id+'</span>'+lv.name+'</div>'
+          +'<div class="lvl-diff" style="font-size:10px;color:#555;">by '+lv.author+diffHtml+'</div></div>'
+          +'<button class="game-play" onclick="event.stopPropagation();playLevel(\''+lv.key+'\')">Play</button>';
+        list.appendChild(row);
+      });
+      if(!found){
+        const none=document.createElement('div');
+        none.style.cssText='font-size:11px;color:#555;text-align:center;padding:12px;';
+        none.textContent='No matching levels found.';
+        list.appendChild(none);
+      }
+    });
+  });
+}
+
+function showCreatePackModal(){
+  document.getElementById('pack-name-in').value='';
+  document.getElementById('pack-ids-in').value='';
+  document.getElementById('pack-edit-key').value='';
+  document.getElementById('pack-modal-title').textContent='New Pack';
+  document.getElementById('pack-modal').classList.remove('hidden');
+}
+
+function renamePack(key){
+  db.ref('claredash_packs/'+key+'/name').once('value',snap=>{
+    const cur=snap.val()||'';
+    const n=prompt('Rename pack:',cur);
+    if(!n||!n.trim())return;
+    db.ref('claredash_packs/'+key+'/name').set(n.trim(),()=>loadPacksList());
+  });
+}
+function editPack(key){
+  db.ref('claredash_packs/'+key).once('value',snap=>{
+    if(!snap.exists())return;
+    const p=snap.val();
+    document.getElementById('pack-name-in').value=p.name||'';
+    document.getElementById('pack-ids-in').value=(p.mapIds||[]).join(', ');
+    document.getElementById('pack-edit-key').value=key;
+    document.getElementById('pack-modal-title').textContent='Edit Pack';
+    document.getElementById('pack-modal').classList.remove('hidden');
+  });
+}
+
+function closePackModal(){
+  document.getElementById('pack-modal').classList.add('hidden');
+}
+
+function savePackModal(){
+  const name=document.getElementById('pack-name-in').value.trim();
+  if(!name){alert('Enter a pack name!');return;}
+  const raw=document.getElementById('pack-ids-in').value;
+  const mapIds=raw.split(/[,
+]+/).map(s=>Number(s.trim())).filter(n=>n>0&&Number.isInteger(n));
+  const editKey=document.getElementById('pack-edit-key').value;
+  const data={name,mapIds,created:Date.now()};
+  if(editKey){
+    db.ref('claredash_packs/'+editKey).update({name,mapIds},()=>{closePackModal();loadPacksList();});
+  } else {
+    db.ref('claredash_packs').push(data,()=>{closePackModal();loadPacksList();});
+  }
+}
+
+function deletePack(key){
+  if(!confirm('Delete this pack?'))return;
+  db.ref('claredash_packs/'+key).remove(()=>loadPacksList());
+}
+
 function renameLevel(key){
   db.ref('claredash_levels/'+key+'/name').once('value',snap=>{
     const currentName=snap.val()||'';
@@ -995,6 +1154,8 @@ function openLevelPage(key){
     const d=snap.val();
     showDashTab('levelpage');
     document.getElementById('lp-name').textContent=d.name||'Untitled';
+    const lpIdEl=document.getElementById('lp-map-id');
+    if(lpIdEl)lpIdEl.textContent=d.mapId?'Map ID: '+d.mapId:'';
     // Difficulty image
     const lpDiff=document.getElementById('lp-diff-img');
     if(d.difficulty){
@@ -1401,26 +1562,6 @@ function dPhysics(){
         if(px+ps>ox+8&&px<ox+o.w-8&&py+ps>o.y+10&&py<o.y+o.h){dDie();return;}
         continue;
       }
-      // Stair block: land on step top from above OR walk into step from the side
-      if(o.t==='stair'){
-        const steps=Math.max(2,Math.round(o.w/o.h*1.5)||4);
-        const sw=o.w/steps;
-        const sh=o.h/steps;
-        // Which step column is the player's right edge entering?
-        const col=Math.max(0,Math.min(steps-1,Math.floor((px+ps-ox)/sw)));
-        const stepTop=o.y+o.h-(col+1)*sh;
-        const stepLeft=ox+col*sw;
-        // Player overlaps this step horizontally
-        if(px+ps>stepLeft&&px<stepLeft+sw){
-          // Player bottom is at or crosses step top (from above OR walking in)
-          if(py+ps>=stepTop&&py<stepTop+sh*2){
-            dPY=stepTop-ps;
-            dVY=-(DGRAV()*37.5*0.3);
-            dGrounded=false;dOrbUsed=false;
-          }
-        }
-        continue;
-      }
       // block & plat: swept collision
       const prevBot=prevPY+ps,curBot=py+ps;
       const prevTop=prevPY,curTop=py;
@@ -1600,30 +1741,6 @@ function renderObs(ctx,o,rx,_obsArr){
   } else if(o.t==='coin'){
     if(o._collected){ctx.save();ctx.globalAlpha=0.25;ctx.font='18px sans-serif';ctx.textAlign='center';ctx.fillText('🪙',rx+o.w/2,o.y+o.h/2+7);ctx.restore();}
     else{ctx.save();ctx.font='18px sans-serif';ctx.textAlign='center';ctx.fillText('🪙',rx+o.w/2,o.y+o.h/2+7);ctx.restore();}
-  } else if(o.t==='stair'){
-    // Draw stair steps left-to-right, ascending
-    const steps=Math.max(2,Math.round(o.w/o.h*1.5)||3);
-    const sw=o.w/steps;
-    const sh=o.h/steps;
-    ctx.fillStyle='#3a5a3a';ctx.strokeStyle='#77cc77';ctx.lineWidth=1.5;
-    for(let i=0;i<steps;i++){
-      const sx=rx+i*sw;
-      const sy=o.y+o.h-(i+1)*sh;
-      ctx.fillRect(sx,sy,sw,sh*(i+1));
-    }
-    // Outline the stair profile
-    ctx.beginPath();
-    ctx.moveTo(rx,o.y+o.h);
-    for(let i=0;i<steps;i++){
-      const sx=rx+i*sw;
-      const sy=o.y+o.h-(i+1)*sh;
-      ctx.lineTo(sx,sy+sh);
-      ctx.lineTo(sx,sy);
-      ctx.lineTo(sx+sw,sy);
-    }
-    ctx.lineTo(rx+o.w,o.y+o.h);
-    ctx.closePath();
-    ctx.stroke();
   } else if(o.t==='solidblock'){
     const scol=o.color||'#ffffff';
     ctx.fillStyle=scol;ctx.fillRect(rx,o.y,o.w,o.h);
@@ -1813,9 +1930,11 @@ function renderObs(ctx,o,rx,_obsArr){
   // ── Outline ──
   if(o.outline){
     const ol=o.outline;
-    const useAlpha=ol.transpAffects?(1-(o.alpha||0)/100):1;
-    const olAlpha=(1-(ol.transp||0)/100)*useAlpha;
+    const olAlpha=(1-(ol.transp||0)/100);
     if(olAlpha>0){
+      // If transpAffects is false, draw outline at full opacity regardless of block alpha
+      const savedAlpha=ctx.globalAlpha;
+      if(!ol.transpAffects)ctx.globalAlpha=1;
       const thick=ol.thickness||2;
       ctx.lineWidth=thick;
       if(ol.gradient){
@@ -1863,6 +1982,7 @@ function renderObs(ctx,o,rx,_obsArr){
       } else {
         ctx.strokeRect(rx-off,o.y-off,o.w+thick,o.h+thick);
       }
+      ctx.globalAlpha=savedAlpha;
     }
   }
   ctx.restore();
@@ -2862,7 +2982,7 @@ const OBJ_DEFAULTS={
   block:{w:40,h:40},solidblock:{w:40,h:40},plat:{w:80,h:14},
   textblock:{w:120,h:50},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
-  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},gravflipblock:{w:40,h:40},glowblock:{w:80,h:80},stair:{w:40,h:40},
+  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},gravflipblock:{w:40,h:40},glowblock:{w:80,h:80},
   gravityorb:{w:28,h:28},negorb:{w:28,h:28},trigger:{w:8,h:360},coin:{w:24,h:24},
   teleportin:{w:40,h:60},teleportout:{w:40,h:60}
 };
@@ -2937,26 +3057,24 @@ function edMouseMove(e){
   if(_edCanvasScaleDrag&&edSelectedIdx>=0){
     const o=edObs[edSelectedIdx],d=_edCanvasScaleDrag;
     const dx=e.clientX-d.startX,dy=e.clientY-d.startY;
-    // Snap the moving edge to grid, then derive size from fixed opposite edge
-    const sg=edGridOn?edGridSize:1;
-    const snapG=v=>Math.round(v/sg)*sg;
+    // Each handle only moves its own edge; opposite edge/position stays fixed
+    const sg=edGridOn?edGridSize:0;
+    const snap=v=>sg?Math.round(v/sg)*sg:v;
     const minSz=edGridOn?edGridSize:8;
     if(d.dir==='right'){
-      const newRight=snapG(d.origX+d.origW+dx);
-      o.w=Math.max(minSz,newRight-d.origX);
+      o.w=Math.max(minSz,snap(d.origW+dx));
+      // o.x unchanged
     } else if(d.dir==='left'){
-      const newLeft=snapG(d.origX+dx);
-      const newRight=d.origX+d.origW;
-      o.x=Math.min(newLeft,newRight-minSz);
-      o.w=Math.max(minSz,newRight-o.x);
+      const newW=Math.max(minSz,snap(d.origW-dx));
+      o.x=d.origX+(d.origW-newW); // right edge stays fixed
+      o.w=newW;
     } else if(d.dir==='bottom'){
-      const newBot=snapG(d.origY+d.origH+dy);
-      o.h=Math.max(minSz,newBot-d.origY);
+      o.h=Math.max(minSz,snap(d.origH+dy));
+      // o.y unchanged
     } else if(d.dir==='top'){
-      const newTop=snapG(d.origY+dy);
-      const newBot=d.origY+d.origH;
-      o.y=Math.min(newTop,newBot-minSz);
-      o.h=Math.max(minSz,newBot-o.y);
+      const newH=Math.max(minSz,snap(d.origH-dy));
+      o.y=d.origY+(d.origH-newH); // bottom edge stays fixed
+      o.h=newH;
     }
     edScaleDrawCanvas();edRender();return;
   }
@@ -3350,7 +3468,10 @@ function saveLevel(){
     // All users can create levels
     const isPriv=document.getElementById('ed-private-chk')&&document.getElementById('ed-private-chk').checked;
     const sharedWith=isPriv?(document.getElementById('ed-share-in').value.trim().toLowerCase().split(',').map(s=>s.trim()).filter(Boolean)):[];
-    db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,created:Date.now(),private:isPriv||false,sharedWith});
+    db.ref('claredash_levels').once('value',allSnap=>{
+      const nextId=(allSnap.numChildren()||0)+1;
+      db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,created:Date.now(),private:isPriv||false,sharedWith,mapId:nextId});
+    });
     alert('Level saved: '+name);
     document.getElementById('lvl-name-in').value='';
     edObs=[];edRender();loadLevelList();
