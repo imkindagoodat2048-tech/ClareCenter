@@ -1078,16 +1078,22 @@ function showCreatePackModal(){
 
 function assignMapId(){
   if(!confirm('Assign Map IDs to ALL levels in order of creation? This will overwrite existing IDs.'))return;
-  db.ref('claredash_levels').once('value',snap=>{
+  // Only fetch created+name, not full obs, to avoid payload size issues
+  db.ref('claredash_levels').orderByChild('created').once('value',snap=>{
     const levels=[];
-    snap.forEach(c=>levels.push({key:c.key,...c.val()}));
-    levels.sort((a,b)=>(a.created||0)-(b.created||0));
-    // Write sequentially to avoid Firebase throttling
+    snap.forEach(c=>{
+      const v=c.val();
+      levels.push({key:c.key,created:v.created||0});
+    });
+    // orderByChild already sorts ascending, but re-sort to be safe
+    levels.sort((a,b)=>a.created-b.created);
+    console.log('Assigning IDs to',levels.length,'levels');
     function writeNext(i){
       if(i>=levels.length){
         alert('Done! Assigned IDs 1-'+levels.length+' by creation date.');
         loadPacksList();return;
       }
+      console.log('Writing ID '+(i+1)+' to',levels[i].key);
       db.ref('claredash_levels/'+levels[i].key+'/mapId').set(i+1,()=>writeNext(i+1));
     }
     writeNext(0);
