@@ -1082,11 +1082,15 @@ function assignMapId(){
     const levels=[];
     snap.forEach(c=>levels.push({key:c.key,...c.val()}));
     levels.sort((a,b)=>(a.created||0)-(b.created||0));
-    const updates={};
-    levels.forEach((lv,i)=>updates['claredash_levels/'+lv.key+'/mapId']=i+1);
-    db.ref().update(updates,()=>{
-      alert('Done! Assigned IDs 1–'+levels.length+' by creation date.');
-      loadPacksList();
+    let done=0;
+    levels.forEach((lv,i)=>{
+      db.ref('claredash_levels/'+lv.key+'/mapId').set(i+1,()=>{
+        done++;
+        if(done===levels.length){
+          alert('Done! Assigned IDs 1–'+levels.length+' by creation date.');
+          loadPacksList();
+        }
+      });
     });
   });
 }
