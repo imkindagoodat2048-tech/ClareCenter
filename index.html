@@ -612,7 +612,7 @@
             <div id="dash-over-title" style="font-family:'Bebas Neue',cursive;font-size:52px;letter-spacing:4px;color:var(--accent);margin-bottom:4px;">DIED</div>
             <div id="dash-over-sub" style="font-family:'Space Mono',monospace;font-size:11px;color:#666;margin-bottom:20px;"></div>
             <button onclick="restartDash()" style="font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;background:var(--primary);border:none;color:white;padding:10px 30px;cursor:pointer;margin:3px;border-radius:4px;">Retry</button>
-            <button onclick="showDashTab('play')" style="font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;background:#2f3542;border:none;color:white;padding:10px 30px;cursor:pointer;margin:3px;border-radius:4px;">Levels</button>
+            <button onclick="showDashTab(window._dashReturnTab||'play')" style="font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;background:#2f3542;border:none;color:white;padding:10px 30px;cursor:pointer;margin:3px;border-radius:4px;">Levels</button>
         </div>
     </div>
     <!-- SETTINGS -->
@@ -1266,7 +1266,8 @@ function playLevel(key){
     dBgColor=dCurrentLevel.bgColor||'#1a1a2e';dGroundColor=dCurrentLevel.groundColor||'#252545';
     db.ref('claredash_levels/'+key+'/plays').transaction(n=>(n||0)+1);
     dAttempts=1;
-    ['dash-play-tab','dash-create-tab','dash-settings','dash-level-page'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
+    window._dashReturnTab=document.getElementById('dash-packs-tab')&&!document.getElementById('dash-packs-tab').classList.contains('hidden')?'packs':'play';
+    ['dash-play-tab','dash-packs-tab','dash-create-tab','dash-settings','dash-level-page'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
     document.getElementById('dash-game').classList.remove('hidden');
     document.getElementById('dash-over').classList.add('hidden');
     requestAnimationFrame(()=>{initDCanvas();resetDash();dRunning=true;dLoop();updDHUD();});
