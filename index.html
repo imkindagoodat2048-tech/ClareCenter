@@ -1103,8 +1103,7 @@ function savePackModal(){
   const name=document.getElementById('pack-name-in').value.trim();
   if(!name){alert('Enter a pack name!');return;}
   const raw=document.getElementById('pack-ids-in').value;
-  const mapIds=raw.split(/[,
-]+/).map(s=>Number(s.trim())).filter(n=>n>0&&Number.isInteger(n));
+  const mapIds=raw.replace(/\n/g,',').split(',').map(s=>Number(s.trim())).filter(n=>n>0&&Number.isInteger(n));
   const editKey=document.getElementById('pack-edit-key').value;
   const data={name,mapIds,created:Date.now()};
   if(editKey){
