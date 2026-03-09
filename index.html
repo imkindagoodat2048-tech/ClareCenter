@@ -1750,28 +1750,21 @@ function dPhysics(){
       const ox=o.x-dScrollX;
       if(ox>dCanvas.width+120||ox+o.w<-120)continue;
       if(o.t==='textblock')continue; // decorative only
-      // Special block: circle collision + key/lock logic
+      // Special block: box collision. Left face kills, other sides solid. Key/lock logic for v10/v11.
       if(o.t==='special'){
         const sv=o.version||1;
-        // Circle collision check
-        const scx=o.x-dScrollX+o.w/2,scy=o.y+o.h/2,sr=Math.min(o.w,o.h)/2;
-        const pcx=px+ps/2,pcy=py+ps/2;
-        const dist=Math.sqrt((pcx-scx)**2+(pcy-scy)**2);
-        if(dist<sr+ps/2){
+        const overlaps=px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h;
+        if(overlaps){
           if(sv===10){
-            // Key: pick up this key
+            // Key: pick up
             if(!o._pickedUp){
               o._pickedUp=true;
               const keyId=o.specialId||0;
-              // Find matching lock and open it
               dObs.forEach(lb=>{
                 if(lb.t==='special'&&(lb.version||1)===11&&(lb.specialId||0)===keyId){
-                  lb._unlocked=true;
-                  lb.touchable=false;
-                  // Also make touching blocks non-collidable
+                  lb._unlocked=true;lb.touchable=false;
                   dObs.forEach(nb=>{
                     if(nb===lb)return;
-                    const lbx=lb.x-dScrollX;
                     if(Math.abs(nb.x-lb.x)<lb.w&&Math.abs(nb.y-lb.y)<lb.h){
                       nb._lockedBy=keyId;nb.touchable=false;
                     }
@@ -1780,13 +1773,15 @@ function dPhysics(){
               });
             }
           } else if(sv!==11||!o._unlocked){
-            // Solid circle collision - push player out
-            if(dist>0&&dist<sr+ps/2){
-              const nx=(pcx-scx)/dist,ny=(pcy-scy)/dist;
-              const overlap=sr+ps/2-dist;
-              dPX+=nx*overlap;dPY+=ny*overlap;
-              if(ny<-0.5){dVY=0;dGrounded=true;dOrbUsed=false;}
-              else if(ny>0.5&&dVY<0){dVY=0;}
+            // Right side of player hit left face of block → kill
+            if(px+ps>ox&&prevPX+ps<=ox+4){dDie();return;}
+            // Otherwise solid block collision (top/bottom)
+            const prevBot=prevPY+ps,curBot=py+ps;
+            const prevTop=prevPY,curTop=py;
+            if(curBot>=o.y&&prevBot<=o.y+4&&dVY>=0){
+              dPY=o.y-ps;dVY=0;dGrounded=true;dOrbUsed=false;
+            } else if(curTop<=o.y+o.h&&prevTop>=o.y+o.h-4&&dVY<0){
+              dPY=o.y+o.h;dVY=0;
             }
           }
         }
