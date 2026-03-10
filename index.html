@@ -2874,7 +2874,7 @@ function getDiffDisplay(diff){
   // unknown = unrated, show special icon
   if(diff==='unknown'){
     if(useOldDifficulties)return '❓ Unrated';
-    return '<img src="difficulty/unknown.png" alt="Unrated" title="No difficulty rating yet" style="height:18px;vertical-align:middle;image-rendering:pixelated;" onerror="this.replaceWith(document.createTextNode('?'));">';
+    return '<img src="difficulty/unknown.png" alt="Unrated" title="No difficulty rating yet" style="height:18px;vertical-align:middle;image-rendering:pixelated;" onerror="this.replaceWith(document.createTextNode(&quot;?&quot;));">';
   }
   const d=DIFF_OPTS.find(o=>o.id===diff);
   if(!d)return '';
