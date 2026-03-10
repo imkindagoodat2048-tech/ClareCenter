@@ -309,8 +309,8 @@
                 <option value="recent">🕐 Recent</option>
                 <option value="oldest">📅 Oldest</option>
                 <option value="played">🔥 Most Played</option>
-                <option value="hardest">💀 Hardest</option>
-                <option value="easiest">😃 Easiest</option>
+                <option value="hardest">😈 Hardest</option>
+                <option value="easiest">😴 Easiest</option>
                 <option value="official">⭐ Official</option>
             </select>
         </div>
@@ -973,7 +973,7 @@ function showDashTab(tab){
   else if(tab==='packs'){document.getElementById('dash-packs-tab').classList.remove('hidden');loadPacksList();}
 }
 
-const DIFF_ORDER=['cakewalk','easy','medium','hard','extreme','deadly'];
+const DIFF_ORDER=['easiest','cakewalk','easy','medium','hard','extreme','deadly','inhumane','unknown'];
 function loadLevelList(){
   const list=document.getElementById('dash-level-list');
   list.innerHTML='<div style="font-size:11px;color:#555;text-align:center;padding:8px;">Loading...</div>';
@@ -1810,7 +1810,7 @@ function dPhysics(){
             db.ref('claredash_best/'+hubUser+'/'+dCurrentLevelKey).set(100);
             // ── Gem earning (first clear only) ──
             if(dCurrentLevel&&dCurrentLevel.difficulty){
-              const GEM_VALUES={cakewalk:1,easy:2,medium:3,hard:4,extreme:5,deadly:10};
+              const GEM_VALUES={easiest:0,cakewalk:1,easy:2,medium:3,hard:4,extreme:5,deadly:10,inhumane:15};
               const gemVal=GEM_VALUES[dCurrentLevel.difficulty]||0;
               if(gemVal>0){
                 db.ref('claredash_gems/'+hubUser+'/earned/'+dCurrentLevelKey).once('value',gsnap=>{
@@ -1843,11 +1843,11 @@ function dPhysics(){
                 });
               });
             }
-            if(dCurrentLevel&&(dCurrentLevel.difficulty==='extreme'||dCurrentLevel.difficulty==='deadly')){
+            if(dCurrentLevel&&(dCurrentLevel.difficulty==='extreme'||dCurrentLevel.difficulty==='deadly'||dCurrentLevel.difficulty==='inhumane')){
               db.ref('claredash_skins/'+hubUser+'/extremeBeatsMap/'+dCurrentLevelKey).set(true,()=>{
                 db.ref('claredash_skins/'+hubUser+'/extremeBeatsMap').once('value',xs=>{
                   db.ref('claredash_skins/'+hubUser+'/extremeBeats').set(xs.numChildren());
-                  if(dCurrentLevel.difficulty==='deadly')db.ref('claredash_skins/'+hubUser+'/beatDeadly').set(true);
+                  if(dCurrentLevel.difficulty==='deadly'||dCurrentLevel.difficulty==='inhumane')db.ref('claredash_skins/'+hubUser+'/beatDeadly').set(true);
                   checkSkinUnlocks();
                 });
               });
@@ -1861,7 +1861,7 @@ function dPhysics(){
             }
             // Ball skin tracking
             const hasBallPortal=dObs.some(o=>o.t==='ballportal');
-            const isNonCakewalk2=dCurrentLevel&&dCurrentLevel.difficulty&&dCurrentLevel.difficulty!=='cakewalk';
+            const isNonCakewalk2=dCurrentLevel&&dCurrentLevel.difficulty&&dCurrentLevel.difficulty!=='cakewalk'&&dCurrentLevel.difficulty!=='easiest';
             if(hasBallPortal&&isNonCakewalk2){
               db.ref('claredash_skins/'+hubUser+'/beatBallNonCakewalk').set(true);
               const bk='ballLevel3x_'+dCurrentLevelKey;
@@ -2825,18 +2825,21 @@ function modConfirmAdd(type){
 
 // ── DIFFICULTY RATING ──
 const DIFF_OPTS=[
+  {id:'easiest', emoji:'😴', label:'Easiest',  img:'difficulty/easiest.png'},
   {id:'cakewalk',emoji:'😆', label:'Cakewalk', img:'difficulty/cakewalk.png'},
   {id:'easy',    emoji:'😃', label:'Easy',     img:'difficulty/easy.png'},
   {id:'medium',  emoji:'😊', label:'Medium',   img:'difficulty/medium.png'},
   {id:'hard',    emoji:'😕', label:'Hard',     img:'difficulty/hard.png'},
   {id:'extreme', emoji:'😨', label:'Extreme',  img:'difficulty/extreme.png'},
   {id:'deadly',  emoji:'☠️', label:'Deadly',   img:'difficulty/deadly.png'},
+  {id:'inhumane',emoji:'😈', label:'Inhumane', img:'difficulty/inhumane.png'},
+  // 'unknown' is NOT here — unrated levels only, cannot be voted
 ];
 let useOldDifficulties=false; // toggled in settings
 // Average vote index, round down on ties (easier option)
 function calcDifficulty(votes){
   if(!votes)return null;
-  const order=['cakewalk','easy','medium','hard','extreme','deadly'];
+  const order=['easiest','cakewalk','easy','medium','hard','extreme','deadly','inhumane'];
   const indices=Object.values(votes).map(v=>order.indexOf(v)).filter(i=>i>=0);
   if(!indices.length)return null;
   // Average all vote indices, floor (ties go to easier)
@@ -2845,6 +2848,11 @@ function calcDifficulty(votes){
 }
 function getDiffDisplay(diff){
   if(!diff)return '';
+  // unknown = unrated, show special icon
+  if(diff==='unknown'){
+    if(useOldDifficulties)return '❓ Unrated';
+    return '<img src="difficulty/unknown.png" alt="Unrated" title="No difficulty rating yet" style="height:18px;vertical-align:middle;image-rendering:pixelated;" onerror="this.replaceWith(document.createTextNode('?'));">';
+  }
   const d=DIFF_OPTS.find(o=>o.id===diff);
   if(!d)return '';
   if(useOldDifficulties)return d.emoji+' '+d.label;
@@ -3191,7 +3199,7 @@ function drawPlayerSkin(ctx,x,y,pc,forceStrokeColor){
 
 // Preload difficulty images for special block
 const _DIFF_IMGS={};
-['cakewalk','easy','normal','hard','extreme','deadly'].forEach(n=>{
+['easiest','cakewalk','easy','normal','hard','extreme','deadly','inhumane','unknown'].forEach(n=>{
   const img=new Image();img.src='difficulty/'+n+'.png';_DIFF_IMGS[n]=img;
 });
 
