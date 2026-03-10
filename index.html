@@ -258,7 +258,22 @@
             </div>
             <button class="game-play" onclick="launchClareClash()">Play</button>
         </div>
+        <div class="game-row" id="game-row-5" style="opacity:0.45;filter:grayscale(0.6);">
+            <div class="game-info">
+                <div class="game-num" style="filter:blur(1.5px);">05</div>
+                <div>
+                    <div class="game-name" style="filter:blur(1.5px);">🔒 ???</div>
+                    <div class="game-tag" style="filter:blur(1px);">Unknown</div>
+                </div>
+            </div>
+            <button class="game-play" id="game-5-btn" onclick="launchGame5()" style="background:#333;color:#666;cursor:not-allowed;">Play</button>
+        </div>
     </div>
+</div>
+
+<!-- GAME 5 SECRET PANEL -->
+<div id="game5-panel" style="display:none;position:fixed;inset:0;background:#000;z-index:9999;flex-direction:column;align-items:center;justify-content:center;">
+    <button onclick="closeGame5()" style="position:absolute;top:14px;right:18px;background:transparent;border:none;color:#222;font-size:18px;cursor:pointer;font-family:'Space Mono',monospace;letter-spacing:1px;">✕</button>
 </div>
 
 <!-- MODAL -->
@@ -815,6 +830,7 @@ document.getElementById('auth-pass').addEventListener('keydown',e=>{if(e.key==='
 function setHubUser(u){
   hubUser=u;
   document.getElementById('auth-container').classList.add('hidden');
+  unlockGame5IfAdmin();
   document.getElementById('chat-wrapper').classList.remove('hidden');
   const pill=document.getElementById('user-pill');
   pill.classList.remove('hidden');
@@ -902,6 +918,16 @@ async function delUser(u){if(!confirm('Delete '+u+'?'))return;await db.ref("user
 // ===== LAUNCHERS =====
 function launchClareCool(){window.open('https://imkindagoodat2048-tech.github.io/ClareCool/','_blank');}
 function launchClareClash(){window.open('https://imkindagoodat2048-tech.github.io/ClareGame/','_blank');}
+function unlockGame5IfAdmin(){
+  if(hubUser==='bartelsfamily5'){
+    const row=document.getElementById('game-row-5');
+    if(row){row.style.opacity='1';row.style.filter='none';}
+    const btn=document.getElementById('game-5-btn');
+    if(btn){btn.style.background='';btn.style.color='';btn.style.cursor='pointer';}
+    const name=row&&row.querySelector('.game-name');
+    // keep name blurred for everyone else — no change needed here
+  }
+}
 function launchClareDash(){
   document.getElementById('claredash').classList.remove('hidden');
   // Show Create tab for all users
@@ -909,6 +935,13 @@ function launchClareDash(){
   const coinOpt=document.getElementById('coin-option');if(coinOpt)coinOpt.style.display=hubUser==='bartelsfamily5'?'':'none';
   loadDashSkins();
   showDashTab('play');
+}
+function launchGame5(){
+  if(hubUser!=='bartelsfamily5'){return;}
+  document.getElementById('game5-panel').style.display='flex';
+}
+function closeGame5(){
+  document.getElementById('game5-panel').style.display='none';
 }
 function launchClareTown(){
   document.getElementById('claretown').classList.remove('hidden');
