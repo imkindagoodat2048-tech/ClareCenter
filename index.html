@@ -642,9 +642,18 @@
         <div id="dash-hud" style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:10px 16px;pointer-events:none;">
             <div><div id="dash-pct" style="font-family:'Bebas Neue',cursive;font-size:26px;color:var(--accent);">0%</div><div id="dash-att" style="font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-top:3px;">Attempt 1</div></div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
-              <div id="dash-mode-hud" style="font-family:'Space Mono',monospace;font-size:10px;color:#555;text-align:right;">SPACE / Click to jump</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div id="dash-mode-hud" style="font-family:'Space Mono',monospace;font-size:10px;color:#555;text-align:right;">SPACE / Click to jump</div>
+                <button id="pause-btn" onclick="togglePause()" style="font-family:'Bebas Neue',cursive;font-size:13px;letter-spacing:1px;background:#1a1a2e;border:1px solid #333;color:#888;padding:3px 9px;border-radius:4px;cursor:pointer;pointer-events:all;transition:color .1s,border-color .1s;" onmouseenter="this.style.color='#fff';this.style.borderColor='#666'" onmouseleave="this.style.color='#888';this.style.borderColor='#333'">⏸</button>
+              </div>
               <div id="dash-coin-hud" style="font-family:'Space Mono',monospace;font-size:11px;color:#ffd700;text-align:right;"></div>
             </div>
+        </div>
+        <div id="dash-pause-over" class="hidden" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,10,20,0.82);z-index:5;">
+            <div style="font-family:'Bebas Neue',cursive;font-size:48px;letter-spacing:4px;color:var(--accent);margin-bottom:4px;">PAUSED</div>
+            <div style="font-family:'Space Mono',monospace;font-size:10px;color:#555;margin-bottom:24px;letter-spacing:2px;">PRESS ESC OR P TO RESUME</div>
+            <button onclick="togglePause()" style="font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;background:var(--primary);border:none;color:white;padding:10px 30px;cursor:pointer;margin:3px;border-radius:4px;">Resume</button>
+            <button onclick="showDashTab(window._dashReturnTab||'play')" style="font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;background:#2f3542;border:none;color:white;padding:10px 30px;cursor:pointer;margin:3px;border-radius:4px;">Quit</button>
         </div>
         <div id="dash-over" class="hidden" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(26,26,46,0.9);">
             <div id="dash-over-title" style="font-family:'Bebas Neue',cursive;font-size:52px;letter-spacing:4px;color:var(--accent);margin-bottom:4px;">DIED</div>
@@ -1623,8 +1632,23 @@ function resetDash(){
   dLevelStartTime=Date.now();
   resetModifiers();
 }
-function restartDash(){stopDash();dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');dRunning=true;updDHUD();dLoop();}
-function stopDash(){dRunning=false;if(dRAF)cancelAnimationFrame(dRAF);}
+function restartDash(){stopDash();dAttempts++;resetDash();document.getElementById('dash-over').classList.add('hidden');document.getElementById('dash-pause-over').classList.add('hidden');const pb=document.getElementById('pause-btn');if(pb)pb.textContent='⏸';dRunning=true;updDHUD();dLoop();}
+function stopDash(){dRunning=false;dPaused=false;if(dRAF)cancelAnimationFrame(dRAF);}
+let dPaused=false;
+function togglePause(){
+  if(dDied||dWon||!dRunning)return;
+  dPaused=!dPaused;
+  const over=document.getElementById('dash-pause-over');
+  const btn=document.getElementById('pause-btn');
+  if(dPaused){
+    over.classList.remove('hidden');
+    if(btn)btn.textContent='▶';
+  } else {
+    over.classList.add('hidden');
+    if(btn)btn.textContent='⏸';
+    dLoop(); // resume loop
+  }
+}
 function dJump(){
   if(dSpiderMode&&dRunning&&!dDied&&!dWon){spiderTeleport();return;}
   if(dBallMode&&dRunning&&!dDied&&!dWon&&(dGrounded||Math.abs(dVY)<0.5)){
@@ -1671,7 +1695,7 @@ function spiderTeleport(){
 function dOrbJump(bounce){
   dVY=-(4+dJumpHeight*0.14)*((bounce||50)/50);
 }
-function dLoop(){if(!dRunning)return;dRAF=requestAnimationFrame(dLoop);tickModifiers(1);dPhysics();dRender();}
+function dLoop(){if(!dRunning||dPaused)return;dRAF=requestAnimationFrame(dLoop);tickModifiers(1);dPhysics();dRender();}
 function dPhysics(){
   if(dDied||dWon)return;
   const gh=GROUND_Y,spd=getDSPD();
@@ -2833,7 +2857,6 @@ const DIFF_OPTS=[
   {id:'extreme', emoji:'😨', label:'Extreme',  img:'difficulty/extreme.png'},
   {id:'deadly',  emoji:'☠️', label:'Deadly',   img:'difficulty/deadly.png'},
   {id:'inhumane',emoji:'😈', label:'Inhumane', img:'difficulty/inhumane.png'},
-  // 'unknown' is NOT here — unrated levels only, cannot be voted
 ];
 let useOldDifficulties=false; // toggled in settings
 // Average vote index, round down on ties (easier option)
@@ -3561,6 +3584,7 @@ function dJumpPress(){
 function dJumpRelease(){dJumpHeld=false;dShipHeld=false;dOrbJumpQueued=false;}
 document.addEventListener('keydown',e=>{
   if(e.code==='Space'){e.preventDefault();if(!e.repeat)dJumpPress();}
+  if(e.code==='KeyP'||e.code==='Escape'){e.preventDefault();togglePause();}
  
   if(e.code==='ArrowDown'||e.code==='KeyS'){if(dShipMode||dWaveMode)dShipHeld=true;}
 });
