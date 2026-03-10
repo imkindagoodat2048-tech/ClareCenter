@@ -274,7 +274,7 @@
             <div id="dash-tab-btns" style="display:flex;gap:4px;">
                 <button class="icon-btn" id="tab-play-btn" onclick="showDashTab('play')">Play</button>
                 <button class="icon-btn" id="tab-packs-btn" onclick="showDashTab('packs')">Packs</button>
-                <button class="icon-btn" id="tab-create-btn" style="display:none;" onclick="showDashTab('create')">Create</button>
+                <button class="icon-btn" id="tab-create-btn" style="display:none;" onclick="window._editingLevelKey=null;const _sb=document.getElementById('save-level-btn');if(_sb){_sb.textContent='Save';_sb.style.background='#2ed573';}showDashTab('create')">Create</button>
                 <button class="icon-btn" onclick="showDashSettings()">Settings</button>
             </div>
             <button class="gs-exit" onclick="exitGame('claredash')">Exit</button>
@@ -389,7 +389,7 @@
             <button class="icon-btn" onclick="editorUndo()" style="background:#444;">Undo</button>
             <button class="icon-btn" id="ed-del-btn" onclick="edDeleteSelected()" style="background:#eb4d4b;display:none;">Delete</button>
             <button class="icon-btn" id="ed-dup-btn" onclick="edDuplicateSelected()" style="background:#5555aa;display:none;">Duplicate</button>
-            <button class="icon-btn" onclick="saveLevel()" style="background:#2ed573;color:#000;">Save</button>
+            <button class="icon-btn" id="save-level-btn" onclick="saveLevel()" style="background:#2ed573;color:#000;">Save</button>
             <button class="icon-btn" onclick="testLevel()" style="background:#e8ff00;color:#000;">Test</button>
             <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;flex-shrink:0;">
               <input type="checkbox" id="ed-private-chk" onchange="document.getElementById('ed-share-row').style.display=this.checked?'flex':'none';">
@@ -974,7 +974,9 @@ function showDashTab(tab){
   ['dash-play-tab','dash-packs-tab','dash-create-tab','dash-game','dash-settings','dash-level-page'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.classList.add('hidden');
   });
-  stopDash();window._editingLevelKey=null;
+  stopDash();
+  // Only clear edit key when explicitly navigating to create (new level) or play
+  if(tab==='play'||tab==='packs'||tab==='settings'||tab==='levelpage')window._editingLevelKey=null;
   if(tab==='play'){document.getElementById('dash-play-tab').classList.remove('hidden');loadLevelList();}
   else if(tab==='create'){document.getElementById('dash-create-tab').classList.remove('hidden');initEditor();}
   else if(tab==='settings'){document.getElementById('dash-settings').classList.remove('hidden');}
@@ -1493,6 +1495,7 @@ function editLevel(key){
     if(d.speed!=null){dSpeedBPS=d.speed;const si=document.getElementById('ed-speed-in');if(si){si.value=d.speed*10;document.getElementById('ed-speed-val').textContent=parseFloat(d.speed).toFixed(1);}}
     if(d.jumpHeight!=null){dJumpHeight=d.jumpHeight;const ji=document.getElementById('ed-jump-in');if(ji){ji.value=d.jumpHeight;document.getElementById('ed-jump-val').textContent=d.jumpHeight;}}
     window._editingLevelKey=key;
+    const sb=document.getElementById('save-level-btn');if(sb){sb.textContent='Update';sb.style.background='#f9ca24';}
     edRender();
   });
 }
@@ -4125,6 +4128,7 @@ function saveLevel(){
       db.ref('claredash_levels/'+editKey).set({...preserved,name,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,private:isPrivEdit||false,sharedWith:sharedWithEdit},()=>{
         alert('Level updated: '+name);
         window._editingLevelKey=null;
+        const sb2=document.getElementById('save-level-btn');if(sb2){sb2.textContent='Save';sb2.style.background='#2ed573';}
         document.getElementById('lvl-name-in').value='';
         edObs=[];edRender();loadLevelList();
       });
