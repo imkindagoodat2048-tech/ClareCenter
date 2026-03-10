@@ -1008,8 +1008,6 @@ function showDashTab(tab){
     const el=document.getElementById(id);if(el)el.classList.add('hidden');
   });
   stopDash();
-  // Only clear edit key when explicitly navigating to create (new level) or play
-  if(tab==='play'||tab==='packs'||tab==='settings'||tab==='levelpage')window._editingLevelKey=null;
   if(tab==='play'){document.getElementById('dash-play-tab').classList.remove('hidden');loadLevelList();}
   else if(tab==='create'){document.getElementById('dash-create-tab').classList.remove('hidden');initEditor();}
   else if(tab==='settings'){document.getElementById('dash-settings').classList.remove('hidden');}
