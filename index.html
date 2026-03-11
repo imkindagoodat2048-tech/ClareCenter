@@ -483,30 +483,40 @@
 // ════════════════════════════════════════════
 
 const G5_CARDS = [
-  // Common (suit cards 2–9)
+  // Common — standard suits 2–9 + coin suit 2–9
   ...[2,3,4,5,6,7,8,9].flatMap(n=>[
     {id:`${n}h`,rank:String(n),suit:'hearts',   symbol:'♥',red:true, rarity:'common'},
     {id:`${n}s`,rank:String(n),suit:'spades',   symbol:'♠',red:false,rarity:'common'},
     {id:`${n}d`,rank:String(n),suit:'diamonds', symbol:'♦',red:true, rarity:'common'},
     {id:`${n}c`,rank:String(n),suit:'clubs',    symbol:'♣',red:false,rarity:'common'},
+    {id:`${n}co`,rank:String(n),suit:'coins',   symbol:'🪙',red:false,rarity:'common'},
   ]),
-  // Uncommon — 10, A, J of each suit + cancel
-  ...[['10','10'],['A','A'],['J','J']].flatMap(([rank,r])=>[
+  // Uncommon — 10/J of all suits incl. coins; A of spades/diamonds/clubs; cancel; +2
+  ...[['10','10'],['J','J']].flatMap(([rank,r])=>[
     {id:`${r}h`,rank,suit:'hearts',  symbol:'♥',red:true, rarity:'uncommon'},
     {id:`${r}s`,rank,suit:'spades',  symbol:'♠',red:false,rarity:'uncommon'},
     {id:`${r}d`,rank,suit:'diamonds',symbol:'♦',red:true, rarity:'uncommon'},
     {id:`${r}c`,rank,suit:'clubs',   symbol:'♣',red:false,rarity:'uncommon'},
+    {id:`${r}co`,rank,suit:'coins',  symbol:'🪙',red:false,rarity:'uncommon'},
   ]),
-  {id:'cancel', rank:'❌',suit:'cancel',  symbol:'❌',red:false,rarity:'uncommon',special:true},
-  // Rare — Q of each suit + black joker + reverse
+  {id:'As',rank:'A',suit:'spades',  symbol:'♠',red:false,rarity:'uncommon'},
+  {id:'Ad',rank:'A',suit:'diamonds',symbol:'♦',red:true, rarity:'uncommon'},
+  {id:'Ac',rank:'A',suit:'clubs',   symbol:'♣',red:false,rarity:'uncommon'},
+  {id:'cancel', rank:'❌',suit:'cancel', symbol:'❌',red:false,rarity:'uncommon',special:true},
+  {id:'plus2',  rank:'+2', suit:'uno',   symbol:'+2',red:false,rarity:'uncommon',special:true},
+  // Rare — Q of all suits; black joker; reverse; Ace of hearts; Haunted Ace; +4 uno
   ...[['Q','Q']].flatMap(([rank,r])=>[
     {id:`${r}h`,rank,suit:'hearts',  symbol:'♥',red:true, rarity:'rare'},
     {id:`${r}s`,rank,suit:'spades',  symbol:'♠',red:false,rarity:'rare'},
     {id:`${r}d`,rank,suit:'diamonds',symbol:'♦',red:true, rarity:'rare'},
     {id:`${r}c`,rank,suit:'clubs',   symbol:'♣',red:false,rarity:'rare'},
+    {id:`${r}co`,rank,suit:'coins',  symbol:'🪙',red:false,rarity:'rare'},
   ]),
-  {id:'blackjoker',rank:'🃏',suit:'joker',symbol:'🃏',red:false,rarity:'rare',special:true},
-  {id:'reverse',   rank:'🔁',suit:'reverse',symbol:'🔁',red:false,rarity:'rare',special:true},
+  {id:'blackjoker',  rank:'🃏',suit:'joker',  symbol:'🃏',red:false,rarity:'rare',special:true},
+  {id:'reverse',     rank:'🔁',suit:'reverse',symbol:'🔁',red:false,rarity:'rare',special:true},
+  {id:'Ah',          rank:'A', suit:'hearts',  symbol:'♥',red:true, rarity:'rare'},
+  {id:'hauntedace',  rank:'A', suit:'haunted', symbol:'🕷',red:false,rarity:'rare',special:true},
+  {id:'plus4uno',    rank:'+4',suit:'uno',     symbol:'+4',red:false,rarity:'rare',special:true},
   // Epic
   {id:'Ks',rank:'K',suit:'spades',  symbol:'♠',red:false,rarity:'legendary'},
   {id:'Kd',rank:'K',suit:'diamonds',symbol:'♦',red:true, rarity:'legendary'},
@@ -623,6 +633,25 @@ function g5RenderCardObj(card, count, small, selected, onclick){
       <div class="g5-corner-tl" style="font-size:${small?'9px':'11px'}">K<br>🪙</div>
       <div class="g5-center" style="font-size:${small?'20px':'28px'}">🪙</div>
       <div class="g5-corner-br" style="font-size:${small?'9px':'11px'}">K<br>🪙</div>
+    </div>`;
+  }
+  if(d.id==='plus2'||d.id==='plus4uno'){
+    const isPlus4=d.id==='plus4uno';
+    const col=isPlus4?'#cc0000':'#0055cc';
+    const txt=isPlus4?'+4':'+2';
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:#1a1a2e;border-color:${col};" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'9px':'11px'};color:${col};">${txt}<br>🃏</div>
+      <div class="g5-center" style="font-size:${small?'20px':'28px'};color:${col};font-weight:900;">${txt}</div>
+      <div class="g5-corner-br" style="font-size:${small?'9px':'11px'};color:${col};">${txt}<br>🃏</div>
+    </div>`;
+  }
+  if(d.id==='hauntedace'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:#0d0d0d;border-color:#555;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'9px':'11px'};color:#aaa;">A<br>🕷</div>
+      <div class="g5-center" style="font-size:${small?'18px':'24px'};">🕷</div>
+      <div class="g5-corner-br" style="font-size:${small?'9px':'11px'};color:#aaa;">A<br>🕷</div>
     </div>`;
   }
   if(d.id==='wildcard'||d.id==='plus4wild'){
@@ -950,7 +979,7 @@ function g5ShowCardInfo(key){
   // Build display name
   let name = '';
   if(d.special){
-    const names = {cancel:'Cancel Card', blackjoker:'Black Joker', reverse:'Reverse Card', redjoker:'Red Joker', supercard:'Supercard', error:'Error', kswords:'King of Swords', kcoins:'King of Coins', wildcard:'Wild Card', plus4wild:'+4 Wild Card'};
+    const names = {cancel:'Cancel Card', blackjoker:'Black Joker', reverse:'Reverse Card', redjoker:'Red Joker', supercard:'Supercard', error:'Error', kswords:'King of Swords', kcoins:'King of Coins', wildcard:'Wild Card', plus4wild:'+4 Wild Card', plus2:'Plus 2', plus4uno:'Plus 4', hauntedace:'Haunted Ace'};
     name = names[d.id]||d.id;
   } else {
     const rankNames = {A:'Ace',J:'Jack',Q:'Queen',K:'King','10':'Ten',2:'Two',3:'Three',4:'Four',5:'Five',6:'Six',7:'Seven',8:'Eight',9:'Nine'};
