@@ -333,8 +333,14 @@
 .g5-card.rarity-mythical { border-color:var(--accent); box-shadow:0 0 14px #e8ff0055; animation:g5-mythglow 2s infinite alternate; }
 @keyframes g5-mythglow { from { box-shadow:0 0 8px #e8ff0033; } to { box-shadow:0 0 22px #e8ff0099, 0 0 40px #4834d444; } }
 /* Modifiers */
-.g5-card.mod-silver { background:linear-gradient(145deg,#d8d8d8,#eee,#c8c8c8); border-color:#aaa; color:#333; }
-.g5-card.mod-silver.red { color:#991111; }
+.g5-card.mod-silver { background:linear-gradient(145deg,#c8c8c8,#f0f0f0,#b8b8b8); border-color:#999; color:#222; overflow:hidden; }
+.g5-card.mod-silver.red { color:#880000; }
+.g5-card.mod-silver::after {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,0.7) 50%,transparent 70%);
+  background-size:200% 100%; animation:g5-shine 2.2s ease-in-out infinite;
+}
+@keyframes g5-shine { 0%{background-position:200% 0} 60%,100%{background-position:-200% 0} }
 .g5-card.mod-gold { background:linear-gradient(145deg,#ffe066,#fff3a0,#ffd700); border-color:#c8a000; box-shadow:0 0 12px #ffd70077; color:#5a3a00; }
 .g5-card.mod-gold.red { color:#7a1a00; }
 .g5-card.mod-rainbow { background:linear-gradient(135deg,#ffb3b3,#ffd9a0,#ffffb3,#b3ffb3,#b3d9ff,#d9b3ff); border-color:#fff; color:#222; }
@@ -443,6 +449,17 @@
 #game5-panel ::-webkit-scrollbar-thumb { background:#333; border-radius:3px; }
 
 .g5-empty { color:#444; font-family:'Space Mono',monospace; font-size:11px; text-align:center; padding:30px; letter-spacing:1px; }
+.g5-card-info-bar {
+  display:none; align-items:center; gap:14px; padding:8px 16px;
+  background:#111; border-bottom:1px solid #2a2a3a; flex-shrink:0;
+  font-family:'Space Mono',monospace; font-size:11px;
+}
+.g5-card-info-bar.visible { display:flex; }
+.g5-cib-suit  { font-size:20px; line-height:1; }
+.g5-cib-name  { font-family:'Bebas Neue',cursive; font-size:18px; letter-spacing:2px; color:var(--text-white); }
+.g5-cib-rarity{ font-size:9px; letter-spacing:2px; padding:2px 7px; border-radius:3px; text-transform:uppercase; }
+.g5-cib-cost  { font-size:11px; color:#ffd700; margin-left:auto; }
+.g5-cib-mods  { font-size:10px; color:#888; }
 
 .g5-empty { color:#444; font-size:12px; text-align:center; padding:30px; letter-spacing:1px; }
 .g5-filter-row { display:flex; gap:6px; flex-wrap:wrap; padding:0 16px 8px; }
@@ -593,12 +610,13 @@ function g5OpenPack(packId){
     const mods=[];
     const dragonChance = pack.dragon ? 0.25 : 0.05;
     if(Math.random()<dragonChance) mods.push('dragon');
-    // silver/gold/rainbow mutually exclusive
+    // rainbow and gold are independent rolls
+    // silver is excluded only if gold is present
+    if(Math.random()<0.01)  mods.push('rainbow');
+    if(Math.random()<0.025) mods.push('gold');
+    // silver only if no gold
     const silverThreshold = pack.silverBoost ? 0.10 : 0.05;
-    const modRoll=Math.random();
-    if(modRoll<0.01)                          mods.push('rainbow');
-    else if(modRoll<0.025)                    mods.push('gold');
-    else if(modRoll<0.025+silverThreshold)    mods.push('silver');
+    if(!mods.includes('gold') && Math.random()<silverThreshold) mods.push('silver');
     card.mods=mods;
     drawn.push(card);
   }
@@ -853,6 +871,47 @@ function g5SellValue(key){
   return Math.round(val);
 }
 
+const G5_RARITY_COLORS = {
+  common:'background:#333;color:#aaa',
+  uncommon:'background:#1b3d1b;color:#4caf50',
+  rare:'background:#0d2040;color:#64b5f6',
+  epic:'background:#2a0a3a;color:#ce93d8',
+  legendary:'background:#3d1f00;color:#ffb74d',
+  mythical:'background:#1a0028;color:#e8ff00',
+};
+
+function g5ShowCardInfo(key){
+  const {baseId, mods} = g5ParseKey(key);
+  const d = G5_CARDS.find(c=>c.id===baseId);
+  if(!d) return;
+  const bar = document.getElementById('g5-card-info-bar');
+  if(!bar) return;
+
+  // Build display name
+  let name = '';
+  if(d.special){
+    const names = {cancel:'Cancel Card', blackjoker:'Black Joker', reverse:'Reverse Card', redjoker:'Red Joker', supercard:'Supercard'};
+    name = names[d.id]||d.id;
+  } else {
+    const rankNames = {A:'Ace',J:'Jack',Q:'Queen',K:'King','10':'Ten',2:'Two',3:'Three',4:'Four',5:'Five',6:'Six',7:'Seven',8:'Eight',9:'Nine'};
+    const suitNames = {hearts:'Hearts',spades:'Spades',diamonds:'Diamonds',clubs:'Clubs'};
+    name = (rankNames[d.rank]||d.rank)+' of '+(suitNames[d.suit]||d.suit);
+  }
+  if(mods.length) name += ' · '+mods.map(m=>m[0].toUpperCase()+m.slice(1)).join('+');
+
+  const sell = g5SellValue(key);
+  const suitDisplay = d.special ? d.symbol : (d.red ? '<span style="color:#cc1111">'+d.symbol+'</span>' : d.symbol);
+
+  document.getElementById('g5-cib-suit').innerHTML = suitDisplay;
+  document.getElementById('g5-cib-name').textContent = name;
+  const rarEl = document.getElementById('g5-cib-rarity');
+  rarEl.textContent = d.rarity;
+  rarEl.style.cssText = (G5_RARITY_COLORS[d.rarity]||'') + ';font-size:9px;letter-spacing:2px;padding:2px 7px;border-radius:3px;text-transform:uppercase;';
+  document.getElementById('g5-cib-mods').textContent = '';
+  document.getElementById('g5-cib-cost').textContent = '🪙 '+sell+' (sell)';
+  bar.classList.add('visible');
+}
+
 function g5SellCard(key){
   const count = g5Collection[key]||0;
   if(count<=0){ g5Notify("You don't have that card!"); return; }
@@ -891,7 +950,7 @@ function g5RenderCollection(filter){
     const val = g5SellValue(id);
     const wrap = document.createElement('div');
     wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
-    wrap.innerHTML = g5RenderCard(id, count>1?count:null, false, false, '')
+    wrap.innerHTML = g5RenderCard(id, count>1?count:null, false, false, `g5ShowCardInfo('${id}')`)
       + `<button class="g5-btn" onclick="g5SellCard('${id}')" style="font-size:9px;padding:2px 8px;height:auto;color:#ffd700;border-color:#333;">🪙${val}</button>`;
     el.appendChild(wrap);
   });
@@ -1004,6 +1063,17 @@ function g5Notify(msg){
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'epic')">Epic</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'legendary')">Legendary</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'mythical')">Mythical</button>
+    </div>
+    <div id="g5-card-info-bar" class="g5-card-info-bar">
+      <div class="g5-cib-suit" id="g5-cib-suit"></div>
+      <div>
+        <div class="g5-cib-name" id="g5-cib-name"></div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
+          <span class="g5-cib-rarity" id="g5-cib-rarity"></span>
+          <span class="g5-cib-mods" id="g5-cib-mods"></span>
+        </div>
+      </div>
+      <div class="g5-cib-cost" id="g5-cib-cost"></div>
     </div>
     <div class="g5-coll-scroll"><div id="g5-coll-grid" class="g5-coll-grid"></div></div>
   </div>
