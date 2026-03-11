@@ -494,11 +494,13 @@ const G5_CARDS = [
 const G5_RARITY_WEIGHTS = {common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1};
 const G5_PACKS = {
   standard: { cost:50,  size:5, label:'STANDARD', icon:'🃏', desc:'5 cards',
-    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false },
+    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:false },
   good:     { cost:200, size:7, label:'GOOD',     icon:'✨', desc:'7 cards · better odds',
-    weights:{common:40,uncommon:20,rare:20,epic:15,legendary:5,mythical:0}, dragon:false },
-  dragon:   { cost:50,  size:5, label:'DRAGON',   icon:'🐉', desc:'5 cards · 25% dragon chance',
-    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:true },
+    weights:{common:40,uncommon:20,rare:20,epic:15,legendary:5,mythical:0}, dragon:false, silverBoost:false },
+  dragon:   { cost:250, size:5, label:'DRAGON',   icon:'🐉', desc:'5 cards · 25% dragon',
+    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:true,  silverBoost:false },
+  silver:   { cost:100, size:5, label:'SILVER',   icon:'◈',  desc:'5 cards · 10% silver',
+    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:true },
 };
 
 let g5Collection = {}; // {cardId: count}
@@ -591,11 +593,12 @@ function g5OpenPack(packId){
     const mods=[];
     const dragonChance = pack.dragon ? 0.25 : 0.05;
     if(Math.random()<dragonChance) mods.push('dragon');
-    // silver/gold are mutually exclusive
+    // silver/gold/rainbow mutually exclusive
+    const silverThreshold = pack.silverBoost ? 0.10 : 0.05;
     const modRoll=Math.random();
-    if(modRoll<0.01)       mods.push('rainbow');
-    else if(modRoll<0.025) mods.push('gold');
-    else if(modRoll<0.075) mods.push('silver');
+    if(modRoll<0.01)                          mods.push('rainbow');
+    else if(modRoll<0.025)                    mods.push('gold');
+    else if(modRoll<0.025+silverThreshold)    mods.push('silver');
     card.mods=mods;
     drawn.push(card);
   }
@@ -974,7 +977,7 @@ function g5Notify(msg){
   <!-- PACKS TAB -->
   <div id="g5-packs" class="g5-screen" style="flex-direction:column;">
     <div class="g5-pack-area">
-      <div class="g5-pack-row" style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;">
+      <div class="g5-pack-row" style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;">
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('standard')">🃏<div class="g5-pack-label">STANDARD</div></div>
           <div class="g5-pack-cost">🪙 50 coins</div>
@@ -986,8 +989,13 @@ function g5Notify(msg){
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">7 cards · better odds</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div class="g5-pack" onclick="g5OpenPack('silver')" style="border-color:#aaa;box-shadow:0 0 14px #aaaaaa33;">◈<div class="g5-pack-label" style="color:#bbb;">SILVER</div></div>
+          <div class="g5-pack-cost">🪙 100 coins</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 10% silver</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('dragon')" style="border-color:#ff6b35;box-shadow:0 0 14px #ff6b3533;">🐉<div class="g5-pack-label" style="color:#ff6b35;">DRAGON</div></div>
-          <div class="g5-pack-cost">🪙 50 coins</div>
+          <div class="g5-pack-cost">🪙 250 coins</div>
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 25% dragon</div>
         </div>
       </div>
