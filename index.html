@@ -841,6 +841,36 @@ function g5UpdateCoinsDisplay(){
   if(el) el.textContent = g5Coins;
 }
 
+const G5_SELL_BASE = {common:10, uncommon:25, rare:50, epic:75, legendary:150, mythical:300};
+const G5_SELL_MOD  = {silver:1.25, gold:1.5, rainbow:2, dragon:1.1};
+
+function g5SellValue(key){
+  const {baseId, mods} = g5ParseKey(key);
+  const d = G5_CARDS.find(c=>c.id===baseId);
+  if(!d) return 0;
+  let val = G5_SELL_BASE[d.rarity]||0;
+  mods.forEach(m=>{ if(G5_SELL_MOD[m]) val*=G5_SELL_MOD[m]; });
+  return Math.round(val);
+}
+
+function g5SellCard(key){
+  const count = g5Collection[key]||0;
+  if(count<=0){ g5Notify("You don't have that card!"); return; }
+  const val = g5SellValue(key);
+  const {baseId, mods} = g5ParseKey(key);
+  const d = G5_CARDS.find(c=>c.id===baseId);
+  const name = d ? d.rank+(d.special?'':d.symbol) : key;
+  if(!confirm('Sell '+name+(mods.length?' ['+mods.join('+')+']':'')+' for 🪙'+val+'?')) return;
+  g5Collection[key]--;
+  if(g5Collection[key]<=0) delete g5Collection[key];
+  g5Coins += val;
+  db.ref('clarецards/'+hubUser+'/collection').set(g5Collection);
+  db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
+  g5UpdateCoinsDisplay();
+  g5Notify('Sold for 🪙'+val+'!');
+  g5RenderCollection(window._g5CurrentFilter||'all');
+}
+
 function g5RenderCollection(filter){
   const el = document.getElementById('g5-coll-grid');
   if(!el) return;
@@ -856,10 +886,14 @@ function g5RenderCollection(filter){
     const da=g5CardDef(a),db2=g5CardDef(b);
     return order.indexOf(da?.rarity)-order.indexOf(db2?.rarity);
   });
+  window._g5CurrentFilter = filter||'all';
   filtered.forEach(([id, count])=>{
-    const div = document.createElement('div'); div.style.position='relative';
-    div.innerHTML = g5RenderCard(id, count>1?count:null, false, false, '');
-    el.appendChild(div);
+    const val = g5SellValue(id);
+    const wrap = document.createElement('div');
+    wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
+    wrap.innerHTML = g5RenderCard(id, count>1?count:null, false, false, '')
+      + `<button class="g5-btn" onclick="g5SellCard('${id}')" style="font-size:9px;padding:2px 8px;height:auto;color:#ffd700;border-color:#333;">🪙${val}</button>`;
+    el.appendChild(wrap);
   });
 }
 
