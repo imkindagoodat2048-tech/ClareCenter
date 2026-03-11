@@ -2686,9 +2686,8 @@ function dJump(){
   if(dSpiderMode&&dRunning&&!dDied&&!dWon){spiderTeleport();return;}
   if(dSiderMode&&dRunning&&!dDied&&!dWon){siderTeleport();return;}
   if(dBounceMode&&dRunning&&!dDied&&!dWon){
-    // Big bounce — works mid-air too, uses own formula (not _jump which is physics-local)
-    const bigJump=-(4+dJumpHeight*0.14)*1.5;
-    dVY=bigJump;
+    // Bounce: infinite mid-air jumps at 0.75x normal
+    dVY=-(4+dJumpHeight*0.14)*0.75;
     dGrounded=false;
     dBigBounceCount++;dBounceCount++;
     db.ref('claredash_skins/'+hubUser+'/bigBounceCount').set(dBigBounceCount);
@@ -2744,8 +2743,8 @@ function siderTeleport(){
   const SKIP_TYPES=new Set(['spike','pad','orb','gravityorb','negorb','coin','startblock','endblock',
     'shipportal','waveportal','blockportal','spiderportal','ballportal','bounceportal','siderportal',
     'teleportin','teleportout','trigger','glowblock','textblock']);
-  // Determine if we're on top or bottom of current platform
-  const onTop=dGrounded; // grounded = on top of something (or ground)
+  // onTop = standing normally (not gravity-flipped)
+  const onTop=!dGravFlipped;
   let foundPlatX=null, foundPlatY=null, foundPlatW=null;
   // Find platform we're currently standing/hanging on
   for(const o of dObs){
@@ -2753,11 +2752,11 @@ function siderTeleport(){
     const ox=o.x-dScrollX;
     const horizOverlap=(dPX+DSIZE>ox+4&&dPX<ox+o.w-4);
     if(!horizOverlap)continue;
-    if(onTop&&Math.abs(dPY+DSIZE-o.y)<8){foundPlatX=ox;foundPlatY=o.y;foundPlatW=o.w;foundPlatY=o.y;break;}
-    if(!onTop&&Math.abs(dPY-( o.y+o.h))<8){foundPlatX=ox;foundPlatY=o.y+o.h;foundPlatW=o.w;break;}
+    if(onTop&&Math.abs(dPY+DSIZE-o.y)<12){foundPlatX=ox;foundPlatY=o.y;foundPlatW=o.w;break;}
+    if(!onTop&&Math.abs(dPY-(o.y+o.h))<12){foundPlatX=ox;foundPlatY=o.y+o.h;foundPlatW=o.w;break;}
   }
-  // Also check ground
-  if(onTop&&Math.abs(dPY+DSIZE-gh)<8){foundPlatX=-9999;foundPlatW=99999;foundPlatY=gh;}
+  // Also check ground floor (only when not flipped)
+  if(onTop&&Math.abs(dPY+DSIZE-gh)<12){foundPlatX=-9999;foundPlatW=99999;foundPlatY=gh;}
   if(foundPlatX===null)return;
   // Follow chain of connected platforms in the direction
   // "Opposite side of the farthest block touching the other blocks"
@@ -2884,19 +2883,11 @@ function dPhysics(){
         if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
       }
     } else if(dBounceMode){
-      // Bounce: always jumping. Auto-jump when grounded
+      // Bounce: slower gravity, any jump is 0.75x, infinite mid-air jumps
       const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
-      dVY+=(_grav*1.1)*apexFactor*dt;
+      dVY+=(_grav*0.5)*apexFactor*dt;
       dPY+=dVY*dt;
-      if(dPY+DSIZE>=gh){
-        dPY=gh-DSIZE;
-        // Auto small bounce on landing
-        dVY=_jump*0.5;
-        dGrounded=true; dOrbUsed=false;
-        dBounceCount++;
-        db.ref('claredash_skins/'+hubUser+'/bounceCount').set(dBounceCount);
-        checkSkinUnlocksLocal();
-      } else {dGrounded=false;}
+      if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
       if(dPY<=0){dPY=0;dVY=Math.abs(dVY)*0.3;}
     } else if(dSiderMode){
       // Sider: gravity-aware (flips when walking under blocks)
@@ -3205,7 +3196,7 @@ function dPhysics(){
           }
         } else {
           if(!dSpiderFlipped&&horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
-            if(dBounceMode){dPY=o.y-DSIZE;dVY=_jump*0.5;dGrounded=true;dBounceCount++;db.ref('claredash_skins/'+hubUser+'/bounceCount').set(dBounceCount);checkSkinUnlocksLocal();continue;}
+  
             dPY=o.y-ps;dOrbUsed=false;
             if(dJumpHeld){dVY=_jump;dGrounded=false;}else{dVY=0;dGrounded=true;}
           } else if(dSpiderFlipped&&horizOverlap&&dVY<=0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-6){
@@ -3218,7 +3209,7 @@ function dPhysics(){
       if(!dSpiderFlipped){
         if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
           dPY=o.y-ps;dOrbUsed=false;
-          if(dBounceMode){dVY=_jump*0.5;dGrounded=true;dBounceCount++;db.ref('claredash_skins/'+hubUser+'/bounceCount').set(dBounceCount);checkSkinUnlocksLocal();continue;}
+
           if(dJumpHeld){dVY=_jump;dGrounded=false;}else{dVY=0;dGrounded=true;}
           continue;
         }
@@ -4186,7 +4177,7 @@ function showDashOver(t,s){document.getElementById('dash-over-title').textConten
 function updDHUD(){
   if(_elPct)_elPct.textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';
   if(_elAtt)_elAtt.textContent='Attempt '+dAttempts;
-  if(_elMode)_elMode.textContent=dShipMode?'SHIP — hold SPACE to fly':dWaveMode?'WAVE — SPACE=up, release=down':dSpiderMode?'SPIDER — SPACE to flip gravity':dBounceMode?'BOUNCE — SPACE for big jump':dSiderMode?'SIDER — SPACE to side':'SPACE / Click to jump';
+  if(_elMode)_elMode.textContent=dShipMode?'SHIP — hold SPACE to fly':dWaveMode?'WAVE — SPACE=up, release=down':dSpiderMode?'SPIDER — SPACE to flip gravity':dBounceMode?'BOUNCE — SPACE to jump (infinite)':dSiderMode?'SIDER — SPACE to side':'SPACE / Click to jump';
 }
 function resetDashData(){
   if(!confirm('YOU ARE GOING TO DELETE YOUR ACCOUNT IF YOU PRESS OKAY. BE AWARE THAT ANY AND ALL DATA WILL BE ERASED FOR CLAREDASH'))return;
