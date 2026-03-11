@@ -897,7 +897,7 @@ function g5ShowCardInfo(key){
     const suitNames = {hearts:'Hearts',spades:'Spades',diamonds:'Diamonds',clubs:'Clubs'};
     name = (rankNames[d.rank]||d.rank)+' of '+(suitNames[d.suit]||d.suit);
   }
-  if(mods.length) name += ' · '+mods.map(m=>m[0].toUpperCase()+m.slice(1)).join('+');
+  // modifiers shown separately as badges
 
   const sell = g5SellValue(key);
   const suitDisplay = d.special ? d.symbol : (d.red ? '<span style="color:#cc1111">'+d.symbol+'</span>' : d.symbol);
@@ -907,7 +907,18 @@ function g5ShowCardInfo(key){
   const rarEl = document.getElementById('g5-cib-rarity');
   rarEl.textContent = d.rarity;
   rarEl.style.cssText = (G5_RARITY_COLORS[d.rarity]||'') + ';font-size:9px;letter-spacing:2px;padding:2px 7px;border-radius:3px;text-transform:uppercase;';
-  document.getElementById('g5-cib-mods').textContent = '';
+  const modStyles = {
+    silver:'background:linear-gradient(90deg,#bbb,#eee,#bbb);color:#333;',
+    gold:'background:linear-gradient(90deg,#c8a000,#ffd700,#c8a000);color:#000;',
+    rainbow:'background:linear-gradient(90deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff);color:#000;',
+    dragon:'background:#3a0a0a;color:#ff6b35;border:1px solid #c44;',
+  };
+  const modsEl = document.getElementById('g5-cib-mods');
+  if(mods.length){
+    modsEl.innerHTML = mods.map(m=>`<span style="font-size:9px;letter-spacing:1px;padding:2px 7px;border-radius:3px;font-family:'Space Mono',monospace;text-transform:uppercase;${modStyles[m]||''}">${m}</span>`).join(' ');
+  } else {
+    modsEl.innerHTML = '<span style="font-size:9px;color:#444;font-family:Space Mono,monospace;letter-spacing:1px;">NO MODIFIERS</span>';
+  }
   document.getElementById('g5-cib-cost').textContent = '🪙 '+sell+' (sell)';
   bar.classList.add('visible');
 }
