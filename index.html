@@ -277,92 +277,83 @@
 <style>
 /* ── Game 5: ClareCards ── */
 #game5-panel {
-  font-family: 'Georgia', serif;
-  background: #0d0d0d;
-  color: #e8e0d0;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg-color);
+  color: var(--text-white);
   overflow: hidden;
 }
 .g5-screen { display:none; width:100%; height:100%; flex-direction:column; overflow:hidden; }
 .g5-screen.g5-active { display:flex; }
 
-/* Top bar */
+/* Top bar — matches .gs-topbar */
 .g5-topbar {
   display:flex; align-items:center; justify-content:space-between;
-  padding:10px 18px; background:#111; border-bottom:1px solid #2a2a1a;
+  padding:0 14px; height:44px;
+  background:rgba(26,26,45,0.97); border-bottom:2px solid var(--primary);
   flex-shrink:0;
 }
-.g5-logo { font-size:20px; letter-spacing:3px; color:#c8a84b; font-style:italic; }
-.g5-logo span { color:#e8e0d0; }
+.g5-logo { font-family:'Bebas Neue',cursive; font-size:20px; letter-spacing:3px; color:var(--accent); }
+.g5-logo span { color:var(--text-white); }
 .g5-tabs { display:flex; gap:4px; }
 .g5-tab {
-  padding:5px 14px; border:1px solid #333; background:transparent;
-  color:#888; font-size:11px; letter-spacing:1px; cursor:pointer;
-  font-family:'Georgia',serif; border-radius:3px; transition:all .15s;
+  background:#2f3542; color:white; border:none; border-radius:4px;
+  padding:4px 10px; font-size:11px; font-weight:600; cursor:pointer;
+  height:26px; flex-shrink:0; transition:transform .1s,background .1s;
+  font-family:'DM Sans',sans-serif;
 }
-.g5-tab:hover { border-color:#c8a84b; color:#c8a84b; }
-.g5-tab.g5-tab-active { background:#c8a84b; border-color:#c8a84b; color:#000; }
-.g5-coins { font-size:12px; color:#c8a84b; display:flex; align-items:center; gap:5px; }
+.g5-tab:hover { background:var(--primary); }
+.g5-tab.g5-tab-active { background:var(--primary); }
+.g5-coins { font-family:'Bebas Neue',cursive; font-size:18px; letter-spacing:2px; color:#ffd700; display:flex; align-items:center; gap:5px; }
 
 /* Card rendering */
 .g5-card {
-  width:70px; height:100px; border-radius:8px; border:2px solid #444;
-  background:#fff; color:#111; display:flex; flex-direction:column;
+  width:70px; height:100px; border-radius:6px; border:2px solid #333;
+  background:#1a1a2d; color:var(--text-white);
+  display:flex; flex-direction:column;
   align-items:center; justify-content:space-between; padding:5px 4px;
   font-size:13px; font-weight:bold; cursor:pointer; user-select:none;
   transition:transform .12s, box-shadow .12s; flex-shrink:0; position:relative;
   box-shadow:0 2px 8px #0006;
 }
 .g5-card:hover { transform:translateY(-6px) scale(1.04); box-shadow:0 8px 24px #0008; }
-.g5-card.g5-selected { transform:translateY(-10px) scale(1.06); box-shadow:0 0 0 3px #c8a84b, 0 8px 24px #0008; }
+.g5-card.g5-selected { transform:translateY(-10px) scale(1.06); box-shadow:0 0 0 3px var(--accent), 0 8px 24px #0008; }
 .g5-card .g5-corner-tl { position:absolute; top:4px; left:5px; font-size:11px; line-height:1; }
 .g5-card .g5-corner-br { position:absolute; bottom:4px; right:5px; font-size:11px; line-height:1; transform:rotate(180deg); }
 .g5-card .g5-center { font-size:22px; line-height:1; }
-.g5-card.red { color:#cc2222; }
-.g5-card.special-card { background:linear-gradient(135deg,#1a1a2e,#2a1a3e,#1a2e1a); color:#fff; border-color:#c8a84b; }
-.g5-card.rainbow-card { background:linear-gradient(135deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff); border-color:#fff; }
-.g5-card.rarity-common { border-color:#aaa; }
-.g5-card.rarity-uncommon { border-color:#4caf50; }
-.g5-card.rarity-rare { border-color:#2196f3; }
-.g5-card.rarity-epic { border-color:#9c27b0; }
-.g5-card.rarity-legendary { border-color:#ff9800; box-shadow:0 0 8px #ff980066; }
-.g5-card.rarity-mythical { border-color:#e91e63; box-shadow:0 0 12px #e91e6377; animation:g5-mythglow 2s infinite alternate; }
-@keyframes g5-mythglow { from { box-shadow:0 0 8px #e91e6355; } to { box-shadow:0 0 20px #e91e63aa, 0 0 40px #ff980044; } }
-
-.g5-rarity-badge {
-  font-size:8px; letter-spacing:1px; padding:1px 5px; border-radius:2px;
-  text-transform:uppercase; font-family:'Georgia',serif;
-}
-.rb-common { background:#333; color:#aaa; }
-.rb-uncommon { background:#1b3d1b; color:#4caf50; }
-.rb-rare { background:#0d2040; color:#64b5f6; }
-.rb-epic { background:#2a0a3a; color:#ce93d8; }
-.rb-legendary { background:#3d1f00; color:#ffb74d; }
-.rb-mythical { background:#3d0020; color:#f48fb1; }
-
-/* Collection grid */
-.g5-coll-scroll { flex:1; overflow-y:auto; padding:16px; }
-.g5-coll-grid { display:flex; flex-wrap:wrap; gap:10px; }
+.g5-card.red { color:#ff6b6b; }
+.g5-card.special-card { background:#0f0f1a; color:var(--text-white); }
+.g5-card.rainbow-card { background:linear-gradient(135deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff); border-color:var(--accent); color:#000; }
+.g5-card.rarity-common   { border-color:#444; }
+.g5-card.rarity-uncommon { border-color:#2ed573; }
+.g5-card.rarity-rare     { border-color:var(--primary); box-shadow:0 0 6px #4834d444; }
+.g5-card.rarity-epic     { border-color:#9c27b0; box-shadow:0 0 8px #9c27b055; }
+.g5-card.rarity-legendary{ border-color:#ffd700; box-shadow:0 0 10px #ffd70055; }
+.g5-card.rarity-mythical { border-color:var(--accent); box-shadow:0 0 14px #e8ff0055; animation:g5-mythglow 2s infinite alternate; }
+@keyframes g5-mythglow { from { box-shadow:0 0 8px #e8ff0033; } to { box-shadow:0 0 22px #e8ff0099, 0 0 40px #4834d444; } }
 .g5-card-count {
-  position:absolute; bottom:-8px; right:-4px; background:#c8a84b; color:#000;
-  font-size:9px; border-radius:10px; padding:1px 5px; font-family:'Georgia',serif;
+  position:absolute; bottom:-8px; right:-4px; background:var(--primary); color:#fff;
+  font-size:9px; border-radius:10px; padding:1px 5px; font-family:'Space Mono',monospace;
   font-weight:bold; z-index:2;
 }
 
-/* Pack opening */
+/* Collection */
+.g5-coll-scroll { flex:1; overflow-y:auto; padding:16px; }
+.g5-coll-grid { display:flex; flex-wrap:wrap; gap:10px; }
+
+/* Pack */
 .g5-pack-area { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; overflow-y:auto; padding:20px; }
 .g5-pack {
-  width:110px; height:160px; border-radius:12px; border:3px solid #c8a84b;
-  background:linear-gradient(160deg,#1a1208,#2d2010,#1a1208);
+  width:110px; height:160px; border-radius:8px; border:1px solid #333;
+  background:#1a1a2d;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  cursor:pointer; transition:all .2s; box-shadow:0 4px 20px #c8a84b44;
+  cursor:pointer; transition:all .2s; box-shadow:0 2px 16px #0006;
   font-size:36px; gap:8px;
 }
-.g5-pack:hover { transform:scale(1.06); box-shadow:0 8px 30px #c8a84b88; }
-.g5-pack-label { font-size:11px; letter-spacing:2px; color:#c8a84b; }
-.g5-pack-cost { font-size:12px; color:#888; }
-.g5-pack-row { display:flex; gap:30px; align-items:flex-start; flex-wrap:wrap; justify-content:center; }
+.g5-pack:hover { border-color:var(--primary); box-shadow:0 4px 24px #4834d455; transform:translateY(-4px); }
+.g5-pack-label { font-family:'Bebas Neue',cursive; font-size:13px; letter-spacing:2px; color:var(--accent); }
+.g5-pack-cost { font-family:'Space Mono',monospace; font-size:11px; color:#ffd700; }
 
-/* Card reveal animation */
+/* Card reveal */
 .g5-reveal-area { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; align-items:center; min-height:140px; }
 .g5-card-reveal { animation: g5-flip .4s ease both; }
 @keyframes g5-flip { from { opacity:0; transform:rotateY(90deg) scale(0.8); } to { opacity:1; transform:rotateY(0deg) scale(1); } }
@@ -370,56 +361,72 @@
 /* Trade hub */
 .g5-hub-scroll { flex:1; overflow-y:auto; padding:12px 16px; }
 .g5-trade-listing {
-  background:#111; border:1px solid #222; border-radius:8px;
-  padding:12px 14px; margin-bottom:10px;
+  background:#1a1a2d; border:1px solid #2a2a3a; border-radius:6px;
+  padding:12px 14px; margin-bottom:8px; transition:border-color .1s;
 }
 .g5-trade-listing:hover { border-color:#333; }
-.g5-trade-user { font-size:10px; color:#c8a84b; letter-spacing:1px; margin-bottom:6px; }
+.g5-trade-user { font-family:'Space Mono',monospace; font-size:10px; color:var(--accent); letter-spacing:1px; margin-bottom:6px; }
 .g5-trade-cards { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
-.g5-trade-sm { transform:scale(0.7); transform-origin:left center; }
-.g5-trade-desc { font-size:11px; color:#666; font-style:italic; margin-top:6px; }
+.g5-trade-desc { font-size:11px; color:#555; font-style:italic; margin-top:6px; font-family:'Space Mono',monospace; }
 .g5-trade-actions { display:flex; gap:6px; margin-top:8px; }
+
+/* Buttons — match .icon-btn / .game-play */
 .g5-btn {
-  padding:5px 14px; border:1px solid #444; background:#1a1a1a; color:#ccc;
-  font-size:11px; letter-spacing:1px; cursor:pointer; border-radius:4px;
-  font-family:'Georgia',serif; transition:all .12s;
+  background:#2f3542; color:white; border:none; border-radius:4px;
+  padding:4px 12px; font-size:11px; font-weight:600; cursor:pointer;
+  height:26px; transition:transform .1s, background .1s;
+  font-family:'DM Sans',sans-serif;
 }
-.g5-btn:hover { border-color:#c8a84b; color:#c8a84b; }
-.g5-btn.primary { background:#c8a84b; border-color:#c8a84b; color:#000; font-weight:bold; }
-.g5-btn.primary:hover { background:#dfc060; }
-.g5-btn.danger { border-color:#cc4444; color:#cc4444; }
-.g5-btn.danger:hover { background:#cc4444; color:#fff; }
+.g5-btn:hover { background:#3a4050; }
+.g5-btn:active { transform:scale(0.95); }
+.g5-btn.primary { background:var(--primary); }
+.g5-btn.primary:hover { opacity:.88; }
+.g5-btn.danger { background:#eb4d4b; }
+.g5-btn.danger:hover { opacity:.88; }
 
 /* Inbox */
 .g5-inbox-item {
-  background:#111; border:1px solid #222; border-radius:8px;
-  padding:12px 14px; margin-bottom:10px;
+  background:#1a1a2d; border:1px solid #2a2a3a; border-radius:6px;
+  padding:12px 14px; margin-bottom:8px;
 }
-.g5-inbox-msg { font-size:12px; color:#ccc; margin-bottom:8px; line-height:1.5; }
+.g5-inbox-msg { font-size:12px; color:#ccc; margin-bottom:8px; line-height:1.5; font-family:'Space Mono',monospace; }
 .g5-inbox-cards { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
 
-/* Post trade modal */
+/* Modals — match .modal-overlay / .modal-box */
 .g5-modal-bg {
-  position:fixed; inset:0; background:#0009; z-index:10001;
-  display:flex; align-items:center; justify-content:center;
+  position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:10001;
+  display:flex; align-items:center; justify-content:center; backdrop-filter:blur(5px);
 }
 .g5-modal {
-  background:#111; border:1px solid #333; border-radius:12px;
-  padding:20px; width:min(500px,92vw); max-height:80vh; overflow-y:auto;
+  background:var(--chat-bg); padding:22px 20px; border-radius:12px;
+  width:min(500px,92vw); max-height:80vh; overflow-y:auto;
+  border:1px solid var(--primary);
 }
-.g5-modal h3 { color:#c8a84b; font-size:16px; letter-spacing:2px; margin:0 0 14px 0; }
+.g5-modal h3 { font-family:'Bebas Neue',cursive; color:var(--accent); font-size:22px; letter-spacing:3px; margin:0 0 14px 0; }
 .g5-modal textarea {
-  width:100%; background:#0a0a0a; border:1px solid #333; color:#ccc;
-  padding:8px; border-radius:4px; font-family:'Georgia',serif; font-size:12px;
-  resize:vertical; min-height:60px; box-sizing:border-box;
+  width:100%; background:#0f0f1a; border:1px solid #333; color:white;
+  padding:8px; border-radius:6px; font-family:'Space Mono',monospace; font-size:12px;
+  resize:vertical; min-height:60px; box-sizing:border-box; outline:none;
 }
-.g5-section-title { font-size:10px; letter-spacing:2px; color:#666; margin:10px 0 6px 0; text-transform:uppercase; }
-.g5-sel-cards { display:flex; flex-wrap:wrap; gap:6px; min-height:50px; border:1px dashed #333; border-radius:6px; padding:8px; margin-bottom:8px; }
+.g5-modal textarea:focus { border-color:var(--primary); }
+.g5-section-title { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:#555; margin:10px 0 6px 0; text-transform:uppercase; }
+.g5-sel-cards { display:flex; flex-wrap:wrap; gap:6px; min-height:50px; border:1px dashed #2a2a3a; border-radius:6px; padding:8px; margin-bottom:8px; }
 
-/* Scrollbar */
-#game5-panel ::-webkit-scrollbar { width:5px; }
-#game5-panel ::-webkit-scrollbar-track { background:#0a0a0a; }
+/* Filter buttons */
+.g5-filter-btn {
+  background:#2f3542; color:#888; border:none; border-radius:4px;
+  padding:3px 10px; font-size:10px; font-weight:600; cursor:pointer;
+  font-family:'Space Mono',monospace; letter-spacing:1px; transition:background .1s,color .1s;
+}
+.g5-filter-btn:hover { background:var(--primary); color:white; }
+.g5-filter-btn.active { background:var(--primary); color:white; }
+
+/* Scrollbars */
+#game5-panel ::-webkit-scrollbar { width:3px; }
+#game5-panel ::-webkit-scrollbar-track { background:#0a0a14; }
 #game5-panel ::-webkit-scrollbar-thumb { background:#333; border-radius:3px; }
+
+.g5-empty { color:#444; font-family:'Space Mono',monospace; font-size:11px; text-align:center; padding:30px; letter-spacing:1px; }
 
 .g5-empty { color:#444; font-size:12px; text-align:center; padding:30px; letter-spacing:1px; }
 .g5-filter-row { display:flex; gap:6px; flex-wrap:wrap; padding:0 16px 8px; }
@@ -592,7 +599,7 @@ function g5RenderPostCardPicker(){
 
 function g5PostTrade(){
   if(!g5TradeSelectedCards.length){ g5Notify('Select cards to trade!'); return; }
-  const desc = document.getElementById('g5-trade-desc').value.trim();
+  const desc = document.getElementById('g5-trade-desc').value;
   const cardCounts = {};
   g5TradeSelectedCards.forEach(id=>cardCounts[id]=(cardCounts[id]||0)+1);
   const listing = {
@@ -831,7 +838,7 @@ function g5SwitchTab(tab){
 
 function g5Notify(msg){
   let n=document.getElementById('g5-notif');
-  if(!n){n=document.createElement('div');n.id='g5-notif';n.style.cssText='position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#c8a84b;color:#000;padding:8px 20px;border-radius:20px;font-size:12px;letter-spacing:1px;z-index:10002;font-family:Georgia,serif;pointer-events:none;';document.body.appendChild(n);}
+  if(!n){n=document.createElement('div');n.id='g5-notif';n.style.cssText='position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--chat-bg);border:1px solid var(--primary);color:var(--accent);padding:6px 18px;border-radius:6px;font-size:11px;letter-spacing:1px;z-index:10002;font-family:Space Mono,monospace;pointer-events:none;';document.body.appendChild(n);}
   n.textContent=msg; n.style.opacity='1';
   clearTimeout(n._t); n._t=setTimeout(()=>n.style.opacity='0',2200);
 }
@@ -848,7 +855,7 @@ function g5Notify(msg){
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
       <div class="g5-coins">🪙 <span id="g5-coins-count">0</span></div>
-      <button onclick="closeGame5()" style="background:transparent;border:1px solid #333;color:#666;padding:4px 10px;cursor:pointer;border-radius:3px;font-size:12px;">✕</button>
+      <button onclick="closeGame5()" class="gs-exit">Exit</button>
     </div>
   </div>
 
@@ -910,7 +917,7 @@ function g5Notify(msg){
       <div class="g5-section-title">Selected</div>
       <div id="g5-trade-sel" class="g5-sel-cards"></div>
       <div class="g5-section-title">Description</div>
-      <textarea id="g5-trade-desc" placeholder="What are you looking for? (optional)"></textarea>
+      <textarea id="g5-trade-desc" placeholder="What are you looking for? (optional)" maxlength="250" style="height:70px;"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="g5-btn primary" onclick="g5PostTrade()">Post</button>
         <button class="g5-btn" onclick="document.getElementById('g5-post-modal').style.display='none'">Cancel</button>
