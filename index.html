@@ -537,11 +537,11 @@ const G5_RARITY_WEIGHTS = {common:60,uncommon:20,rare:10,epic:5,legendary:4,myth
 const G5_PACKS = {
   standard: { cost:50,  size:5, label:'STANDARD', icon:'🃏', desc:'5 cards',
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:false },
-  good:     { cost:200, size:7, label:'GOOD',     icon:'✨', desc:'7 cards · better odds',
-    weights:{common:40,uncommon:20,rare:20,epic:15,legendary:5,mythical:0}, dragon:false, silverBoost:false },
-  dragon:   { cost:250, size:5, label:'DRAGON',   icon:'🐉', desc:'5 cards · 25% dragon',
+  good:     { cost:250, size:7, label:'GOOD',     icon:'✨', desc:'7 cards · better odds',
+    weights:{common:40,uncommon:20,rare:20,epic:15,legendary:3,mythical:2}, dragon:false, silverBoost:false },
+  dragon:   { cost:150, size:5, label:'DRAGON',   icon:'🐉', desc:'5 cards · 25% dragon',
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:true,  silverBoost:false },
-  silver:   { cost:100, size:5, label:'SILVER',   icon:'◈',  desc:'5 cards · 10% silver',
+  silver:   { cost:150, size:5, label:'SILVER',   icon:'◈',  desc:'5 cards · 15% silver',
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:true },
 };
 
@@ -704,7 +704,7 @@ function g5OpenPack(packId){
     if(Math.random()<0.01)  mods.push('rainbow');
     if(Math.random()<0.025) mods.push('gold');
     // silver only if no gold
-    const silverThreshold = pack.silverBoost ? 0.10 : 0.05;
+    const silverThreshold = pack.silverBoost ? 0.15 : 0.05;
     if(!mods.includes('gold') && Math.random()<silverThreshold) mods.push('silver');
     card.mods=mods;
     drawn.push(card);
@@ -948,7 +948,7 @@ function g5UpdateCoinsDisplay(){
   if(el) el.textContent = g5Coins;
 }
 
-const G5_SELL_BASE = {common:10, uncommon:25, rare:50, epic:75, legendary:150, mythical:300};
+const G5_SELL_BASE = {common:5, uncommon:10, rare:20, epic:50, legendary:100, mythical:250};
 const G5_SELL_MOD  = {silver:1.25, gold:1.5, rainbow:2, dragon:1.1};
 
 function g5SellValue(key){
@@ -1189,17 +1189,17 @@ function g5Notify(msg){
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('good')" style="border-color:#ffd700;box-shadow:0 0 14px #ffd70033;">✨<div class="g5-pack-label" style="color:#ffd700;">GOOD</div></div>
-          <div class="g5-pack-cost">🪙 200 coins</div>
+          <div class="g5-pack-cost">🪙 150 coins</div>
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">7 cards · better odds</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('silver')" style="border-color:#aaa;box-shadow:0 0 14px #aaaaaa33;">◈<div class="g5-pack-label" style="color:#bbb;">SILVER</div></div>
-          <div class="g5-pack-cost">🪙 100 coins</div>
-          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 10% silver</div>
+          <div class="g5-pack-cost">🪙 150 coins</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 15% silver</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('dragon')" style="border-color:#ff6b35;box-shadow:0 0 14px #ff6b3533;">🐉<div class="g5-pack-label" style="color:#ff6b35;">DRAGON</div></div>
-          <div class="g5-pack-cost">🪙 250 coins</div>
+          <div class="g5-pack-cost">🪙 150 coins</div>
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 25% dragon</div>
         </div>
       </div>
@@ -1383,6 +1383,8 @@ function g5Notify(msg){
                 <option value="blockportal">Block Portal</option>
                 <option value="spiderportal">Spider Portal</option>
                 <option value="ballportal">Ball Portal</option>
+                <option value="bounceportal">Bounce Portal</option>
+                <option value="siderportal">Sider Portal</option>
                 <option value="gravflipblock">Gravity Flip Block</option>
                 <option value="glowblock">Glow (Gradient)</option>
                 <option value="special">Special</option>
@@ -1951,6 +1953,13 @@ const DWAVE_UP=-3.5;
 const DWAVE_GRAV=0.22;
 let dSpiderMode=false; // true = gravity flipped, teleport to nearest ceiling/floor
 let dSpiderFlipped=false; // currently on ceiling
+let dBounceMode=false;   // always jumping; click = big jump
+let dSiderMode=false;    // click = teleport to opposite side of current platform
+let dBounceCount=0;      // total bounces (small+big)
+let dBigBounceCount=0;   // big bounces only
+let dSideCount=0;        // side count
+let dSiderWalkFrame=0;   // for walk animation
+let _siderWalkTimer=0;
 let dPX,dPY,dScrollX=0,dObs=[];
 let dBright=100,dR=0,dG=0,dB=0;
 let _elPct=null,_elAtt=null,_elMode=null,_elCoin=null; // cached HUD elements
@@ -1958,7 +1967,11 @@ let dActiveSkin='square';
 let dActiveShipSkin='cursor';
 let dActiveSpiderSkin='eyes8';
 let dActiveBallSkin='balldefault';
+let dActiveSiderSkin='sider';
+let dActiveBouncekin='bounce';
 let dUnlockedSkins=['square'];
+let dUnlockedSiderSkins=['sider'];
+let dUnlockedBounceSkins=['bounce'];
 let dUnlockedShipSkins=['cursor'];
 let dUnlockedSpiderSkins=['eyes8'];
 let dUnlockedBallSkins=['balldefault'];
@@ -2630,7 +2643,7 @@ function resetDash(){
   dPX=start?start.x+10:120;
   dPY=start?start.y:GROUND_Y-DSIZE;dVY=0;dScrollX=dPX-120;
   dPct=0;dDied=false;dWon=false;dGrounded=false;dOrbUsed=false;dCoinsCollected=0;
-  dShipMode=false;dShipHeld=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;dBallMode=false;
+  dShipMode=false;dShipHeld=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;dBallMode=false;dBounceMode=false;dSiderMode=false;
   dObs=JSON.parse(JSON.stringify(dCurrentLevel.obs));
   let _coinIdx=0;
   dObs.forEach(o=>{
@@ -2671,6 +2684,15 @@ function togglePause(){
 }
 function dJump(){
   if(dSpiderMode&&dRunning&&!dDied&&!dWon){spiderTeleport();return;}
+  if(dSiderMode&&dRunning&&!dDied&&!dWon){siderTeleport();return;}
+  if(dBounceMode&&dRunning&&!dDied&&!dWon){
+    // Big bounce = 50 bounciness pad equivalent
+    dVY=_jump*1.5;
+    dBigBounceCount++;dBounceCount++;
+    db.ref('claredash_skins/'+hubUser+'/bigBounceCount').set(dBigBounceCount);
+    db.ref('claredash_skins/'+hubUser+'/bounceCount').set(dBounceCount);
+    checkSkinUnlocksLocal(); return;
+  }
   if(dBallMode&&dRunning&&!dDied&&!dWon&&(dGrounded||Math.abs(dVY)<0.5)){
     dGravFlipped=!dGravFlipped;dVY=0;dGrounded=false;
     dGravFlipCount++;db.ref('claredash_skins/'+hubUser+'/gravFlipCount').set(dGravFlipCount);
@@ -2712,6 +2734,62 @@ function spiderTeleport(){
   }
   dGrounded=true;
 }
+function siderTeleport(){
+  if(!dRunning||dDied||dWon)return;
+  // Can't side if on ground floor or absolute ceiling
+  if(dPY+DSIZE>=GROUND_Y-2||dPY<=2)return;
+  const gh=GROUND_Y;
+  const SKIP_TYPES=new Set(['spike','pad','orb','gravityorb','negorb','coin','startblock','endblock',
+    'shipportal','waveportal','blockportal','spiderportal','ballportal','bounceportal','siderportal',
+    'teleportin','teleportout','trigger','glowblock','textblock']);
+  // Determine if we're on top or bottom of current platform
+  const onTop=dGrounded; // grounded = on top of something (or ground)
+  let foundPlatX=null, foundPlatY=null, foundPlatW=null;
+  // Find platform we're currently standing/hanging on
+  for(const o of dObs){
+    if(SKIP_TYPES.has(o.t))continue;
+    const ox=o.x-dScrollX;
+    const horizOverlap=(dPX+DSIZE>ox+4&&dPX<ox+o.w-4);
+    if(!horizOverlap)continue;
+    if(onTop&&Math.abs(dPY+DSIZE-o.y)<8){foundPlatX=ox;foundPlatY=o.y;foundPlatW=o.w;foundPlatY=o.y;break;}
+    if(!onTop&&Math.abs(dPY-( o.y+o.h))<8){foundPlatX=ox;foundPlatY=o.y+o.h;foundPlatW=o.w;break;}
+  }
+  // Also check ground
+  if(onTop&&Math.abs(dPY+DSIZE-gh)<8){foundPlatX=-9999;foundPlatW=99999;foundPlatY=gh;}
+  if(foundPlatX===null)return;
+  // Follow chain of connected platforms in the direction
+  // "Opposite side of the farthest block touching the other blocks"
+  // Strategy: flood-fill touching blocks starting from current platform, find extremes
+  const touching=[];
+  for(const o of dObs){
+    if(SKIP_TYPES.has(o.t))continue;
+    const ox=o.x-dScrollX;
+    // Check if this block is connected (touching horizontally or is the current one)
+    const sameFloor=onTop?Math.abs(o.y-foundPlatY)<8:Math.abs(o.y+o.h-foundPlatY)<8;
+    if(!sameFloor)continue;
+    touching.push({ox,o});
+  }
+  if(!touching.length)return;
+  // Find leftmost and rightmost x in cluster that overlaps with player x range
+  // Then teleport to bottom of rightmost block
+  const clusterLeft=Math.min(...touching.map(b=>b.ox));
+  const clusterRight=Math.max(...touching.map(b=>b.ox+b.o.w));
+  // Teleport to opposite side of farthest block
+  if(onTop){
+    // Was on top → go to bottom of farthest block
+    const farBlock=touching.reduce((a,b)=>Math.abs(b.ox-dPX)>Math.abs(a.ox-dPX)?b:a);
+    dPY=farBlock.o.y+farBlock.o.h;
+  } else {
+    // Was on bottom → go to top of farthest block
+    const farBlock=touching.reduce((a,b)=>Math.abs(b.ox-dPX)>Math.abs(a.ox-dPX)?b:a);
+    dPY=farBlock.o.y-DSIZE;
+  }
+  dVY=0; dGrounded=true;
+  dSideCount++;
+  db.ref('claredash_skins/'+hubUser+'/sideCount').set(dSideCount);
+  checkSkinUnlocksLocal();
+}
+
 function dOrbJump(bounce){
   dVY=-(4+dJumpHeight*0.14)*((bounce||50)/50);
 }
@@ -2760,6 +2838,28 @@ function dPhysics(){
         dPY+=dVY*dt;
         if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
       }
+    } else if(dBounceMode){
+      // Bounce: always jumping. Auto-jump when grounded
+      const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
+      dVY+=(_grav*1.1)*apexFactor*dt;
+      dPY+=dVY*dt;
+      if(dPY+DSIZE>=gh){
+        dPY=gh-DSIZE;
+        // Auto small bounce on landing
+        dVY=_jump*0.5;
+        dGrounded=true; dOrbUsed=false;
+        dBounceCount++;
+        db.ref('claredash_skins/'+hubUser+'/bounceCount').set(dBounceCount);
+        checkSkinUnlocksLocal();
+      } else {dGrounded=false;}
+      if(dPY<=0){dPY=0;dVY=Math.abs(dVY)*0.3;}
+    } else if(dSiderMode){
+      // Sider: normal gravity + walk animation tick
+      const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
+      dVY+=_grav*apexFactor*dt;
+      dPY+=dVY*dt;
+      if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
+      if(dPY<=0){dPY=0;dVY=Math.abs(dVY)*0.3;}
     } else if(dBallMode){
       // Ball: normal gravity but jump flips gravity direction
       const gravDir=dGravFlipped?-1:1;
@@ -2964,6 +3064,18 @@ function dPhysics(){
         }
         continue;
       }
+      if(o.t==='bounceportal'){
+        if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h&&!dBounceMode){
+          dBounceMode=true;dSiderMode=false;dShipMode=false;dWaveMode=false;dBallMode=false;dSpiderMode=false;dVY=0;
+        }
+        continue;
+      }
+      if(o.t==='siderportal'){
+        if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h&&!dSiderMode){
+          dSiderMode=true;dBounceMode=false;dShipMode=false;dWaveMode=false;dBallMode=false;dSpiderMode=false;dVY=0;
+        }
+        continue;
+      }
       if(o.t==='ballportal'){
         if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h&&!dBallMode){
           dBallMode=true;dGravFlipped=false;dShipMode=false;dWaveMode=false;dSpiderMode=false;dVY=0;
@@ -2988,7 +3100,7 @@ function dPhysics(){
         if(px+ps>ox&&px<ox+o.w&&py+ps>o.y&&py<o.y+o.h){
           if(o.t==='shipportal'&&!dShipMode){dShipMode=true;dWaveMode=false;dVY=0;}
           if(o.t==='waveportal'&&!dWaveMode){dWaveMode=true;dShipMode=false;dVY=0;}
-          if(o.t==='blockportal'){dShipMode=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;dBallMode=false;dVY=0;}
+          if(o.t==='blockportal'){dShipMode=false;dWaveMode=false;dGravFlipped=false;dSpiderMode=false;dSpiderFlipped=false;dBallMode=false;dBounceMode=false;dSiderMode=false;dVY=0;}
         }
         continue;
       }
@@ -3042,6 +3154,7 @@ function dPhysics(){
           }
         } else {
           if(!dSpiderFlipped&&horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
+            if(dBounceMode){dPY=o.y-DSIZE;dVY=_jump*0.5;dGrounded=true;dBounceCount++;db.ref('claredash_skins/'+hubUser+'/bounceCount').set(dBounceCount);checkSkinUnlocksLocal();continue;}
             dPY=o.y-ps;dOrbUsed=false;
             if(dJumpHeld){dVY=_jump;dGrounded=false;}else{dVY=0;dGrounded=true;}
           } else if(dSpiderFlipped&&horizOverlap&&dVY<=0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-6){
@@ -3134,6 +3247,14 @@ function dRender(){
     ctx.strokeStyle='rgba(200,100,255,0.5)';ctx.lineWidth=1;
     const webY=dSpiderFlipped?dPY+DSIZE:dPY;
     ctx.beginPath();ctx.moveTo(dPX+DSIZE/2,webY);ctx.lineTo(dPX+DSIZE/2,webY+(dSpiderFlipped?8:-8));ctx.stroke();
+    ctx.restore();
+  } else if(dBounceMode){
+    ctx.save();
+    drawBounceSkinInGame(ctx,dPX,dPY,pc);
+    ctx.restore();
+  } else if(dSiderMode){
+    ctx.save();
+    drawSiderSkinInGame(ctx,dPX,dPY,pc);
     ctx.restore();
   } else if(dBallMode){
     ctx.save();
@@ -3340,6 +3461,38 @@ function renderObs(ctx,o,rx,_obsArr){
     for(let r2=6;r2<Math.min(o.w,o.h)/2;r2+=7){ctx.beginPath();ctx.arc(scx,scy,r2,0,Math.PI*2);ctx.stroke();}
     ctx.restore();
     ctx.fillStyle='#ee88ff';ctx.font='bold 9px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('SPIDER',rx+o.w/2,o.y+o.h/2+4);
+  } else if(o.t==='bounceportal'){
+    // Bounce portal: springy green
+    const gpb=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
+    gpb.addColorStop(0,'rgba(0,220,100,0.8)');gpb.addColorStop(1,'rgba(0,160,60,0.8)');
+    ctx.fillStyle=gpb;ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#00ff88';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    // Draw spring icon
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.85)';ctx.lineWidth=2;
+    const bcx2=rx+o.w/2,bcy2=o.y+o.h/2;
+    const sh=o.h*0.3,sw2=o.w*0.3,sy0=bcy2-sh/2;
+    ctx.beginPath();ctx.moveTo(bcx2,sy0);
+    ctx.quadraticCurveTo(bcx2+sw2,sy0+sh*0.33,bcx2,sy0+sh*0.5);
+    ctx.quadraticCurveTo(bcx2-sw2,sy0+sh*0.66,bcx2,sy0+sh);
+    ctx.stroke();ctx.restore();
+    ctx.fillStyle='#ccffcc';ctx.font='bold 8px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('SPRING',bcx2,o.y+o.h/2+14);
+  } else if(o.t==='siderportal'){
+    // Sider portal: grey-blue, square on each side of a line
+    const gps=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
+    gps.addColorStop(0,'rgba(80,80,180,0.8)');gps.addColorStop(1,'rgba(40,40,120,0.8)');
+    ctx.fillStyle=gps;ctx.fillRect(rx,o.y,o.w,o.h);
+    ctx.strokeStyle='#8888ff';ctx.lineWidth=2;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
+    // Middle line
+    const mcy=o.y+o.h/2;
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(rx+4,mcy);ctx.lineTo(rx+o.w-4,mcy);ctx.stroke();
+    // Square on each side
+    const sqS=o.w*0.3;
+    ctx.fillStyle='rgba(255,255,255,0.3)';ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=1.5;
+    ctx.fillRect(rx+4,mcy-o.h*0.28,sqS,sqS);ctx.strokeRect(rx+4,mcy-o.h*0.28,sqS,sqS);
+    ctx.fillRect(rx+o.w-4-sqS,mcy+o.h*0.02,sqS,sqS);ctx.strokeRect(rx+o.w-4-sqS,mcy+o.h*0.02,sqS,sqS);
+    ctx.restore();
+    ctx.fillStyle='#ccccff';ctx.font='bold 8px DM Sans,sans-serif';ctx.textAlign='center';ctx.fillText('SIDER',rx+o.w/2,o.y+o.h/2+4);
   } else if(o.t==='ballportal'){
     const grd=ctx.createLinearGradient(rx,o.y,rx+o.w,o.y+o.h);
     grd.addColorStop(0,'rgba(0,200,100,0.7)');grd.addColorStop(1,'rgba(0,120,255,0.7)');
@@ -3976,7 +4129,7 @@ function showDashOver(t,s){document.getElementById('dash-over-title').textConten
 function updDHUD(){
   if(_elPct)_elPct.textContent=Math.round(Math.min(100,Math.max(0,dPct*100)))+'%';
   if(_elAtt)_elAtt.textContent='Attempt '+dAttempts;
-  if(_elMode)_elMode.textContent=dShipMode?'SHIP — hold SPACE to fly':dWaveMode?'WAVE — SPACE=up, release=down':dSpiderMode?'SPIDER — SPACE to flip gravity':'SPACE / Click to jump';
+  if(_elMode)_elMode.textContent=dShipMode?'SHIP — hold SPACE to fly':dWaveMode?'WAVE — SPACE=up, release=down':dSpiderMode?'SPIDER — SPACE to flip gravity':dBounceMode?'BOUNCE — SPACE for big jump':dSiderMode?'SIDER — SPACE to side':'SPACE / Click to jump';
 }
 function resetDashData(){
   if(!confirm('YOU ARE GOING TO DELETE YOUR ACCOUNT IF YOU PRESS OKAY. BE AWARE THAT ANY AND ALL DATA WILL BE ERASED FOR CLAREDASH'))return;
@@ -3986,8 +4139,8 @@ function resetDashData(){
   db.ref('claredash_coins/'+hubUser).remove();
   db.ref('claredash_coincount/'+hubUser).remove();
   db.ref('claredash_skins/'+hubUser).remove();
-  dActiveSkin='square';dActiveShipSkin='cursor';dActiveSpiderSkin='eyes8';dActiveBallSkin='balldefault';
-  dUnlockedSkins=['square','face'];dUnlockedShipSkins=['cursor'];dUnlockedSpiderSkins=['eyes8'];dUnlockedBallSkins=['balldefault'];
+  dActiveSkin='square';dActiveShipSkin='cursor';dActiveSpiderSkin='eyes8';dActiveBallSkin='balldefault';dActiveSiderSkin='sider';dActiveBouncekin='bounce';
+  dUnlockedSkins=['square','face'];dUnlockedShipSkins=['cursor'];dUnlockedSpiderSkins=['eyes8'];dUnlockedBallSkins=['balldefault'];dUnlockedSiderSkins=['sider'];dUnlockedBounceSkins=['bounce'];
   dJumpCount=0;dGravFlipCount=0;
   buildSkinGrid();
   alert('All ClareDash data has been reset.');
@@ -4025,6 +4178,18 @@ const SPIDER_SKINS=[
   {id:'deadly',   label:'Deadly',         desc:"Find this in a deep dark place. It's BONE chilling!!!",          unlock:'vaultDeadly'},
 ];
 
+const SIDER_SKINS=[
+  {id:'sider',    label:'Sider',    desc:"Default.",                                                           unlock:'default'},
+  {id:'cider',    label:'Cider',    desc:"Side 750 times as Sider. After you side, you might need some cide.", unlock:'sides750'},
+  {id:'robot',    label:'Robot',    desc:"Jump 1500 times as block. This one doesnt come with a jetpack sadly.",unlock:'jumps1500'},
+  {id:'sidounce', label:'Sidounce', desc:"Have 500 big bounces as Bounce and 500 sides as Sider. Cushiwaspibalbounce.", unlock:'sidounce500'},
+];
+const BOUNCE_SKINS=[
+  {id:'bounce',     label:'Bounce',     desc:"Default.",                                                        unlock:'default'},
+  {id:'boder',      label:'Boder',      desc:"Have 500 big bounces as Bounce and 500 sides as Sider. bouncebalspiswavshipcu.", unlock:'sidounce500'},
+  {id:'card',       label:'Card',       desc:"Obtain at least 10 cards in ClareCards. 1 TRILLION LUCK!!!!",    unlock:'cards10'},
+  {id:'trampoline', label:'Trampoline', desc:"Have 1000 bounces in general. Boing!!!!",                        unlock:'bounces1000'},
+];
 const BALL_SKINS=[
   {id:'balldefault',label:'Ball',          desc:"Default.",                                           unlock:'default'},
   {id:'saw',        label:'Saw',           desc:"Beat a non-cakewalk Ball level. OWCHIE!!!",          unlock:'ballNonCakewalk'},
@@ -4040,15 +4205,24 @@ function loadDashSkins(){
   });
   db.ref('claredash_skins/'+hubUser).once('value',snap=>{
     const d=snap.val()||{};
+    // Count total ClareCards collection size for Card skin unlock
+    db.ref('clarецards/'+hubUser+'/collection').once('value',cs=>{
+      const col=cs.val()||{};
+      d.clarcardsCount=Object.values(col).reduce((s,n)=>s+(n||0),0);
+      _cachedSkinData=d; computeUnlockedSkins(d);
+    });
     dJumpCount=d.jumpCount||0;
     dGravFlipCount=d.gravFlipCount||0;
     dActiveSkin=d.activeSkin||'square';
     dActiveShipSkin=d.activeShipSkin||'cursor';
     dActiveSpiderSkin=d.activeSpiderSkin||'eyes8';
     dActiveBallSkin=d.activeBallSkin||'balldefault';
-    _cachedSkinData=d;
-    computeUnlockedSkins(d);
-    buildSkinGrid();
+    dActiveSiderSkin=d.activeSiderSkin||'sider';
+    dActiveBouncekin=d.activeBounceSkin||'bounce';
+    dBounceCount=d.bounceCount||0;
+    dBigBounceCount=d.bigBounceCount||0;
+    dSideCount=d.sideCount||0;
+    _cachedSkinData={...d};computeUnlockedSkins(d);buildSkinGrid();
     // Load gem total
     db.ref('claredash_gems/'+hubUser+'/total').once('value',gs=>{dGemCount=gs.val()||0;});
     // Show vault lock button if unlocked
@@ -4100,10 +4274,22 @@ function computeUnlockedSkins(d){
   if(d.beatBallNonCakewalk)dUnlockedBallSkins.push('saw');
   if((d.ballLevel3xCount||0)>=3)dUnlockedBallSkins.push('sun');
   if((d.madeRatedCount||0)>=3)dUnlockedBallSkins.push('pfpball');
+  // Sider skins
+  const prevSider=[...dUnlockedSiderSkins];
+  dUnlockedSiderSkins=['sider'];
+  if((d.sideCount||0)>=750)dUnlockedSiderSkins.push('cider');
+  if((d.jumpCount||0)>=1500)dUnlockedSiderSkins.push('robot');
+  if((d.bigBounceCount||0)>=500&&(d.sideCount||0)>=500)dUnlockedSiderSkins.push('sidounce');
+  // Bounce skins
+  const prevBounce=[...dUnlockedBounceSkins];
+  dUnlockedBounceSkins=['bounce'];
+  if((d.bigBounceCount||0)>=500&&(d.sideCount||0)>=500)dUnlockedBounceSkins.push('boder');
+  if((d.clarcardsCount||0)>=10)dUnlockedBounceSkins.push('card');
+  if((d.bounceCount||0)>=1000)dUnlockedBounceSkins.push('trampoline');
   // Fire unlock toasts for newly unlocked skins
-  [...dUnlockedSkins,...dUnlockedShipSkins,...dUnlockedSpiderSkins,...dUnlockedBallSkins].forEach(id=>{
-    if(!prev.includes(id)&&!prevShip.includes(id)&&!prevSpider.includes(id)&&!prevBall.includes(id)){
-      const s=[...DASH_SKINS,...SHIP_SKINS,...SPIDER_SKINS,...BALL_SKINS].find(x=>x.id===id);
+  [...dUnlockedSkins,...dUnlockedShipSkins,...dUnlockedSpiderSkins,...dUnlockedBallSkins,...dUnlockedSiderSkins,...dUnlockedBounceSkins].forEach(id=>{
+    if(!prev.includes(id)&&!prevShip.includes(id)&&!prevSpider.includes(id)&&!prevBall.includes(id)&&!prevSider.includes(id)&&!prevBounce.includes(id)){
+      const s=[...DASH_SKINS,...SHIP_SKINS,...SPIDER_SKINS,...BALL_SKINS,...SIDER_SKINS,...BOUNCE_SKINS].find(x=>x.id===id);
       if(s)showSkinUnlockToast(s.label);
     }
   });
@@ -4112,11 +4298,10 @@ function computeUnlockedSkins(d){
 let _cachedSkinData={};
 function checkSkinUnlocksLocal(){
   if(!hubUser)return;
-  const d={..._cachedSkinData,jumpCount:dJumpCount,gravFlipCount:dGravFlipCount};
-  const prevCube=[...dUnlockedSkins],prevShip=[...dUnlockedShipSkins],prevSpider=[...dUnlockedSpiderSkins],prevBall=[...dUnlockedBallSkins];
+  const d={..._cachedSkinData,jumpCount:dJumpCount,gravFlipCount:dGravFlipCount,bounceCount:dBounceCount,bigBounceCount:dBigBounceCount,sideCount:dSideCount};
+  const prevCube=[...dUnlockedSkins],prevShip=[...dUnlockedShipSkins],prevSpider=[...dUnlockedSpiderSkins],prevBall=[...dUnlockedBallSkins],prevSider=[...dUnlockedSiderSkins],prevBounce=[...dUnlockedBounceSkins];
   computeUnlockedSkins(d);
-  // Only rebuild grid if something changed
-  const changed=dUnlockedSkins.length!==prevCube.length||dUnlockedShipSkins.length!==prevShip.length||dUnlockedSpiderSkins.length!==prevSpider.length||dUnlockedBallSkins.length!==prevBall.length;
+  const changed=dUnlockedSkins.length!==prevCube.length||dUnlockedShipSkins.length!==prevShip.length||dUnlockedSpiderSkins.length!==prevSpider.length||dUnlockedBallSkins.length!==prevBall.length||dUnlockedSiderSkins.length!==prevSider.length||dUnlockedBounceSkins.length!==prevBounce.length;
   if(changed)buildSkinGrid();
 }
 function checkSkinUnlocks(){
@@ -4133,6 +4318,146 @@ function checkSkinUnlocks(){
     });
   });
 }
+function drawSiderSkinInGame(ctx,x,y,pc,skinId){
+  skinId=skinId||dActiveSiderSkin;
+  const S=DSIZE,cx=x+S/2;
+  // Walk animation: legs alternate
+  _siderWalkTimer++;
+  const frame=Math.floor(_siderWalkTimer/8)%4;
+  const legSwing=[-4,0,4,0][frame]*0.6;
+  // Body (square)
+  ctx.fillStyle=pc||'#4834d4';
+  ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1.5;
+  ctx.fillRect(x,y,S,S*0.65);
+  ctx.strokeRect(x+0.75,y+0.75,S-1.5,S*0.65-1.5);
+  // Cider: apple on head
+  if(skinId==='cider'){
+    ctx.font=`${S*0.32}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🍎',cx,y+S*0.32);
+  }
+  // Robot: face (from "face" cube skin)
+  if(skinId==='robot'||skinId==='sidounce'){
+    ctx.fillStyle='#fff';ctx.fillRect(x+S*0.15,y+S*0.12,S*0.28,S*0.22);
+    ctx.fillRect(x+S*0.57,y+S*0.12,S*0.28,S*0.22);
+    ctx.fillStyle='#111';ctx.fillRect(x+S*0.2,y+S*0.15,S*0.18,S*0.15);
+    ctx.fillRect(x+S*0.62,y+S*0.15,S*0.18,S*0.15);
+  }
+  const legY=y+S*0.65;
+  const legW=S*0.22, legH=S*0.3;
+  if(skinId==='sidounce'){
+    // Spring legs
+    function drawSpringLeg(lx,ly){
+      ctx.strokeStyle='#aaa';ctx.lineWidth=1.5;
+      ctx.beginPath();
+      for(let i=0;i<3;i++){
+        const sx=lx+(i%2===0?0:legW*0.7);
+        const sy=ly+i*(legH/3);
+        if(i===0)ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      }
+      ctx.lineTo(lx,ly+legH);
+      ctx.stroke();
+    }
+    drawSpringLeg(x+S*0.1+legSwing, legY);
+    drawSpringLeg(x+S*0.62-legSwing, legY);
+  } else {
+    // Normal legs
+    ctx.fillStyle=pc||'#4834d4';ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1;
+    // Left leg
+    ctx.beginPath();
+    ctx.moveTo(x+S*0.18,legY);ctx.lineTo(x+S*0.18+legSwing,legY+legH*0.5);
+    ctx.lineTo(x+S*0.08+legSwing,legY+legH);ctx.lineTo(x+S*0.3+legSwing,legY+legH);ctx.lineTo(x+S*0.3+legSwing,legY+legH);
+    ctx.lineTo(x+S*0.35,legY+legH*0.5);ctx.lineTo(x+S*0.35,legY);ctx.closePath();
+    ctx.fill();ctx.stroke();
+    // Right leg
+    ctx.beginPath();
+    ctx.moveTo(x+S*0.65,legY);ctx.lineTo(x+S*0.65-legSwing,legY+legH*0.5);
+    ctx.lineTo(x+S*0.55-legSwing,legY+legH);ctx.lineTo(x+S*0.77-legSwing,legY+legH);
+    ctx.lineTo(x+S*0.82,legY+legH*0.5);ctx.lineTo(x+S*0.82,legY);ctx.closePath();
+    ctx.fill();ctx.stroke();
+  }
+}
+
+function drawBounceSkinInGame(ctx,x,y,pc,skinId){
+  skinId=skinId||dActiveBouncekin;
+  const S=DSIZE,cx=x+S/2,cy=y+S/2;
+  const bodyH=S*0.6,springH=S*0.4;
+  const bodyY=y;
+  const springY=y+bodyH;
+  // Body
+  ctx.fillStyle=pc||'#4834d4';ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1.5;
+  if(skinId==='trampoline'){
+    // Blue square with black square inside
+    ctx.fillStyle='#1155cc';ctx.fillRect(x,bodyY,S,bodyH);
+    ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.strokeRect(x+0.75,bodyY+0.75,S-1.5,bodyH-1.5);
+    ctx.fillStyle='#111';ctx.fillRect(x+S*0.2,bodyY+bodyH*0.2,S*0.6,bodyH*0.6);
+  } else {
+    ctx.fillRect(x,bodyY,S,bodyH);
+    ctx.strokeRect(x+0.75,bodyY+0.75,S-1.5,bodyH-1.5);
+    if(skinId==='boder'){
+      // face (cube face)
+      ctx.fillStyle='#fff';ctx.fillRect(x+S*0.15,bodyY+bodyH*0.18,S*0.28,S*0.22);
+      ctx.fillRect(x+S*0.57,bodyY+bodyH*0.18,S*0.28,S*0.22);
+      ctx.fillStyle='#111';ctx.fillRect(x+S*0.2,bodyY+bodyH*0.22,S*0.18,S*0.15);
+      ctx.fillRect(x+S*0.62,bodyY+bodyH*0.22,S*0.18,S*0.15);
+    }
+    if(skinId==='card'){
+      ctx.fillStyle='#fff';ctx.font=`${S*0.28}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('♠',cx,bodyY+bodyH*0.5);
+    }
+  }
+  // Spring(s)
+  if(skinId==='boder'){
+    // Two spring legs instead of one
+    function drawSpring2(sx,sw,sh,sy2){
+      ctx.strokeStyle='#aaa';ctx.lineWidth=1.5;
+      const loops=3;
+      ctx.beginPath();
+      ctx.moveTo(sx,sy2);
+      for(let i=0;i<loops;i++){
+        const segH=sh/loops;
+        ctx.quadraticCurveTo(sx+sw*1.2,sy2+segH*(i+0.5),sx,sy2+segH*(i+1));
+      }
+      ctx.stroke();
+    }
+    drawSpring2(x+S*0.15,S*0.25,springH,springY);
+    drawSpring2(x+S*0.6,S*0.25,springH,springY);
+  } else if(skinId==='card'){
+    // Diamond spring
+    ctx.strokeStyle='#ff4444';ctx.lineWidth=2;
+    ctx.beginPath();
+    const dmx=cx,dmt=springY,dmb=springY+springH;
+    const dmw=S*0.3;
+    ctx.moveTo(dmx,dmt);ctx.lineTo(dmx+dmw,dmt+springH/2);
+    ctx.lineTo(dmx,dmb);ctx.lineTo(dmx-dmw,dmt+springH/2);ctx.closePath();ctx.stroke();
+  } else {
+    // Loop-de-loop spring
+    ctx.strokeStyle=skinId==='trampoline'?'#555':'rgba(180,180,255,0.9)';ctx.lineWidth=2;
+    const loops=2,sw=S*0.4;
+    ctx.beginPath();ctx.moveTo(cx,springY);
+    for(let i=0;i<loops;i++){
+      const segH=springH/loops;
+      ctx.quadraticCurveTo(cx+sw,springY+segH*(i+0.5),cx,springY+segH*(i+1));
+      if(i<loops-1)ctx.quadraticCurveTo(cx-sw*0.6,springY+segH*(i+0.75),cx,springY+segH*(i+1));
+    }
+    ctx.stroke();
+  }
+}
+
+function drawSiderSkinPreview(ctx,x,y,s,skinId){
+  ctx.clearRect(x,y,s,s);
+  const scale=s/DSIZE;
+  ctx.save();ctx.translate(x,y+s*0.05);ctx.scale(scale,scale);
+  drawSiderSkinInGame(ctx,0,0,'#4834d4',skinId);
+  ctx.restore();
+}
+function drawBounceSkinPreview(ctx,x,y,s,skinId){
+  ctx.clearRect(x,y,s,s);
+  const scale=s/DSIZE;
+  ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);
+  drawBounceSkinInGame(ctx,0,0,'#4834d4',skinId);
+  ctx.restore();
+}
+
 function drawBallSkinInGame(ctx,x,y,pc,skinId){
   skinId=skinId||dActiveBallSkin;
   const s=DSIZE,cx=x+s/2,cy=y+s/2,r=s/2;
@@ -4225,6 +4550,8 @@ function buildSkinGrid(){
   addSection('SHIP / WAVE',SHIP_SKINS,dUnlockedShipSkins,dActiveShipSkin,id=>{dActiveShipSkin=id;db.ref('claredash_skins/'+hubUser+'/activeShipSkin').set(id);buildSkinGrid();},(ctx,x,y,s,id)=>{ctx.clearRect(x,y,s,s);drawShipSkinPreview(ctx,x,y,s,id);});
   addSection('SPIDER',SPIDER_SKINS,dUnlockedSpiderSkins,dActiveSpiderSkin,id=>{dActiveSpiderSkin=id;db.ref('claredash_skins/'+hubUser+'/activeSpiderSkin').set(id);buildSkinGrid();},(ctx,x,y,s,id)=>{ctx.clearRect(x,y,s,s);drawSpiderSkinPreview(ctx,x,y,s,id);});
   addSection('BALL',BALL_SKINS,dUnlockedBallSkins,dActiveBallSkin,id=>{dActiveBallSkin=id;db.ref('claredash_skins/'+hubUser+'/activeBallSkin').set(id);buildSkinGrid();},(ctx,x,y,s,id)=>{ctx.clearRect(x,y,s,s);drawBallSkinPreview(ctx,x,y,s,id);});
+  addSection('SIDER',SIDER_SKINS,dUnlockedSiderSkins,dActiveSiderSkin,id=>{dActiveSiderSkin=id;db.ref('claredash_skins/'+hubUser+'/activeSiderSkin').set(id);buildSkinGrid();},(ctx,x,y,s,id)=>{drawSiderSkinPreview(ctx,x,y,s,id);});
+  addSection('BOUNCE',BOUNCE_SKINS,dUnlockedBounceSkins,dActiveBouncekin,id=>{dActiveBouncekin=id;db.ref('claredash_skins/'+hubUser+'/activeBounceSkin').set(id);buildSkinGrid();},(ctx,x,y,s,id)=>{drawBounceSkinPreview(ctx,x,y,s,id);});
 }
 
 // equipSkin now inline in buildSkinGrid
@@ -4630,7 +4957,7 @@ const OBJ_DEFAULTS={
   block:{w:40,h:40},solidblock:{w:40,h:40},plat:{w:80,h:14},
   textblock:{w:120,h:50},
   spike:{w:28,h:28},pad:{w:38,h:18},orb:{w:28,h:28},
-  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},gravflipblock:{w:40,h:40},glowblock:{w:80,h:80},
+  shipportal:{w:40,h:60},waveportal:{w:40,h:60},blockportal:{w:40,h:60},spiderportal:{w:40,h:60},ballportal:{w:40,h:60},bounceportal:{w:40,h:60},siderportal:{w:40,h:60},gravflipblock:{w:40,h:40},glowblock:{w:80,h:80},
   gravityorb:{w:28,h:28},negorb:{w:28,h:28},trigger:{w:8,h:360},coin:{w:24,h:24},
   teleportin:{w:40,h:60},teleportout:{w:40,h:60},special:{w:40,h:40}
 };
