@@ -348,6 +348,16 @@
 .g5-card.mod-dragon { background:linear-gradient(145deg,#fff,#ffe8e8); border-color:#c44; color:#111; }
 .g5-card.mod-dragon.red { color:#cc0000; }
 .g5-card.mod-dragon.special-card { background:linear-gradient(145deg,#2a0a0a,#1a0000); color:#ff9999; border-color:#c44; }
+/* Error card */
+.g5-card.card-error { background:#0a1a0a; color:#00ff44; border-color:#00cc33; font-family:'Space Mono',monospace; }
+.g5-card.card-error .g5-corner-tl,.g5-card.card-error .g5-corner-br { font-size:8px; color:#00cc33; }
+/* Italian suit kings */
+.g5-card.card-kswords { background:#fff; color:#111; }
+.g5-card.card-kcoins  { background:#fff; color:#111; }
+/* Wild cards */
+.g5-card.card-wildcard,.g5-card.card-plus4wild {
+  background:#1a1a1a; border-color:#555; color:#fff;
+}
 .g5-card-count {
   position:absolute; bottom:-8px; right:-4px; background:var(--primary); color:#fff;
   font-size:9px; border-radius:10px; padding:1px 5px; font-family:'Space Mono',monospace;
@@ -497,15 +507,20 @@ const G5_CARDS = [
   ]),
   {id:'blackjoker',rank:'🃏',suit:'joker',symbol:'🃏',red:false,rarity:'rare',special:true},
   {id:'reverse',   rank:'🔁',suit:'reverse',symbol:'🔁',red:false,rarity:'rare',special:true},
-  // Epic — K of spades/diamonds/clubs
-  {id:'Ks',rank:'K',suit:'spades',  symbol:'♠',red:false,rarity:'epic'},
-  {id:'Kd',rank:'K',suit:'diamonds',symbol:'♦',red:true, rarity:'epic'},
+  // Epic
+  {id:'Ks',rank:'K',suit:'spades',  symbol:'♠',red:false,rarity:'legendary'},
+  {id:'Kd',rank:'K',suit:'diamonds',symbol:'♦',red:true, rarity:'legendary'},
   {id:'Kc',rank:'K',suit:'clubs',   symbol:'♣',red:false,rarity:'epic'},
+  {id:'error',    rank:'404',suit:'error',  symbol:'⚠',red:false,rarity:'epic',  special:true},
+  {id:'kswords',  rank:'K',  suit:'swords', symbol:'⚔',red:false,rarity:'epic',  special:false},
+  {id:'kcoins',   rank:'K',  suit:'coins',  symbol:'🪙',red:false,rarity:'epic',  special:false},
+  {id:'wildcard', rank:'W',  suit:'wild',   symbol:'◉',red:false,rarity:'epic',  special:true},
   // Legendary — K of hearts
   {id:'Kh',rank:'K',suit:'hearts',  symbol:'♥',red:true, rarity:'legendary'},
   // Mythical
   {id:'redjoker',  rank:'🃏',suit:'joker',  symbol:'🃏',red:true, rarity:'mythical',special:true},
-  {id:'supercard', rank:'★',suit:'super',  symbol:'★',red:false,rarity:'mythical',special:true,rainbow:true},
+  {id:'supercard', rank:'★', suit:'super',  symbol:'★', red:false,rarity:'mythical',special:true,rainbow:true},
+  {id:'plus4wild', rank:'+4', suit:'wild',  symbol:'◉',red:false,rarity:'mythical',special:true},
 ];
 
 const G5_RARITY_WEIGHTS = {common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1};
@@ -582,6 +597,51 @@ function g5RenderCardObj(card, count, small, selected, onclick){
 
   const titleMods = mods.length ? ` [${mods.join('+')}]` : '';
   const title = `${d.rank} of ${d.suit} (${d.rarity})${titleMods}`;
+
+  // Special card overrides
+  if(d.id==='error'){
+    const fs=small?'6px':'8px';
+    return `<div class="${cls} card-error" style="${sz}cursor:pointer;overflow:hidden;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:1px;padding:4px;opacity:0.18;font-size:${fs};line-height:1.2;color:#00ff44;word-break:break-all;">404 404 404 404 404 404 404 404 404 404 404 404 404 404 404 404</div>
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#00ff44;z-index:1;">ERR<br>⚠</div>
+      <div class="g5-center" style="font-size:${small?'16px':'22px'};z-index:1;color:#00ff44;">404</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#00ff44;z-index:1;">ERR<br>⚠</div>
+    </div>`;
+  }
+  if(d.id==='kswords'){
+    return `<div class="${cls} card-kswords" style="${sz}cursor:pointer;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'9px':'11px'}">K<br>⚔</div>
+      <div class="g5-center" style="font-size:${small?'20px':'28px'}">⚔</div>
+      <div class="g5-corner-br" style="font-size:${small?'9px':'11px'}">K<br>⚔</div>
+    </div>`;
+  }
+  if(d.id==='kcoins'){
+    return `<div class="${cls} card-kcoins" style="${sz}cursor:pointer;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'9px':'11px'}">K<br>🪙</div>
+      <div class="g5-center" style="font-size:${small?'20px':'28px'}">🪙</div>
+      <div class="g5-corner-br" style="font-size:${small?'9px':'11px'}">K<br>🪙</div>
+    </div>`;
+  }
+  if(d.id==='wildcard'||d.id==='plus4wild'){
+    const isPlus4=d.id==='plus4wild';
+    const ow=small?52:70; const oh=small?74:100;
+    const ox=small?8:10; const oy=small?10:14; const orw=small?36:50; const orh=small?54:72;
+    return `<div class="${cls} card-${d.id}" style="${sz}cursor:pointer;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      ${isPlus4?`<div style="position:absolute;top:3px;left:0;right:0;text-align:center;font-size:${small?'9px':'11px'};font-weight:900;color:#fff;z-index:2;letter-spacing:1px;">+4</div>`:''}
+      <svg width="${ow}" height="${oh}" style="position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
+        <clipPath id="oval-${d.id}"><ellipse cx="${ow/2}" cy="${oh/2}" rx="${orw/2}" ry="${orh/2}"/></clipPath>
+        <rect x="${ox}" y="${oy}" width="${orw}" height="${orh/2}" fill="#cc0000" clip-path="url(#oval-${d.id})"/>
+        <rect x="${ox}" y="${oy+orh/2}" width="${orw/2}" height="${orh/2}" fill="#0055cc" clip-path="url(#oval-${d.id})"/>
+        <rect x="${ox+orw/2}" y="${oy+orh/2}" width="${orw/2}" height="${orh/2}" fill="#00aa44" clip-path="url(#oval-${d.id})"/>
+        <ellipse cx="${ow/2}" cy="${oh/2}" rx="${orw/2}" ry="${orh/2}" fill="none" stroke="#fff" stroke-width="2"/>
+        <text x="${ow/2}" y="${oh/2+5}" text-anchor="middle" font-size="${small?'10':'14'}" font-weight="bold" fill="#fff" font-family="sans-serif">${isPlus4?'+4':'W'}</text>
+      </svg>
+    </div>`;
+  }
 
   return `<div class="${cls}" style="${sz}cursor:pointer;" onclick="${onclick||''}" title="${title}">
     ${countBadge}${badgeHtml}
@@ -890,7 +950,7 @@ function g5ShowCardInfo(key){
   // Build display name
   let name = '';
   if(d.special){
-    const names = {cancel:'Cancel Card', blackjoker:'Black Joker', reverse:'Reverse Card', redjoker:'Red Joker', supercard:'Supercard'};
+    const names = {cancel:'Cancel Card', blackjoker:'Black Joker', reverse:'Reverse Card', redjoker:'Red Joker', supercard:'Supercard', error:'Error', kswords:'King of Swords', kcoins:'King of Coins', wildcard:'Wild Card', plus4wild:'+4 Wild Card'};
     name = names[d.id]||d.id;
   } else {
     const rankNames = {A:'Ace',J:'Jack',Q:'Queen',K:'King','10':'Ten',2:'Two',3:'Three',4:'Four',5:'Five',6:'Six',7:'Seven',8:'Eight',9:'Nine'};
