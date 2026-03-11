@@ -2686,8 +2686,10 @@ function dJump(){
   if(dSpiderMode&&dRunning&&!dDied&&!dWon){spiderTeleport();return;}
   if(dSiderMode&&dRunning&&!dDied&&!dWon){siderTeleport();return;}
   if(dBounceMode&&dRunning&&!dDied&&!dWon){
-    // Big bounce = 50 bounciness pad equivalent
-    dVY=_jump*1.5;
+    // Big bounce — works mid-air too, uses own formula (not _jump which is physics-local)
+    const bigJump=-(4+dJumpHeight*0.14)*1.5;
+    dVY=bigJump;
+    dGrounded=false;
     dBigBounceCount++;dBounceCount++;
     db.ref('claredash_skins/'+hubUser+'/bigBounceCount').set(dBigBounceCount);
     db.ref('claredash_skins/'+hubUser+'/bounceCount').set(dBounceCount);
@@ -2774,15 +2776,58 @@ function siderTeleport(){
   // Then teleport to bottom of rightmost block
   const clusterLeft=Math.min(...touching.map(b=>b.ox));
   const clusterRight=Math.max(...touching.map(b=>b.ox+b.o.w));
-  // Teleport to opposite side of farthest block
+  // Teleport to opposite side of farthest block, following stacks
+  function findStackBottom(startBlock){
+    // Chase connected blocks downward — if a block sits on top of another, keep going
+    let bottom=startBlock.o.y+startBlock.o.w; // use h not w
+    // recalc
+    bottom=startBlock.o.y+startBlock.o.h;
+    let changed=true;
+    while(changed){
+      changed=false;
+      for(const ob of dObs){
+        if(SKIP_TYPES.has(ob.t))continue;
+        const obx=ob.x-dScrollX;
+        // Does this block sit directly below the current bottom edge?
+        if(Math.abs(ob.y-bottom)<4){
+          // And overlaps horizontally with the far block?
+          if(obx+ob.w>startBlock.ox+4&&obx<startBlock.ox+startBlock.o.w-4){
+            bottom=ob.y+ob.h;
+            changed=true;
+          }
+        }
+      }
+    }
+    return bottom;
+  }
+  function findStackTop(startBlock){
+    let top=startBlock.o.y;
+    let changed=true;
+    while(changed){
+      changed=false;
+      for(const ob of dObs){
+        if(SKIP_TYPES.has(ob.t))continue;
+        const obx=ob.x-dScrollX;
+        if(Math.abs(ob.y+ob.h-top)<4){
+          if(obx+ob.w>startBlock.ox+4&&obx<startBlock.ox+startBlock.o.w-4){
+            top=ob.y;
+            changed=true;
+          }
+        }
+      }
+    }
+    return top;
+  }
   if(onTop){
-    // Was on top → go to bottom of farthest block
+    // Was on top → go to bottom of farthest block (following stack downward)
     const farBlock=touching.reduce((a,b)=>Math.abs(b.ox-dPX)>Math.abs(a.ox-dPX)?b:a);
-    dPY=farBlock.o.y+farBlock.o.h;
+    dPY=findStackBottom(farBlock);
+    dGravFlipped=true; // now hanging below
   } else {
-    // Was on bottom → go to top of farthest block
+    // Was on bottom → go to top of farthest block (following stack upward)
     const farBlock=touching.reduce((a,b)=>Math.abs(b.ox-dPX)>Math.abs(a.ox-dPX)?b:a);
-    dPY=farBlock.o.y-DSIZE;
+    dPY=findStackTop(farBlock)-DSIZE;
+    dGravFlipped=false; // back on top
   }
   dVY=0; dGrounded=true;
   dSideCount++;
@@ -2854,12 +2899,18 @@ function dPhysics(){
       } else {dGrounded=false;}
       if(dPY<=0){dPY=0;dVY=Math.abs(dVY)*0.3;}
     } else if(dSiderMode){
-      // Sider: normal gravity + walk animation tick
+      // Sider: gravity-aware (flips when walking under blocks)
+      const gravDir=dGravFlipped?-1:1;
       const apexFactor=Math.min(1,0.25+Math.abs(dVY)/6);
-      dVY+=_grav*apexFactor*dt;
+      dVY+=_grav*apexFactor*dt*gravDir;
       dPY+=dVY*dt;
-      if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
-      if(dPY<=0){dPY=0;dVY=Math.abs(dVY)*0.3;}
+      if(!dGravFlipped){
+        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
+        if(dPY<=0){dPY=0;dVY=Math.abs(dVY)*0.3;}
+      } else {
+        if(dPY<=0){dPY=0;dVY=0;dGrounded=true;dOrbUsed=false;}else{dGrounded=false;}
+        if(dPY+DSIZE>=gh){dPY=gh-DSIZE;dGravFlipped=false;dVY=0;}
+      }
     } else if(dBallMode){
       // Ball: normal gravity but jump flips gravity direction
       const gravDir=dGravFlipped?-1:1;
@@ -3167,12 +3218,18 @@ function dPhysics(){
       if(!dSpiderFlipped){
         if(horizOverlap&&dVY>=0&&curBot>=o.y&&prevBot<=o.y+6){
           dPY=o.y-ps;dOrbUsed=false;
+          if(dBounceMode){dVY=_jump*0.5;dGrounded=true;dBounceCount++;db.ref('claredash_skins/'+hubUser+'/bounceCount').set(dBounceCount);checkSkinUnlocksLocal();continue;}
           if(dJumpHeld){dVY=_jump;dGrounded=false;}else{dVY=0;dGrounded=true;}
           continue;
         }
        
         if(horizOverlap&&dVY<0&&curTop<=o.y+o.h&&prevTop>=o.y+o.h-6){
-          dPY=o.y+o.h;dVY=Math.abs(dVY)*0.3;
+          if(dSiderMode){
+            // Sider: snap to underside, flip gravity so they walk upside down
+            dPY=o.y+o.h;dVY=0;dGrounded=true;dGravFlipped=true;
+          } else {
+            dPY=o.y+o.h;dVY=Math.abs(dVY)*0.3;
+          }
           continue;
         }
       } else if(dSpiderFlipped){
