@@ -307,8 +307,8 @@
 
 /* Card rendering */
 .g5-card {
-  width:70px; height:100px; border-radius:6px; border:2px solid #333;
-  background:#1a1a2d; color:var(--text-white);
+  width:70px; height:100px; border-radius:7px; border:2px solid #999;
+  background:#fff; color:#111;
   display:flex; flex-direction:column;
   align-items:center; justify-content:space-between; padding:5px 4px;
   font-size:13px; font-weight:bold; cursor:pointer; user-select:none;
@@ -317,23 +317,39 @@
 }
 .g5-card:hover { transform:translateY(-6px) scale(1.04); box-shadow:0 8px 24px #0008; }
 .g5-card.g5-selected { transform:translateY(-10px) scale(1.06); box-shadow:0 0 0 3px var(--accent), 0 8px 24px #0008; }
-.g5-card .g5-corner-tl { position:absolute; top:4px; left:5px; font-size:11px; line-height:1; }
-.g5-card .g5-corner-br { position:absolute; bottom:4px; right:5px; font-size:11px; line-height:1; transform:rotate(180deg); }
-.g5-card .g5-center { font-size:22px; line-height:1; }
-.g5-card.red { color:#ff6b6b; }
-.g5-card.special-card { background:#0f0f1a; color:var(--text-white); }
-.g5-card.rainbow-card { background:linear-gradient(135deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff); border-color:var(--accent); color:#000; }
-.g5-card.rarity-common   { border-color:#444; }
+.g5-card .g5-corner-tl { position:absolute; top:4px; left:5px; font-size:11px; line-height:1.2; }
+.g5-card .g5-corner-br { position:absolute; bottom:4px; right:5px; font-size:11px; line-height:1.2; transform:rotate(180deg); }
+.g5-card .g5-center { font-size:26px; line-height:1; }
+.g5-card.red { color:#cc1111; }
+/* Special cards keep dark bg */
+.g5-card.special-card { background:#1a1a2e; color:#fff; border-color:#555; }
+.g5-card.special-card.red { color:#ff6b6b; }
+/* Rarity border only */
+.g5-card.rarity-common   { border-color:#bbb; }
 .g5-card.rarity-uncommon { border-color:#2ed573; }
 .g5-card.rarity-rare     { border-color:var(--primary); box-shadow:0 0 6px #4834d444; }
 .g5-card.rarity-epic     { border-color:#9c27b0; box-shadow:0 0 8px #9c27b055; }
 .g5-card.rarity-legendary{ border-color:#ffd700; box-shadow:0 0 10px #ffd70055; }
 .g5-card.rarity-mythical { border-color:var(--accent); box-shadow:0 0 14px #e8ff0055; animation:g5-mythglow 2s infinite alternate; }
 @keyframes g5-mythglow { from { box-shadow:0 0 8px #e8ff0033; } to { box-shadow:0 0 22px #e8ff0099, 0 0 40px #4834d444; } }
+/* Modifiers */
+.g5-card.mod-silver { background:linear-gradient(145deg,#d8d8d8,#eee,#c8c8c8); border-color:#aaa; color:#333; }
+.g5-card.mod-silver.red { color:#991111; }
+.g5-card.mod-gold { background:linear-gradient(145deg,#ffe066,#fff3a0,#ffd700); border-color:#c8a000; box-shadow:0 0 12px #ffd70077; color:#5a3a00; }
+.g5-card.mod-gold.red { color:#7a1a00; }
+.g5-card.mod-rainbow { background:linear-gradient(135deg,#ffb3b3,#ffd9a0,#ffffb3,#b3ffb3,#b3d9ff,#d9b3ff); border-color:#fff; color:#222; }
+.g5-card.mod-rainbow.red { color:#cc1111; }
+.g5-card.mod-dragon { background:linear-gradient(145deg,#fff,#ffe8e8); border-color:#c44; color:#111; }
+.g5-card.mod-dragon.red { color:#cc0000; }
+.g5-card.mod-dragon.special-card { background:linear-gradient(145deg,#2a0a0a,#1a0000); color:#ff9999; border-color:#c44; }
 .g5-card-count {
   position:absolute; bottom:-8px; right:-4px; background:var(--primary); color:#fff;
   font-size:9px; border-radius:10px; padding:1px 5px; font-family:'Space Mono',monospace;
   font-weight:bold; z-index:2;
+}
+.g5-mod-badge {
+  position:absolute; top:2px; right:3px;
+  font-size:10px; line-height:1; z-index:3;
 }
 
 /* Collection */
@@ -476,8 +492,14 @@ const G5_CARDS = [
 ];
 
 const G5_RARITY_WEIGHTS = {common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1};
-const G5_PACK_COST = 50; // coins per pack
-const G5_PACK_SIZE = 5;  // cards per pack
+const G5_PACKS = {
+  standard: { cost:50,  size:5, label:'STANDARD', icon:'🃏', desc:'5 cards',
+    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false },
+  good:     { cost:200, size:7, label:'GOOD',     icon:'✨', desc:'7 cards · better odds',
+    weights:{common:40,uncommon:20,rare:20,epic:15,legendary:5,mythical:0}, dragon:false },
+  dragon:   { cost:50,  size:5, label:'DRAGON',   icon:'🐉', desc:'5 cards · 25% dragon chance',
+    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:true },
+};
 
 let g5Collection = {}; // {cardId: count}
 let g5Coins = 0;
@@ -486,59 +508,113 @@ let g5TradeFilter = 'all';
 
 function g5CardDef(id){ return G5_CARDS.find(c=>c.id===id); }
 
+// ── Collection key format: "baseId|mod1,mod2" or just "baseId" ──
+// Modifiers: silver, gold, rainbow, dragon
+function g5ParseKey(key){
+  if(!key) return {baseId:'',mods:[]};
+  const [baseId, modStr=''] = key.split('|');
+  return {baseId, mods: modStr ? modStr.split(',') : []};
+}
+function g5MakeKey(baseId, mods){
+  return mods.length ? baseId+'|'+[...mods].sort().join(',') : baseId;
+}
+
 function g5RenderCard(id, count, small, selected, onclick){
-  const d = g5CardDef(id);
+  const {baseId, mods} = g5ParseKey(id);
+  const d = G5_CARDS.find(c=>c.id===baseId);
   if(!d) return '';
+  return g5RenderCardObj({...d, mods}, count, small, selected, onclick);
+}
+
+// ── Pack opening ──
+function g5RenderCardObj(card, count, small, selected, onclick){
+  const d = card.id ? card : card;
+  const mods = card.mods||[];
+  const hasSilver = mods.includes('silver');
+  const hasGold   = mods.includes('gold');
+  const hasRainbow= mods.includes('rainbow');
+  const hasDragon = mods.includes('dragon');
+
   const cls = [
     'g5-card',
     d.red?'red':'',
     d.special?'special-card':'',
-    d.rainbow?'rainbow-card':'',
     `rarity-${d.rarity}`,
     selected?'g5-selected':'',
-    small?'g5-card-sm':''
+    hasSilver ?'mod-silver':'',
+    hasGold   ?'mod-gold':'',
+    hasRainbow?'mod-rainbow':'',
+    hasDragon ?'mod-dragon':'',
   ].filter(Boolean).join(' ');
-  const style = small ? 'style="width:52px;height:74px;font-size:10px;"' : '';
+
+  const sz = small ? 'width:52px;height:74px;' : 'width:70px;height:100px;';
   const sym = d.special ? '' : d.symbol;
-  const center = d.rainbow ? '★' : (d.special ? d.symbol : d.symbol);
+  const centerSym = d.special ? d.symbol : d.symbol;
+  const centerSz = small ? '18px' : '26px';
   const countBadge = (count && count > 1) ? `<div class="g5-card-count">×${count}</div>` : '';
-  return `<div class="${cls}" ${style} onclick="${onclick||''}" title="${d.rank} of ${d.suit} (${d.rarity})">
-    ${countBadge}
-    <div class="g5-corner-tl">${d.rank}<br>${sym}</div>
-    <div class="g5-center" style="font-size:${small?'18px':'24px'}">${center}</div>
-    <div class="g5-corner-br">${d.rank}<br>${sym}</div>
+
+  // Modifier badges (top-right)
+  let modBadge = '';
+  if(hasDragon)  modBadge += '<span>🐲</span>';
+  if(hasRainbow) modBadge += '<span>🌈</span>';
+  if(hasGold)    modBadge += '<span>✦</span>';
+  if(hasSilver)  modBadge += '<span>◆</span>';
+  const badgeHtml = modBadge ? `<div class="g5-mod-badge" style="font-size:${small?'8px':'10px'}">${modBadge}</div>` : '';
+
+  const titleMods = mods.length ? ` [${mods.join('+')}]` : '';
+  const title = `${d.rank} of ${d.suit} (${d.rarity})${titleMods}`;
+
+  return `<div class="${cls}" style="${sz}cursor:pointer;" onclick="${onclick||''}" title="${title}">
+    ${countBadge}${badgeHtml}
+    <div class="g5-corner-tl" style="font-size:${small?'9px':'11px'}">${d.rank}<br>${sym}</div>
+    <div class="g5-center" style="font-size:${centerSz}">${centerSym}</div>
+    <div class="g5-corner-br" style="font-size:${small?'9px':'11px'}">${d.rank}<br>${sym}</div>
   </div>`;
 }
 
-// ── Pack opening ──
-function g5OpenPack(){
-  if(g5Coins < G5_PACK_COST){ g5Notify('Not enough coins!'); return; }
-  g5Coins -= G5_PACK_COST;
+function g5OpenPack(packId){
+  const pack = G5_PACKS[packId||'standard'];
+  if(!pack){ g5Notify('Unknown pack!'); return; }
+  if(g5Coins < pack.cost){ g5Notify('Not enough coins!'); return; }
+  g5Coins -= pack.cost;
   db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
 
-  // Roll 5 cards weighted by rarity
-  const rarities = Object.entries(G5_RARITY_WEIGHTS);
+  const rarities = Object.entries(pack.weights).filter(([,w])=>w>0);
   const totalW = rarities.reduce((s,[,w])=>s+w,0);
   const drawn = [];
-  for(let i=0;i<G5_PACK_SIZE;i++){
-    let roll = Math.random()*totalW, cum=0, chosenRarity='common';
+  for(let i=0;i<pack.size;i++){
+    let roll=Math.random()*totalW, cum=0, chosenRarity='common';
     for(const [r,w] of rarities){ cum+=w; if(roll<=cum){chosenRarity=r;break;} }
-    const pool = G5_CARDS.filter(c=>c.rarity===chosenRarity);
-    drawn.push(pool[Math.floor(Math.random()*pool.length)]);
+    const pool=G5_CARDS.filter(c=>c.rarity===chosenRarity);
+    const card={...pool[Math.floor(Math.random()*pool.length)]};
+    // Roll modifiers
+    const mods=[];
+    const dragonChance = pack.dragon ? 0.25 : 0.05;
+    if(Math.random()<dragonChance) mods.push('dragon');
+    // silver/gold are mutually exclusive
+    const modRoll=Math.random();
+    if(modRoll<0.01)       mods.push('rainbow');
+    else if(modRoll<0.025) mods.push('gold');
+    else if(modRoll<0.075) mods.push('silver');
+    card.mods=mods;
+    drawn.push(card);
   }
 
-  // Add to collection
-  drawn.forEach(c=>{ g5Collection[c.id]=(g5Collection[c.id]||0)+1; });
+  // Add to collection using key format baseId|mod1,mod2
+  drawn.forEach(card=>{
+    const key=g5MakeKey(card.id, card.mods||[]);
+    g5Collection[key]=(g5Collection[key]||0)+1;
+  });
   db.ref('clarецards/'+hubUser+'/collection').set(g5Collection);
 
   // Show reveal
-  const area = document.getElementById('g5-reveal-area');
-  area.innerHTML = '';
-  drawn.forEach((c,i)=>{
-    const div = document.createElement('div');
-    div.className = 'g5-card-reveal';
-    div.style.animationDelay = (i*0.12)+'s';
-    div.innerHTML = g5RenderCard(c.id, null, false, false, '');
+  const area=document.getElementById('g5-reveal-area');
+  area.innerHTML='';
+  drawn.forEach((card,i)=>{
+    const div=document.createElement('div');
+    div.className='g5-card-reveal';
+    div.style.animationDelay=(i*0.12)+'s';
+    div.innerHTML=g5RenderCardObj(card, null, false, false, '');
     area.appendChild(div);
   });
   document.getElementById('g5-pack-result').style.display='flex';
@@ -711,9 +787,18 @@ function g5AcceptOffer(inboxKey, offerCards, wantCards, fromUser){
     });
   });
 
+  // Award trade coins
+  g5Coins += 100;
+  db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
+  g5UpdateCoinsDisplay();
+  // Also award the sender
+  db.ref('clarецards/'+fromUser+'/coins').once('value', cs=>{
+    db.ref('clarецards/'+fromUser+'/coins').set((cs.val()||0)+100);
+  });
+
   // Delete inbox item
   db.ref('clarецards_inbox/'+hubUser+'/'+inboxKey).remove();
-  g5Notify('Trade accepted!');
+  g5Notify('Trade accepted! +100 coins 🪙');
   g5LoadInbox();
   g5LoadCollection();
 }
@@ -724,6 +809,19 @@ function g5DeclineOffer(inboxKey){
 }
 
 // ── Load data ──
+// ── Passive coin income ──
+let _g5CoinTimer = null;
+function g5StartCoinTimer(){
+  if(_g5CoinTimer) return;
+  _g5CoinTimer = setInterval(()=>{
+    g5Coins += 50;
+    db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
+    g5UpdateCoinsDisplay();
+    g5Notify('+50 coins for staying! 🪙');
+  }, 5*60*1000); // every 5 minutes
+}
+function g5StopCoinTimer(){ clearInterval(_g5CoinTimer); _g5CoinTimer=null; }
+
 function g5LoadCollection(){
   db.ref('clarецards/'+hubUser).once('value', snap=>{
     const d = snap.val()||{};
@@ -876,15 +974,25 @@ function g5Notify(msg){
   <!-- PACKS TAB -->
   <div id="g5-packs" class="g5-screen" style="flex-direction:column;">
     <div class="g5-pack-area">
-      <div class="g5-pack-row">
+      <div class="g5-pack-row" style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;">
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-          <div class="g5-pack" onclick="g5OpenPack()">🃏<div class="g5-pack-label">STANDARD</div></div>
+          <div class="g5-pack" onclick="g5OpenPack('standard')">🃏<div class="g5-pack-label">STANDARD</div></div>
           <div class="g5-pack-cost">🪙 50 coins</div>
-          <div style="font-size:10px;color:#444;letter-spacing:1px;max-width:120px;text-align:center;">5 cards · weighted rarity draw</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div class="g5-pack" onclick="g5OpenPack('good')" style="border-color:#ffd700;box-shadow:0 0 14px #ffd70033;">✨<div class="g5-pack-label" style="color:#ffd700;">GOOD</div></div>
+          <div class="g5-pack-cost">🪙 200 coins</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">7 cards · better odds</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div class="g5-pack" onclick="g5OpenPack('dragon')" style="border-color:#ff6b35;box-shadow:0 0 14px #ff6b3533;">🐉<div class="g5-pack-label" style="color:#ff6b35;">DRAGON</div></div>
+          <div class="g5-pack-cost">🪙 50 coins</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 25% dragon</div>
         </div>
       </div>
       <div id="g5-pack-result" style="display:none;flex-direction:column;align-items:center;gap:10px;">
-        <div style="font-size:10px;letter-spacing:2px;color:#666;">YOU GOT</div>
+        <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;color:#555;">YOU GOT</div>
         <div id="g5-reveal-area" class="g5-reveal-area"></div>
         <button class="g5-btn" onclick="document.getElementById('g5-pack-result').style.display='none'">Done</button>
       </div>
@@ -1608,6 +1716,7 @@ function launchGame5(){
   document.getElementById('game5-panel').style.display='flex';
   g5SwitchTab('collection');
   g5LoadCollection();
+  g5StartCoinTimer();
 }
 function g5SetFilter(btn, filter){
   document.querySelectorAll('.g5-filter-btn').forEach(b=>b.classList.remove('active'));
@@ -1616,6 +1725,7 @@ function g5SetFilter(btn, filter){
 }
 function closeGame5(){
   document.getElementById('game5-panel').style.display='none';
+  g5StopCoinTimer();
 }
 function launchClareTown(){
   document.getElementById('claretown').classList.remove('hidden');
