@@ -4524,12 +4524,17 @@ function dJumpPress(){
 }
 function dJumpRelease(){dJumpHeld=false;dShipHeld=false;dOrbJumpQueued=false;}
 document.addEventListener('keydown',e=>{
+  const tag=document.activeElement&&document.activeElement.tagName;
+  const isTyping=tag==='INPUT'||tag==='TEXTAREA';
+  if(isTyping) return;
   if(e.code==='Space'){e.preventDefault();if(!e.repeat)dJumpPress();}
   if(e.code==='KeyP'||e.code==='Escape'){e.preventDefault();togglePause();}
- 
   if(e.code==='ArrowDown'||e.code==='KeyS'){if(dShipMode||dWaveMode)dShipHeld=true;}
 });
 document.addEventListener('keyup',e=>{
+  const tag=document.activeElement&&document.activeElement.tagName;
+  const isTyping=tag==='INPUT'||tag==='TEXTAREA';
+  if(isTyping) return;
   if(e.code==='Space')dJumpRelease();
   if(e.code==='ArrowDown'||e.code==='KeyS'){if(dShipMode||dWaveMode)dShipHeld=false;}
 });
