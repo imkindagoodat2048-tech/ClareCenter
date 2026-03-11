@@ -258,15 +258,15 @@
             </div>
             <button class="game-play" onclick="launchClareClash()">Play</button>
         </div>
-        <div class="game-row" id="game-row-5" style="opacity:0.45;filter:grayscale(0.6);">
+        <div class="game-row" id="game-row-5">
             <div class="game-info">
                 <div class="game-num" style="filter:blur(1.5px);">05</div>
                 <div>
-                    <div class="game-name" style="filter:blur(1.5px);">🔒 ???</div>
-                    <div class="game-tag" style="filter:blur(1px);">Unknown</div>
+                    <div class="game-name"><span>Clare</span>Cards</div>
+                    <div class="game-tag">Card Trading</div>
                 </div>
             </div>
-            <button class="game-play" id="game-5-btn" onclick="launchGame5()" style="background:#333;color:#666;cursor:not-allowed;">Play</button>
+            <button class="game-play" id="game-5-btn" onclick="launchGame5()">Play</button>
         </div>
     </div>
 </div>
@@ -1876,16 +1876,7 @@ async function delUser(u){if(!confirm('Delete '+u+'?'))return;await db.ref("user
 // ===== LAUNCHERS =====
 function launchClareCool(){window.open('https://imkindagoodat2048-tech.github.io/ClareCool/','_blank');}
 function launchClareClash(){window.open('https://imkindagoodat2048-tech.github.io/ClareGame/','_blank');}
-function unlockGame5IfAdmin(){
-  if(hubUser==='bartelsfamily5'){
-    const row=document.getElementById('game-row-5');
-    if(row){row.style.opacity='1';row.style.filter='none';}
-    const btn=document.getElementById('game-5-btn');
-    if(btn){btn.style.background='';btn.style.color='';btn.style.cursor='pointer';}
-    const name=row&&row.querySelector('.game-name');
-    // keep name blurred for everyone else — no change needed here
-  }
-}
+function unlockGame5IfAdmin(){} // game 5 now public
 function launchClareDash(){
   document.getElementById('claredash').classList.remove('hidden');
   // Show Create tab for all users
@@ -1895,7 +1886,6 @@ function launchClareDash(){
   showDashTab('play');
 }
 function launchGame5(){
-  if(hubUser!=='bartelsfamily5'){return;}
   document.getElementById('game5-panel').style.display='flex';
   g5SwitchTab('collection');
   g5LoadCollection();
