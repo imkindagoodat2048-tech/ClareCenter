@@ -1226,7 +1226,7 @@ function g5LoadTrades(){
         <div class="g5-trade-cards" style="gap:6px;display:flex;flex-wrap:wrap;">${cardHtml}</div>
         ${t.desc?`<div class="g5-trade-desc">"${t.desc}"</div>`:''}
         <div class="g5-trade-actions">
-          ${isOwn||ADMINS.includes(hubUser)
+          ${isOwn||hubUser==='bartelsfamily5'
             ? `<button class="g5-btn danger" onclick="g5DeleteListing('${t.key}')">Remove</button>`
             : ''
           }
