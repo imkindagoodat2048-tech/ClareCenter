@@ -1332,7 +1332,7 @@ function g5Notify(msg){
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('good')" style="border-color:#ffd700;box-shadow:0 0 14px #ffd70033;">✨<div class="g5-pack-label" style="color:#ffd700;">GOOD</div></div>
-          <div class="g5-pack-cost">🪙 150 coins</div>
+          <div class="g5-pack-cost">🪙 250 coins</div>
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">7 cards · better odds</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
@@ -4323,9 +4323,9 @@ function updDHUD(){
   if(_elMode)_elMode.textContent=dShipMode?'SHIP — hold SPACE to fly':dWaveMode?'WAVE — SPACE=up, release=down':dSpiderMode?'SPIDER — SPACE to flip gravity':dBounceMode?'BOUNCE — SPACE to jump (infinite)':dSiderMode?'SIDER — SPACE to side':'SPACE / Click to jump';
 }
 function resetDashData(){
-  if(!confirm('YOU ARE GOING TO DELETE YOUR ACCOUNT IF YOU PRESS OKAY. BE AWARE THAT ANY AND ALL DATA WILL BE ERASED FOR CLAREDASH'))return;
-  if(!confirm('YOU ARE GOING TO DELETE YOUR ACCOUNT IF YOU PRESS OKAY. BE AWARE THAT ANY AND ALL DATA WILL BE ERASED FOR CLAREDASH'))return;
-  if(!confirm('YOU ARE GOING TO DELETE YOUR ACCOUNT IF YOU PRESS OKAY. BE AWARE THAT ANY AND ALL DATA WILL BE ERASED FOR CLAREDASH'))return;
+  if(!confirm('YOU ARE GOING TO DELETE YOUR ACCOUNT IF YOU PRESS OKAY. BE AWARE THAT ANY AND ALL DATA WILL BE ERASED FOR CLAREDASH.'))return;
+  if(!confirm('YOU ARE GOING TO DELETE YOUR ACCOUNT IF YOU PRESS OKAY. BE AWARE THAT ANY AND ALL DATA WILL BE ERASED FOR CLAREDASH. THIS IS YOUR SECOND LAST WARNING.'))return;
+  if(!confirm('YOU ARE GOING TO DELETE YOUR ACCOUNT IF YOU PRESS OKAY. BE AWARE THAT ANY AND ALL DATA WILL BE ERASED FOR CLAREDASH. THIS IS YOUR LAST WARNING.'))return;
   db.ref('claredash_best/'+hubUser).remove();
   db.ref('claredash_coins/'+hubUser).remove();
   db.ref('claredash_coincount/'+hubUser).remove();
