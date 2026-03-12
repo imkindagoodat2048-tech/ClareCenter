@@ -4217,7 +4217,6 @@ const SHIP_SKINS=[
   {id:'cake',     label:'Cake',           desc:"Beat CakeWalk. That was a CAKEWALK!!! Get it?",                      unlock:'beatCakeWalk'},
   {id:'flipper',  label:'Flipper',        desc:"Beat FlipSide. UR PRO!!!!!!.",                      unlock:'beatFlipSide'},
   {id:'admincursor',label:'Admin',        desc:"Admin only. For the COOLEST of clares.",                         unlock:'admin'},
-  {id:'skull',    label:'Skull',          desc:"Beat 1 Deadly. Your SUPA skilled now.",                      unlock:'beatDeadly'},
   {id:'bone',     label:'Bone',           desc:"Beat the main level 'Spooky'. It's BONE chilling! wait have we already done that joke", unlock:'beatSpooky'},
 ];
 const SPIDER_SKINS=[
@@ -4312,7 +4311,6 @@ function computeUnlockedSkins(d){
   if(ratedCount>=1)dUnlockedShipSkins.push('grabhand');
   if(d.beatCakeWalk)dUnlockedShipSkins.push('cake');
   if(d.beatFlipSide)dUnlockedShipSkins.push('flipper');
-  if(d.beatDeadly)dUnlockedShipSkins.push('skull');
   if(d.beatSpooky)dUnlockedShipSkins.push('bone');
   if(d.beatDeadly)dUnlockedSkins.push('skullcube');
   // Spider skins
