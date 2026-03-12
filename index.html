@@ -930,10 +930,12 @@ function g5PostTrade(){
     desc: desc||'',
     posted: Date.now()
   };
-  db.ref('clarецards_trades').push(listing, ()=>{
+  db.ref('clarецards_trades').push(listing, err=>{
+    if(err){ g5Notify('Error posting: '+err.message); return; }
     g5Notify('Trade listed!');
     document.getElementById('g5-post-modal').style.display='none';
-    g5LoadTrades();
+    g5TradeSelectedCards=[];
+    setTimeout(g5LoadTrades, 500); // slight delay to ensure write is visible
   });
 }
 
@@ -1201,12 +1203,12 @@ function g5RenderCollection(filter){
 
 const _g5TradeCache = {};
 function g5LoadTrades(){
-  db.ref('clarецards_trades').limitToLast(50).once('value', snap=>{
+  db.ref('clarецards_trades').once('value', snap=>{
     const el = document.getElementById('g5-hub-list');
     if(!el) return;
     el.innerHTML='';
     const trades = [];
-    snap.forEach(c=>trades.push({key:c.key,...c.val()}));
+    snap.forEach(c=>{ const v=c.val(); if(v&&v.user&&v.cards) trades.push({key:c.key,...v}); });
     trades.sort((a,b)=>(b.posted||0)-(a.posted||0));
     if(!trades.length){ el.innerHTML='<div class="g5-empty">No listings yet</div>'; return; }
     trades.forEach(t=>{
@@ -1224,9 +1226,13 @@ function g5LoadTrades(){
         <div class="g5-trade-cards" style="gap:6px;display:flex;flex-wrap:wrap;">${cardHtml}</div>
         ${t.desc?`<div class="g5-trade-desc">"${t.desc}"</div>`:''}
         <div class="g5-trade-actions">
-          ${isOwn
+          ${isOwn||ADMINS.includes(hubUser)
             ? `<button class="g5-btn danger" onclick="g5DeleteListing('${t.key}')">Remove</button>`
-            : `<button class="g5-btn primary" onclick="g5ShowOfferFromCache('${t.key}')">Make Offer</button>`
+            : ''
+          }
+          ${!isOwn
+            ? `<button class="g5-btn primary" onclick="g5ShowOfferFromCache('${t.key}')">Make Offer</button>`
+            : ''
           }
         </div>`;
       el.appendChild(div);
