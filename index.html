@@ -4209,6 +4209,7 @@ const DASH_SKINS=[
   {id:'intermediacy',label:'Intermediacy',desc:"Awarded from a Pack reward.",                unlock:'packReward'},
   {id:'gemskin',  label:'Gem',            desc:"Buy this from the gem shop. MONEY!! 🤑🤑💎💎", unlock:'gemShop'},
   {id:'truecakewalker',label:'True Cakewalker',desc:"Buy this from the gem shop. You might need to go easy on the sugar..", unlock:'gemShop'},
+  {id:'skullcube',    label:'Skull',          desc:"Beat 1 Deadly. Your SUPA skilled now.",                              unlock:'beatDeadly'},
 ];
 const SHIP_SKINS=[
   {id:'cursor',   label:'Cursor',         desc:"Default.",                            unlock:'default'},
@@ -4313,6 +4314,7 @@ function computeUnlockedSkins(d){
   if(d.beatFlipSide)dUnlockedShipSkins.push('flipper');
   if(d.beatDeadly)dUnlockedShipSkins.push('skull');
   if(d.beatSpooky)dUnlockedShipSkins.push('bone');
+  if(d.beatDeadly)dUnlockedSkins.push('skullcube');
   // Spider skins
   const prevSpider=[...dUnlockedSpiderSkins];
   dUnlockedSpiderSkins=['eyes8'];
@@ -4867,6 +4869,24 @@ function drawSkinShape(ctx,x,y,s,pc,skinId,strokeOverride){
     ctx.fillStyle='#fd79a8';ctx.fillRect(x+Math.round(s*0.24),y,Math.round(s*0.12),Math.round(s*0.1));
     ctx.fillStyle='#fd79a8';ctx.fillRect(x+Math.round(s*0.44),y,Math.round(s*0.12),Math.round(s*0.1));
     ctx.fillStyle='#fd79a8';ctx.fillRect(x+Math.round(s*0.64),y,Math.round(s*0.12),Math.round(s*0.1));
+  } else if(skinId==='skullcube'){
+    // White skull on dark background
+    ctx.fillStyle='#1a1a2e';ctx.fillRect(x,y,s,s);
+    ctx.strokeStyle='#555';ctx.lineWidth=1.5;ctx.strokeRect(x+1,y+1,s-2,s-2);
+    ctx.fillStyle='#f0ead6';ctx.strokeStyle='#888';ctx.lineWidth=1.2;
+    // Cranium
+    ctx.beginPath();ctx.arc(cx,y+s*0.42,s*0.3,Math.PI,0);
+    ctx.lineTo(x+s*0.7,y+s*0.62);ctx.lineTo(x+s*0.3,y+s*0.62);ctx.closePath();
+    ctx.fill();ctx.stroke();
+    // Eye sockets
+    ctx.fillStyle='#1a1a2e';
+    ctx.beginPath();ctx.ellipse(x+s*0.37,y+s*0.42,s*0.09,s*0.08,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(x+s*0.63,y+s*0.42,s*0.09,s*0.08,0,0,Math.PI*2);ctx.fill();
+    // Nose
+    ctx.beginPath();ctx.moveTo(cx,y+s*0.5);ctx.lineTo(x+s*0.44,y+s*0.58);ctx.lineTo(x+s*0.56,y+s*0.58);ctx.closePath();ctx.fill();
+    // Teeth
+    ctx.fillStyle='#f0ead6';ctx.strokeStyle='#888';ctx.lineWidth=0.8;
+    for(let i=0;i<4;i++){ctx.fillRect(x+s*(0.3+i*0.1),y+s*0.62,s*0.07,s*0.09);ctx.strokeRect(x+s*(0.3+i*0.1),y+s*0.62,s*0.07,s*0.09);}
   }
   ctx.restore();
 }
@@ -4947,8 +4967,10 @@ function drawSpiderSkinInGame(ctx,x,y,pc){
   const s=DSIZE,cx=x+s/2,cy=y+s/2;
   const skin=dActiveSpiderSkin||'eyes8';
   ctx.save();
-  ctx.fillStyle=pc||'#cc44ff';ctx.fillRect(x,y,s,s);
-  ctx.strokeStyle='#cc44ff';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,s-2,s-2);
+  if(skin!=='hand'){
+    ctx.fillStyle=pc||'#cc44ff';ctx.fillRect(x,y,s,s);
+    ctx.strokeStyle='#cc44ff';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,s-2,s-2);
+  }
   if(skin==='eyes8'){
     ctx.fillStyle='#ff3333';
     const ep=[[0.15,0.3],[0.32,0.25],[0.5,0.23],[0.68,0.25],[0.85,0.3],[0.2,0.58],[0.5,0.65],[0.8,0.58]];
@@ -4964,35 +4986,44 @@ function drawSpiderSkinInGame(ctx,x,y,pc){
     const ep=[[0.25,0.27],[0.5,0.2],[0.75,0.27],[0.18,0.52],[0.82,0.52],[0.25,0.78],[0.5,0.82],[0.75,0.78]];
     ep.forEach(([ex,ey])=>ctx.fillText('👁',x+s*ex,y+s*ey));
   } else if(skin==='hand'){
-    // Skeleton hand — 4 finger bones + palm bones
-    ctx.strokeStyle='#ddd'; ctx.fillStyle='#e8e0cc'; ctx.lineWidth=1.2;
+    // Skeleton hand facing right — palm on left, fingers pointing right
+    ctx.strokeStyle='#ccc'; ctx.fillStyle='#e8e0cc'; ctx.lineWidth=1.2;
+    const palmX=x+s*0.05, palmY=y+s*0.22, palmW=s*0.35, palmH=s*0.56;
     // Palm
     ctx.beginPath();
-    if(ctx.roundRect)ctx.roundRect(x+s*0.15,y+s*0.52,s*0.7,s*0.38,4);
-    else ctx.rect(x+s*0.15,y+s*0.52,s*0.7,s*0.38);
+    if(ctx.roundRect)ctx.roundRect(palmX,palmY,palmW,palmH,4);
+    else ctx.rect(palmX,palmY,palmW,palmH);
     ctx.fill();ctx.stroke();
-    // 4 finger columns
-    const fingers=[0.18,0.33,0.5,0.67];
-    const fwidths=[0.14,0.15,0.15,0.13];
-    fingers.forEach((fx,i)=>{
-      // 3 phalanges per finger
+    // 4 fingers pointing right (stacked vertically)
+    const fingerYs=[0.12,0.26,0.41,0.56];
+    const fingerLens=[0.52,0.58,0.56,0.46];
+    const fh=s*0.11;
+    fingerYs.forEach((fy,i)=>{
+      const fStartX=palmX+palmW-2;
+      const fLen=s*fingerLens[i];
+      // 3 segments per finger
       for(let seg=0;seg<3;seg++){
-        const fy=y+s*(0.08+seg*0.15);
-        const fw=fwidths[i]*s*(1-seg*0.04);
+        const segW=fLen/3*(1-seg*0.05);
+        const fx2=fStartX+seg*(fLen/3);
         ctx.beginPath();
-        if(ctx.roundRect)ctx.roundRect(x+s*fx,fy,fw,s*0.12,3);
-        else ctx.rect(x+s*fx,fy,fw,s*0.12);
+        if(ctx.roundRect)ctx.roundRect(fx2,y+s*fy,segW,fh,3);
+        else ctx.rect(fx2,y+s*fy,segW,fh);
         ctx.fill();ctx.stroke();
-        // joint dot between segments
-        if(seg<2){ctx.fillStyle='#bbb';ctx.beginPath();ctx.arc(x+s*fx+fw/2,fy+s*0.13,s*0.022,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e8e0cc';}
+        if(seg<2){
+          ctx.fillStyle='#aaa';
+          ctx.beginPath();ctx.arc(fx2+segW,y+s*fy+fh/2,s*0.022,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle='#e8e0cc';
+        }
       }
     });
-    // Thumb (angled slightly)
-    ctx.save();ctx.translate(x+s*0.08,y+s*0.55);ctx.rotate(-0.35);
+    // Thumb pointing right-down from bottom of palm
+    ctx.save();ctx.translate(palmX+palmW*0.5,palmY+palmH-4);ctx.rotate(0.4);
     for(let seg=0;seg<2;seg++){
+      const tw=s*0.18, th=s*0.1;
       ctx.beginPath();
-      if(ctx.roundRect)ctx.roundRect(0,seg*s*0.14,s*0.13,s*0.11,3);else ctx.rect(0,seg*s*0.14,s*0.13,s*0.11);
+      if(ctx.roundRect)ctx.roundRect(seg*tw,0,tw,th,3);else ctx.rect(seg*tw,0,tw,th);
       ctx.fill();ctx.stroke();
+      if(seg<1){ctx.fillStyle='#aaa';ctx.beginPath();ctx.arc(tw,th/2,s*0.022,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e8e0cc';}
     }
     ctx.restore();
   } else if(skin==='deadly'){
