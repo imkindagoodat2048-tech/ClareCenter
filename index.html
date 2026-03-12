@@ -4217,6 +4217,7 @@ const SHIP_SKINS=[
   {id:'flipper',  label:'Flipper',        desc:"Beat FlipSide. UR PRO!!!!!!.",                      unlock:'beatFlipSide'},
   {id:'admincursor',label:'Admin',        desc:"Admin only. For the COOLEST of clares.",                         unlock:'admin'},
   {id:'skull',    label:'Skull',          desc:"Beat 1 Deadly. Your SUPA skilled now.",                      unlock:'beatDeadly'},
+  {id:'bone',     label:'Bone',           desc:"Beat the main level 'Spooky'. It's BONE chilling! wait have we already done that joke", unlock:'beatSpooky'},
 ];
 const SPIDER_SKINS=[
   {id:'eyes8',    label:'8Eyes',          desc:"Default.",                            unlock:'default'},
@@ -4224,6 +4225,7 @@ const SPIDER_SKINS=[
   {id:'monkey',   label:'Monkey',         desc:"Flip gravity 500 times. I feel dizzy...",             unlock:'flips500'},
   {id:'adminspider',label:'Admin',        desc:"Admin only. For the COOLEST of clares.",                         unlock:'admin'},
   {id:'deadly',   label:'Deadly',         desc:"Find this in a deep dark place. It's BONE chilling!!!",          unlock:'vaultDeadly'},
+  {id:'hand',     label:'Hand',           desc:"Beat the 'Spooky' Pack. Not obtainable yet. Need a hand?",        unlock:'beatSpookyPack'},
 ];
 
 const SIDER_SKINS=[
@@ -4231,12 +4233,14 @@ const SIDER_SKINS=[
   {id:'cider',    label:'Cider',    desc:"Side 750 times as Sider. After you side, you might need some cide.", unlock:'sides750'},
   {id:'robot',    label:'Robot',    desc:"Jump 1500 times as block. This one doesnt come with a jetpack sadly.",unlock:'jumps1500'},
   {id:'sidounce', label:'Sidounce', desc:"Have 500 big bounces as Bounce and 500 sides as Sider. Cushiwaspibalbounce.", unlock:'sidounce500'},
+  {id:'skelly',   label:'Skelly',   desc:"Beat the 'Spooky' pack AND the main level Spooky. A true spooker never reveals his tricks!!!", unlock:'beatSpookyAll'},
 ];
 const BOUNCE_SKINS=[
   {id:'bounce',     label:'Bounce',     desc:"Default.",                                                        unlock:'default'},
   {id:'boder',      label:'Boder',      desc:"Have 500 big bounces as Bounce and 500 sides as Sider. bouncebalspiswavshipcu.", unlock:'sidounce500'},
   {id:'card',       label:'Card',       desc:"Obtain at least 10 cards in ClareCards. 1 TRILLION LUCK!!!!",    unlock:'cards10'},
-  {id:'trampoline', label:'Trampoline', desc:"Have 1000 bounces in general. Boing!!!!",                        unlock:'bounces1000'},
+  {id:'trampoline',    label:'Trampoline',       desc:"Have 1000 bounces in general. Boing!!!!",                        unlock:'bounces1000'},
+  {id:'bouncinghorror', label:'The Bouncing Horror', desc:"Have the entire bone set. Don't get too close! It'll bounce you!!!", unlock:'fullBoneSet'},
 ];
 const BALL_SKINS=[
   {id:'balldefault',label:'Ball',          desc:"Default.",                                           unlock:'default'},
@@ -4300,8 +4304,6 @@ function computeUnlockedSkins(d){
   if(d.packRewardIntermediacySkin)dUnlockedSkins.push('intermediacy');
   if(d.gemShopGemSkin)dUnlockedSkins.push('gemskin');
   if(d.gemShopCakewalkerSkin)dUnlockedSkins.push('truecakewalker');
-  // Ship skull
-  if(d.beatDeadly)dUnlockedShipSkins.push('skull');
   // Ship/wave skins
   const prevShip=[...dUnlockedShipSkins];
   dUnlockedShipSkins=['cursor'];
@@ -4309,6 +4311,8 @@ function computeUnlockedSkins(d){
   if(ratedCount>=1)dUnlockedShipSkins.push('grabhand');
   if(d.beatCakeWalk)dUnlockedShipSkins.push('cake');
   if(d.beatFlipSide)dUnlockedShipSkins.push('flipper');
+  if(d.beatDeadly)dUnlockedShipSkins.push('skull');
+  if(d.beatSpooky)dUnlockedShipSkins.push('bone');
   // Spider skins
   const prevSpider=[...dUnlockedSpiderSkins];
   dUnlockedSpiderSkins=['eyes8'];
@@ -4316,6 +4320,7 @@ function computeUnlockedSkins(d){
   if(ratedBeats>=10)dUnlockedSpiderSkins.push('trophy');
   if(dGravFlipCount>=500)dUnlockedSpiderSkins.push('monkey');
   if(d.vaultDeadlySkin)dUnlockedSpiderSkins.push('deadly');
+  if(d.beatSpookyPack)dUnlockedSpiderSkins.push('hand');
   // Ball skins
   const prevBall=[...dUnlockedBallSkins];
   dUnlockedBallSkins=['balldefault'];
@@ -4328,12 +4333,16 @@ function computeUnlockedSkins(d){
   if((d.sideCount||0)>=750)dUnlockedSiderSkins.push('cider');
   if((d.jumpCount||0)>=1500)dUnlockedSiderSkins.push('robot');
   if((d.bigBounceCount||0)>=500&&(d.sideCount||0)>=500)dUnlockedSiderSkins.push('sidounce');
+  if(d.beatSpooky&&d.beatSpookyPack)dUnlockedSiderSkins.push('skelly');
   // Bounce skins
   const prevBounce=[...dUnlockedBounceSkins];
   dUnlockedBounceSkins=['bounce'];
   if((d.bigBounceCount||0)>=500&&(d.sideCount||0)>=500)dUnlockedBounceSkins.push('boder');
   if((d.clarcardsCount||0)>=10)dUnlockedBounceSkins.push('card');
   if((d.bounceCount||0)>=1000)dUnlockedBounceSkins.push('trampoline');
+  // Full bone set: ship bone + spider hand + sider skelly all unlocked
+  const hasBoneSet=dUnlockedShipSkins.includes('bone')&&dUnlockedSpiderSkins.includes('hand')&&dUnlockedSiderSkins.includes('skelly');
+  if(hasBoneSet)dUnlockedBounceSkins.push('bouncinghorror');
   // Fire unlock toasts for newly unlocked skins
   [...dUnlockedSkins,...dUnlockedShipSkins,...dUnlockedSpiderSkins,...dUnlockedBallSkins,...dUnlockedSiderSkins,...dUnlockedBounceSkins].forEach(id=>{
     if(!prev.includes(id)&&!prevShip.includes(id)&&!prevSpider.includes(id)&&!prevBall.includes(id)&&!prevSider.includes(id)&&!prevBounce.includes(id)){
@@ -4379,6 +4388,19 @@ function drawSiderSkinInGame(ctx,x,y,pc,skinId){
   ctx.fillRect(x,y,S,S*0.65);
   ctx.strokeRect(x+0.75,y+0.75,S-1.5,S*0.65-1.5);
   // Cider: apple on head
+  if(skinId==='skelly'){
+    // Skull head (white cranium, eye sockets)
+    const skX=x, skY=y, skS=S*0.65;
+    ctx.fillStyle='#f0ead6';ctx.strokeStyle='#aaa';ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.arc(skX+S/2,skY+skS*0.42,skS*0.38,Math.PI,0);ctx.lineTo(skX+S*0.72,skY+skS*0.65);ctx.lineTo(skX+S*0.28,skY+skS*0.65);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#1a1a2e';
+    ctx.beginPath();ctx.ellipse(skX+S*0.37,skY+skS*0.42,skS*0.1,skS*0.09,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(skX+S*0.63,skY+skS*0.42,skS*0.1,skS*0.09,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.moveTo(skX+S*0.5,skY+skS*0.5);ctx.lineTo(skX+S*0.44,skY+skS*0.58);ctx.lineTo(skX+S*0.56,skY+skS*0.58);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#f0ead6';ctx.strokeStyle='#aaa';ctx.lineWidth=1;
+    for(let i=0;i<4;i++){ctx.fillRect(skX+S*(0.3+i*0.1),skY+skS*0.65,S*0.07,S*0.08);ctx.strokeRect(skX+S*(0.3+i*0.1),skY+skS*0.65,S*0.07,S*0.08);}
+    return; // skip normal body rendering for skelly — it IS the head
+  }
   if(skinId==='cider'){
     ctx.font=`${S*0.32}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('🍎',cx,y+S*0.32);
@@ -4407,6 +4429,19 @@ function drawSiderSkinInGame(ctx,x,y,pc,skinId){
     }
     drawSpringLeg(x+S*0.1+legSwing, legY);
     drawSpringLeg(x+S*0.62-legSwing, legY);
+  } else if(skinId==='skelly'){
+    // Bone legs
+    ctx.strokeStyle='#ccc';ctx.lineWidth=2;ctx.fillStyle='#f0ead6';
+    // Left bone leg
+    const bl1x=x+S*0.25+legSwing,bl2x=x+S*0.18+legSwing;
+    ctx.beginPath();ctx.moveTo(bl1x,legY);ctx.lineTo(bl2x,legY+legH);ctx.stroke();
+    ctx.beginPath();ctx.arc(bl1x,legY+S*0.03,S*0.07,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.arc(bl2x,legY+legH-S*0.01,S*0.07,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // Right bone leg
+    const br1x=x+S*0.75-legSwing,br2x=x+S*0.82-legSwing;
+    ctx.beginPath();ctx.moveTo(br1x,legY);ctx.lineTo(br2x,legY+legH);ctx.stroke();
+    ctx.beginPath();ctx.arc(br1x,legY+S*0.03,S*0.07,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.arc(br2x,legY+legH-S*0.01,S*0.07,0,Math.PI*2);ctx.fill();ctx.stroke();
   } else {
     // Normal legs
     ctx.fillStyle=pc||'#4834d4';ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1;
@@ -4433,7 +4468,37 @@ function drawBounceSkinInGame(ctx,x,y,pc,skinId){
   const springY=y+bodyH;
   // Body
   ctx.fillStyle=pc||'#4834d4';ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1.5;
-  if(skinId==='trampoline'){
+  if(skinId==='bouncinghorror'){
+    // Ribcage body
+    ctx.fillStyle='#1a1a1a';ctx.fillRect(x,bodyY,S,bodyH);
+    ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.strokeRect(x+0.75,bodyY+0.75,S-1.5,bodyH-1.5);
+    ctx.strokeStyle='#d0c8b0';ctx.lineWidth=1.5;
+    // Spine
+    ctx.beginPath();ctx.moveTo(cx,bodyY+2);ctx.lineTo(cx,bodyY+bodyH-2);ctx.stroke();
+    // 3 rib pairs
+    for(let r=0;r<3;r++){
+      const ry=bodyY+bodyH*0.15+r*(bodyH*0.25);
+      // Left rib
+      ctx.beginPath();ctx.moveTo(cx,ry);ctx.quadraticCurveTo(x+S*0.08,ry+bodyH*0.06,x+S*0.08,ry+bodyH*0.12);ctx.stroke();
+      // Right rib
+      ctx.beginPath();ctx.moveTo(cx,ry);ctx.quadraticCurveTo(x+S*0.92,ry+bodyH*0.06,x+S*0.92,ry+bodyH*0.12);ctx.stroke();
+    }
+    // Bone spring (twirl of bones upward)
+    ctx.strokeStyle='#d0c8b0';ctx.lineWidth=1.8;
+    const loops2=3,sw3=S*0.35;
+    ctx.beginPath();ctx.moveTo(cx,springY);
+    for(let i=0;i<loops2;i++){
+      const segH2=springH/loops2;
+      ctx.quadraticCurveTo(cx+(i%2===0?sw3:-sw3),springY+segH2*(i+0.5),cx,springY+segH2*(i+1));
+    }
+    ctx.stroke();
+    // Knobs at each coil joint
+    ctx.fillStyle='#e8e0cc';
+    for(let i=0;i<=loops2;i++){
+      ctx.beginPath();ctx.arc(cx,springY+(springH/loops2)*i,S*0.055,0,Math.PI*2);ctx.fill();ctx.stroke();
+    }
+    return;
+  } else if(skinId==='trampoline'){
     // Blue square with black square inside
     ctx.fillStyle='#1155cc';ctx.fillRect(x,bodyY,S,bodyH);
     ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.strokeRect(x+0.75,bodyY+0.75,S-1.5,bodyH-1.5);
@@ -4843,6 +4908,23 @@ function drawShipSkinInGame(ctx,x,y,pc){
       ctx.beginPath();if(ctx.roundRect)ctx.roundRect(fx-s*0.1,y+s*0.04,s*0.18,s*0.44,5);else ctx.rect(fx-s*0.1,y+s*0.04,s*0.18,s*0.44);ctx.fill();ctx.stroke();
     });
     ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x+s*0.08,y+s*0.52,s*0.84,s*0.36,5);else ctx.rect(x+s*0.08,y+s*0.52,s*0.84,s*0.36);ctx.fill();ctx.stroke();
+  } else if(skin==='bone'){
+    // Cartoon bone: Ɛ=====3 shape with highlight
+    ctx.fillStyle='#f0ead6'; ctx.strokeStyle='#bbb'; ctx.lineWidth=1.2;
+    const bw=s*0.88, bh=s*0.28, bx2=x+s*0.06, by2=y+s*0.36;
+    const kw=s*0.14, kh=s*0.42, ky=by2-(kh-bh)/2;
+    // Left knobs (2 circles overlapping)
+    ctx.beginPath();ctx.arc(bx2+kw*0.5,ky+kh*0.28,kw*0.7,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.arc(bx2+kw*0.5,ky+kh*0.72,kw*0.7,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // Right knobs
+    ctx.beginPath();ctx.arc(bx2+bw-kw*0.5,ky+kh*0.28,kw*0.7,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.arc(bx2+bw-kw*0.5,ky+kh*0.72,kw*0.7,0,Math.PI*2);ctx.fill();ctx.stroke();
+    // Shaft
+    ctx.fillRect(bx2+kw*0.4,by2,bw-kw*0.8,bh);
+    ctx.strokeRect(bx2+kw*0.4,by2,bw-kw*0.8,bh);
+    // Highlight top-right
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    ctx.beginPath();ctx.ellipse(bx2+bw-kw*0.6,ky+kh*0.18,kw*0.28,kw*0.18,-0.5,0,Math.PI*2);ctx.fill();
   } else if(skin==='skull'){
     // Skull shape
     ctx.fillStyle=pc||'#ffffff';ctx.strokeStyle='#888';ctx.lineWidth=1.5;
@@ -4881,6 +4963,38 @@ function drawSpiderSkinInGame(ctx,x,y,pc){
     ctx.font=Math.round(s*0.25)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     const ep=[[0.25,0.27],[0.5,0.2],[0.75,0.27],[0.18,0.52],[0.82,0.52],[0.25,0.78],[0.5,0.82],[0.75,0.78]];
     ep.forEach(([ex,ey])=>ctx.fillText('👁',x+s*ex,y+s*ey));
+  } else if(skin==='hand'){
+    // Skeleton hand — 4 finger bones + palm bones
+    ctx.strokeStyle='#ddd'; ctx.fillStyle='#e8e0cc'; ctx.lineWidth=1.2;
+    // Palm
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(x+s*0.15,y+s*0.52,s*0.7,s*0.38,4);
+    else ctx.rect(x+s*0.15,y+s*0.52,s*0.7,s*0.38);
+    ctx.fill();ctx.stroke();
+    // 4 finger columns
+    const fingers=[0.18,0.33,0.5,0.67];
+    const fwidths=[0.14,0.15,0.15,0.13];
+    fingers.forEach((fx,i)=>{
+      // 3 phalanges per finger
+      for(let seg=0;seg<3;seg++){
+        const fy=y+s*(0.08+seg*0.15);
+        const fw=fwidths[i]*s*(1-seg*0.04);
+        ctx.beginPath();
+        if(ctx.roundRect)ctx.roundRect(x+s*fx,fy,fw,s*0.12,3);
+        else ctx.rect(x+s*fx,fy,fw,s*0.12);
+        ctx.fill();ctx.stroke();
+        // joint dot between segments
+        if(seg<2){ctx.fillStyle='#bbb';ctx.beginPath();ctx.arc(x+s*fx+fw/2,fy+s*0.13,s*0.022,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e8e0cc';}
+      }
+    });
+    // Thumb (angled slightly)
+    ctx.save();ctx.translate(x+s*0.08,y+s*0.55);ctx.rotate(-0.35);
+    for(let seg=0;seg<2;seg++){
+      ctx.beginPath();
+      if(ctx.roundRect)ctx.roundRect(0,seg*s*0.14,s*0.13,s*0.11,3);else ctx.rect(0,seg*s*0.14,s*0.13,s*0.11);
+      ctx.fill();ctx.stroke();
+    }
+    ctx.restore();
   } else if(skin==='deadly'){
     // Deadly spider - uses deadly.png image
     if(!window._deadlySpiderImg){window._deadlySpiderImg=new Image();window._deadlySpiderImg.src='difficulty/deadly.png';}
