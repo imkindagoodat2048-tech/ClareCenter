@@ -1201,12 +1201,13 @@ function g5RenderCollection(filter){
 
 const _g5TradeCache = {};
 function g5LoadTrades(){
-  db.ref('clarецards_trades').orderByChild('posted').limitToLast(50).once('value', snap=>{
+  db.ref('clarецards_trades').limitToLast(50).once('value', snap=>{
     const el = document.getElementById('g5-hub-list');
     if(!el) return;
     el.innerHTML='';
     const trades = [];
-    snap.forEach(c=>trades.unshift({key:c.key,...c.val()}));
+    snap.forEach(c=>trades.push({key:c.key,...c.val()}));
+    trades.sort((a,b)=>(b.posted||0)-(a.posted||0));
     if(!trades.length){ el.innerHTML='<div class="g5-empty">No listings yet</div>'; return; }
     trades.forEach(t=>{
       const div = document.createElement('div');
