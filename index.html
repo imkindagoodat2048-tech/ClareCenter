@@ -525,12 +525,46 @@ const G5_CARDS = [
   {id:'kswords',  rank:'K',  suit:'swords', symbol:'⚔',red:false,rarity:'epic',  special:false},
   {id:'kcoins',   rank:'K',  suit:'coins',  symbol:'🪙',red:false,rarity:'epic',  special:false},
   {id:'wildcard', rank:'W',  suit:'wild',   symbol:'◉',red:false,rarity:'epic',  special:true},
+  // Common tarot
+  {id:'tarot_fool',      rank:'0',  suit:'tarot',symbol:'🌸',red:false,rarity:'common',  special:true},
+  {id:'tarot_floatman',  rank:'XII',suit:'tarot',symbol:'🪢',red:false,rarity:'common',  special:true},
+  {id:'tarot_tower',     rank:'XVI',suit:'tarot',symbol:'🗼',red:false,rarity:'common',  special:true},
+  {id:'tarot_hermit',    rank:'IX', suit:'tarot',symbol:'🔦',red:false,rarity:'common',  special:true},
+  {id:'mirror',          rank:'M',  suit:'mirror',symbol:'◫',red:false,rarity:'common',  special:true},
+  // Uncommon tarot
+  {id:'tarot_magician',  rank:'I',  suit:'tarot',symbol:'🪄',red:false,rarity:'uncommon',special:true},
+  {id:'tarot_temperance',rank:'XIV',suit:'tarot',symbol:'⚗',red:false,rarity:'uncommon',special:true},
+  {id:'tarot_wheel',     rank:'X',  suit:'tarot',symbol:'☸',red:false,rarity:'uncommon',special:true},
+  {id:'tarot_lovers',    rank:'VI', suit:'tarot',symbol:'♡',red:true, rarity:'uncommon',special:true},
+  {id:'tarot_moon',      rank:'XVIII',suit:'tarot',symbol:'🌙',red:false,rarity:'uncommon',special:true},
+  {id:'noir',            rank:'N',  suit:'noir',symbol:'◐',red:false,rarity:'uncommon',special:true},
+  // Rare tarot
+  {id:'tarot_empress',   rank:'III',suit:'tarot',symbol:'♛',red:true, rarity:'rare',    special:true},
+  {id:'tarot_priestess', rank:'II', suit:'tarot',symbol:'☽',red:false,rarity:'rare',    special:true},
+  {id:'tarot_hierophant',rank:'V',  suit:'tarot',symbol:'✝',red:false,rarity:'rare',    special:true},
+  {id:'tarot_justice',   rank:'XI', suit:'tarot',symbol:'⚖',red:false,rarity:'rare',    special:true},
+  {id:'tarot_bull',      rank:'XV', suit:'tarot',symbol:'🐂',red:false,rarity:'rare',    special:true},
+  {id:'falsehydra',      rank:'∅',  suit:'hydra',symbol:'🐉',red:false,rarity:'rare',    special:true},
+  {id:'lunar',           rank:'☾',  suit:'lunar',symbol:'🌙',red:false,rarity:'rare',    special:true},
+  // Epic tarot
+  {id:'tarot_star',      rank:'XVII',suit:'tarot',symbol:'★',red:false,rarity:'epic',   special:true},
+  {id:'tarot_judgement', rank:'XX', suit:'tarot',symbol:'📯',red:false,rarity:'epic',   special:true},
+  {id:'tarot_chariot',   rank:'VII',suit:'tarot',symbol:'🏇',red:false,rarity:'epic',   special:true},
+  {id:'tarot_emperor',   rank:'IV', suit:'tarot',symbol:'♔',red:false,rarity:'epic',   special:true},
+  {id:'tarot_sun',       rank:'XIX',suit:'tarot',symbol:'☀',red:true, rarity:'epic',   special:true},
+  {id:'frozenking',      rank:'K',  suit:'frozen',symbol:'❄',red:false,rarity:'epic',   special:true},
+  {id:'voidness',        rank:'∞',  suit:'void', symbol:'·',red:false,rarity:'epic',   special:true},
   // Legendary — K of hearts
   {id:'Kh',rank:'K',suit:'hearts',  symbol:'♥',red:true, rarity:'legendary'},
+  {id:'tarot_world',     rank:'XXI',suit:'tarot',symbol:'🌍',red:false,rarity:'legendary',special:true},
+  {id:'tarot_death',     rank:'XIII',suit:'tarot',symbol:'☠',red:false,rarity:'legendary',special:true},
+  {id:'gloryhydra',      rank:'∞',  suit:'hydra',symbol:'🐉',red:true, rarity:'legendary',special:true},
   // Mythical
   {id:'redjoker',  rank:'🃏',suit:'joker',  symbol:'🃏',red:true, rarity:'mythical',special:true},
   {id:'supercard', rank:'★', suit:'super',  symbol:'★', red:false,rarity:'mythical',special:true,rainbow:true},
-  {id:'plus4wild', rank:'+4', suit:'wild',  symbol:'◉',red:false,rarity:'mythical',special:true},
+  {id:'plus4wild',   rank:'+4', suit:'wild',  symbol:'◉',red:false,rarity:'mythical',special:true},
+  {id:'tarot_strength',rank:'VIII',suit:'tarot',symbol:'🦁',red:false,rarity:'mythical',special:true},
+  {id:'truedragon',    rank:'∞',  suit:'dragon',symbol:'🐉',red:true, rarity:'mythical',special:true},
 ];
 
 const G5_RARITY_WEIGHTS = {common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1};
@@ -669,6 +703,108 @@ function g5RenderCardObj(card, count, small, selected, onclick){
         <ellipse cx="${ow/2}" cy="${oh/2}" rx="${orw/2}" ry="${orh/2}" fill="none" stroke="#fff" stroke-width="2"/>
         <text x="${ow/2}" y="${oh/2+5}" text-anchor="middle" font-size="${small?'10':'14'}" font-weight="bold" fill="#fff" font-family="sans-serif">${isPlus4?'+4':'W'}</text>
       </svg>
+    </div>`;
+  }
+
+  // ── Tarot / special card renders ──
+  const tarotBase = (bg, borderCol, rankLabel, centerContent, textCol='#f0e6c8') => `<div class="${cls}" style="${sz}cursor:pointer;background:${bg};border-color:${borderCol};" onclick="${onclick||''}" title="${title}">
+    ${countBadge}${badgeHtml}
+    <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:${textCol};">${rankLabel}</div>
+    <div class="g5-center" style="font-size:${small?'18px':'24px'};color:${textCol};">${centerContent}</div>
+    <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:${textCol};">${rankLabel}</div>
+  </div>`;
+
+  if(d.id==='tarot_fool')      return tarotBase('#1a1228','#9b59b6','0','🌸🐕');
+  if(d.id==='tarot_floatman')  return tarotBase('#1a1228','#7f8c8d','XII','🪢');
+  if(d.id==='tarot_tower')     return tarotBase('#1a1a1a','#e74c3c','XVI','🗼⚡');
+  if(d.id==='tarot_hermit')    return tarotBase('#1a1a2e','#636e72','IX','🔦');
+  if(d.id==='mirror'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:linear-gradient(135deg,#c0c0c0,#e8e8e8,#c0c0c0);border-color:#aaa;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#555;">M<br>◫</div>
+      <div class="g5-center" style="font-size:${small?'16px':'22px'};color:#555;">◫</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#555;">M<br>◫</div>
+    </div>`;
+  }
+  if(d.id==='tarot_magician')  return tarotBase('#0d1a0d','#f39c12','I','🪄✨');
+  if(d.id==='tarot_temperance')return tarotBase('#0d1a1a','#1abc9c','XIV','⚗');
+  if(d.id==='tarot_wheel')     return tarotBase('#1a1000','#f39c12','X','☸');
+  if(d.id==='tarot_lovers')    return tarotBase('#2d0a0a','#e84393','VI','♡');
+  if(d.id==='tarot_moon')      return tarotBase('#050510','#5352ed','XVIII','🌙');
+  if(d.id==='noir'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:repeating-linear-gradient(0deg,#000 0px,#000 4px,#fff 4px,#fff 8px);border-color:#888;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#888;mix-blend-mode:difference;">N<br>◐</div>
+      <div class="g5-center" style="font-size:${small?'16px':'22px'};mix-blend-mode:difference;">◐</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#888;mix-blend-mode:difference;">N<br>◐</div>
+    </div>`;
+  }
+  if(d.id==='tarot_empress')   return tarotBase('#2d0a1a','#e84393','III','♛','#f9a8d4');
+  if(d.id==='tarot_priestess') return tarotBase('#080820','#a29bfe','II','☽','#d4c5f9');
+  if(d.id==='tarot_hierophant')return tarotBase('#1a1000','#f1c40f','V','✝');
+  if(d.id==='tarot_justice')   return tarotBase('#001a0a','#2ecc71','XI','⚖');
+  if(d.id==='tarot_bull')      return tarotBase('#1a0000','#c0392b','XV','🐂');
+  if(d.id==='falsehydra'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:#111;border-color:#555;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#777;">∅<br>🐉</div>
+      <div class="g5-center" style="font-size:${small?'12px':'15px'};filter:grayscale(1);opacity:0.7;">🐉🐉🐉</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#777;">∅<br>🐉</div>
+    </div>`;
+  }
+  if(d.id==='lunar')           return tarotBase('#050510','#a29bfe','☾','🌙','#d4c5f9');
+  if(d.id==='tarot_star')      return tarotBase('#020210','#f1c40f','XVII','★','#ffe066');
+  if(d.id==='tarot_judgement') return tarotBase('#1a0a00','#e67e22','XX','📯');
+  if(d.id==='tarot_chariot')   return tarotBase('#0a0a1a','#3498db','VII','🏇');
+  if(d.id==='tarot_emperor')   return tarotBase('#1a0a00','#e67e22','IV','♔','#f0c060');
+  if(d.id==='tarot_sun')       return tarotBase('#1a0800','#f39c12','XIX','☀','#ffe066');
+  if(d.id==='frozenking'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:linear-gradient(160deg,#0a1a2e,#1a3a5c);border-color:#74b9ff;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'9px':'11px'};color:#74b9ff;">K<br>❄</div>
+      <div class="g5-center" style="font-size:${small?'18px':'24px'};color:#74b9ff;">👑❄</div>
+      <div class="g5-corner-br" style="font-size:${small?'9px':'11px'};color:#74b9ff;">K<br>❄</div>
+    </div>`;
+  }
+  if(d.id==='voidness'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:#000;border-color:#333;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#222;">∞</div>
+      <div class="g5-center" style="font-size:${small?'10px':'14px'};color:#1a1a1a;">·</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#222;">∞</div>
+    </div>`;
+  }
+  if(d.id==='tarot_world')     return tarotBase('#020a02','#2ecc71','XXI','🌍','#a8f0c0');
+  if(d.id==='tarot_death'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:#000;border-color:#444;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#888;">XIII<br>☠</div>
+      <div class="g5-center" style="font-size:${small?'20px':'28px'};color:#ccc;">☠</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#888;">XIII<br>☠</div>
+    </div>`;
+  }
+  if(d.id==='gloryhydra'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:linear-gradient(160deg,#1a0000,#3d0000);border-color:#e74c3c;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#ff6b6b;">∞<br>🐉</div>
+      <div class="g5-center" style="font-size:${small?'12px':'15px'};">🐉🐉🐉</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#ff6b6b;">∞<br>🐉</div>
+    </div>`;
+  }
+  if(d.id==='tarot_strength'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:linear-gradient(160deg,#1a0a00,#3d2000);border-color:#f39c12;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#f39c12;">VIII<br>🦁</div>
+      <div class="g5-center" style="font-size:${small?'20px':'28px'};">🦁</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#f39c12;">VIII<br>🦁</div>
+    </div>`;
+  }
+  if(d.id==='truedragon'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:linear-gradient(160deg,#1a0000,#0d0020,#001a00);border-color:#ff6b6b;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#ff6b6b;">∞<br>🐉</div>
+      <div class="g5-center" style="font-size:${small?'22px':'32px'};">🐉</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#ff6b6b;">∞<br>🐉</div>
     </div>`;
   }
 
@@ -979,7 +1115,14 @@ function g5ShowCardInfo(key){
   // Build display name
   let name = '';
   if(d.special){
-    const names = {cancel:'Cancel Card', blackjoker:'Black Joker', reverse:'Reverse Card', redjoker:'Red Joker', supercard:'Supercard', error:'Error', kswords:'King of Swords', kcoins:'King of Coins', wildcard:'Wild Card', plus4wild:'+4 Wild Card', plus2:'Plus 2', plus4uno:'Plus 4', hauntedace:'Haunted Ace'};
+    const names = {cancel:'Cancel Card', blackjoker:'Black Joker', reverse:'Reverse Card', redjoker:'Red Joker', supercard:'Supercard', error:'Error', kswords:'King of Swords', kcoins:'King of Coins', wildcard:'Wild Card', plus4wild:'+4 Wild Card', plus2:'Plus 2', plus4uno:'Plus 4', hauntedace:'Haunted Ace',
+      tarot_fool:'The Fool', tarot_floatman:'The Floating Man', tarot_tower:'The Tower', tarot_hermit:'The Hermit', mirror:'Mirror Card',
+      tarot_magician:'The Magician', tarot_temperance:'Temperance', tarot_wheel:'The Wheel of Fortune', tarot_lovers:'The Lovers', tarot_moon:'The Moon', noir:'Noir',
+      tarot_empress:'The Empress', tarot_priestess:'The High Priestess', tarot_hierophant:'The Hierophant', tarot_justice:'Justice', tarot_bull:'The Bull', falsehydra:'False Hydra', lunar:'Lunar',
+      tarot_star:'The Star', tarot_judgement:'Judgement', tarot_chariot:'The Chariot', tarot_emperor:'The Emperor', tarot_sun:'The Sun', frozenking:'Frozen King', voidness:'Voidness',
+      tarot_world:'The World', tarot_death:'Death', gloryhydra:'Glory Hydra',
+      tarot_strength:'Strength', truedragon:'True Dragon'
+    };
     name = names[d.id]||d.id;
   } else {
     const rankNames = {A:'Ace',J:'Jack',Q:'Queen',K:'King','10':'Ten',2:'Two',3:'Three',4:'Four',5:'Five',6:'Six',7:'Seven',8:'Eight',9:'Nine'};
