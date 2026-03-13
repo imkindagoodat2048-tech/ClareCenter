@@ -417,6 +417,24 @@
 .g5-btn.danger:hover { opacity:.88; }
 
 /* Inbox */
+.g5-quest-item {
+  background:#1a1a2d; border:1px solid #2a2a3a; border-radius:8px;
+  padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+.g5-quest-item.completed { opacity:0.4; border-color:#333; }
+.g5-quest-rarity { font-size:9px; font-family:'Space Mono',monospace; letter-spacing:1px; padding:2px 6px; border-radius:3px; }
+.g5-quest-rarity.common   { background:#333; color:#bbb; }
+.g5-quest-rarity.uncommon { background:#1a3a1a; color:#2ed573; }
+.g5-quest-rarity.rare     { background:#1a1a3a; color:#a29bfe; }
+.g5-chest-card {
+  background:#1a1a2d; border:2px solid #2a2a3a; border-radius:10px;
+  padding:16px; display:flex; align-items:center; gap:16px;
+}
+.g5-chest-icon { font-size:40px; flex-shrink:0; }
+.g5-chest-info { flex:1; }
+.g5-chest-name { font-family:'Bebas Neue',cursive; font-size:20px; letter-spacing:2px; }
+.g5-chest-timer { font-size:12px; color:var(--accent); font-family:'Space Mono',monospace; margin-top:4px; }
+.g5-chest-loot { font-size:10px; color:#555; margin-top:4px; font-family:'Space Mono',monospace; }
 .g5-inbox-item {
   background:#1a1a2d; border:1px solid #2a2a3a; border-radius:6px;
   padding:12px 14px; margin-bottom:8px;
@@ -579,12 +597,287 @@ const G5_PACKS = {
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:true },
 };
 
+const G5_QUEST_POOL = {
+  common: [
+    {id:'buy_standard', desc:'Buy a Standard Pack',       reward:100, type:'packType', target:'standard', count:1},
+    {id:'sell_rare',    desc:'Sell a Rare or above',      reward:100, type:'sellRarity', target:['rare','epic','legendary','mythical'], count:1},
+    {id:'open_pack',    desc:'Open a Pack',               reward:100, type:'packOpen', count:1},
+    {id:'trade_any',    desc:'Trade anything',            reward:150, type:'trade', count:1},
+    {id:'get_epic',     desc:'Get an Epic or above',      reward:150, type:'getCard', target:['epic','legendary','mythical'], count:1},
+  ],
+  uncommon: [
+    {id:'trade_rare',   desc:'Trade a Rare or above',     reward:200, type:'tradeRarity', target:['rare','epic','legendary','mythical'], count:1},
+    {id:'get_leg',      desc:'Get a Legendary or above',  reward:200, type:'getCard', target:['legendary','mythical'], count:1},
+    {id:'open_3packs',  desc:'Open 3 Packs',              reward:250, type:'packOpen', count:3},
+    {id:'sell_leg',     desc:'Sell a Legendary or above', reward:250, type:'sellRarity', target:['legendary','mythical'], count:1},
+  ],
+  rare: [
+    {id:'get_myth',     desc:'Get a Mythical',            reward:500, type:'getCard', target:['mythical'], count:1},
+    {id:'spend_300',    desc:'Spend 300 Coins',           reward:500, type:'spend', count:300},
+    {id:'get_3trades',  desc:'Get 3 Trades in total',     reward:500, type:'trade', count:3},
+    {id:'open_2good',   desc:'Open 2 Good Packs',         reward:750, type:'packType', target:'good', count:2},
+    {id:'sell_myth',    desc:'Sell a Mythical',           reward:750, type:'sellRarity', target:['mythical'], count:1},
+  ],
+};
+const G5_CHEST_DEF = {
+  small: {
+    name:'Small Chest', icon:'📦', cooldown:4*60*60*1000, rolls:1,
+    loot:[
+      {type:'coins',  val:150,             w:50},
+      {type:'pack',   val:'standard',      w:30},
+      {type:'pack',   val:'dragon',        w:15},
+      {type:'pack',   val:'good',          w:5},
+    ],
+  },
+  big: {
+    name:'Big Chest', icon:'🎁', cooldown:24*60*60*1000, rolls:2,
+    loot:[
+      {type:'coins',  val:250,             w:40},
+      {type:'pack',   val:'good',          w:30},
+      {type:'coins',  val:500,             w:20},
+      {type:'crate',  val:'legmyth',       w:7.5},
+      {type:'crate',  val:'myth',          w:2.5},
+    ],
+  },
+};
+
 let g5Collection = {}; // {cardId: count}
 let g5Coins = 0;
 let g5ActiveTab = 'collection';
+let g5Quests = [];       // [{id,desc,reward,rarity,progress,target,type,done}]
+let g5QuestNextReset = 0;
+let g5QuestStats = {};   // running counters: packsOpened, sellCount, tradeCount, etc.
+let g5ChestTimers = {};  // {small: nextUnlockTs, big: nextUnlockTs}
 let g5TradeFilter = 'all';
 
 function g5CardDef(id){ return G5_CARDS.find(c=>c.id===id); }
+
+// ── Quest helpers ──
+function g5RollQuests(){
+  const now=Date.now();
+  g5QuestNextReset=now+20*60*1000;
+  g5Quests=[];
+  const rarityRoll=()=>{const r=Math.random()*100;return r<60?'common':r<90?'uncommon':'rare';};
+  const used=new Set();
+  for(let i=0;i<3;i++){
+    const rar=rarityRoll();
+    const pool=G5_QUEST_POOL[rar].filter(q=>!used.has(q.id));
+    const def=pool[Math.floor(Math.random()*pool.length)];
+    used.add(def.id);
+    g5Quests.push({...def, rarity:rar, progress:0, done:false});
+  }
+  db.ref('clarецards/'+hubUser+'/quests').set({quests:g5Quests,nextReset:g5QuestNextReset});
+  g5RenderQuests();
+}
+function g5LoadQuests(){
+  db.ref('clarецards/'+hubUser+'/quests').once('value',snap=>{
+    const d=snap.val()||{};
+    const now=Date.now();
+    if(!d.quests||!d.nextReset||now>=d.nextReset){
+      g5RollQuests(); return;
+    }
+    g5Quests=d.quests;
+    g5QuestNextReset=d.nextReset;
+    g5RenderQuests();
+    g5StartQuestTimer();
+  });
+}
+function g5StartQuestTimer(){
+  clearInterval(window._g5QuestTick);
+  window._g5QuestTick=setInterval(()=>{
+    const rem=g5QuestNextReset-Date.now();
+    if(rem<=0){ clearInterval(window._g5QuestTick); g5RollQuests(); return; }
+    const m=Math.floor(rem/60000),s=Math.floor((rem%60000)/1000);
+    const el=document.getElementById('g5-quest-timer');
+    if(el) el.textContent='Resets in '+m+'m '+s+'s';
+  },1000);
+}
+function g5RenderQuests(){
+  const el=document.getElementById('g5-quest-list');
+  if(!el) return;
+  el.innerHTML='';
+  g5Quests.forEach((q,i)=>{
+    const pct=Math.min(1,q.progress/q.count);
+    const barW=Math.round(pct*100);
+    const div=document.createElement('div');
+    div.className='g5-quest-item'+(q.done?' completed':'');
+    div.innerHTML=`
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <span class="g5-quest-rarity ${q.rarity}">${q.rarity.toUpperCase()}</span>
+          <span style="font-size:12px;">${q.desc}</span>
+        </div>
+        <div style="background:#111;border-radius:3px;height:5px;width:100%;margin-top:4px;">
+          <div style="background:${q.done?'#2ed573':'var(--primary)'};height:5px;border-radius:3px;width:${barW}%;transition:width 0.3s;"></div>
+        </div>
+        <div style="font-size:10px;color:#555;margin-top:3px;font-family:'Space Mono',monospace;">${q.progress}/${q.count}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        ${q.done
+          ? '<span style="color:#2ed573;font-size:11px;font-family:Space Mono,monospace;">✓ DONE</span>'
+          : `<button class="g5-btn primary" style="font-size:10px;padding:3px 10px;" onclick="g5ClaimQuest(${i})" ${pct<1?'disabled style="opacity:0.4;cursor:default;"':''}>
+              Claim 🪙${q.reward}
+            </button>`
+        }
+      </div>`;
+    el.appendChild(div);
+  });
+  g5StartQuestTimer();
+}
+function g5ClaimQuest(idx){
+  const q=g5Quests[idx];
+  if(!q||q.done||q.progress<q.count) return;
+  q.done=true;
+  g5Coins+=q.reward;
+  db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
+  db.ref('clarецards/'+hubUser+'/quests').set({quests:g5Quests,nextReset:g5QuestNextReset});
+  g5UpdateCoinsDisplay();
+  g5Notify('Quest complete! +🪙'+q.reward);
+  g5RenderQuests();
+}
+function g5QuestProgress(type, detail){
+  // detail: {rarity, packId, amount}
+  let changed=false;
+  g5Quests.forEach(q=>{
+    if(q.done) return;
+    let inc=0;
+    if(q.type==='packOpen'&&type==='packOpen') inc=1;
+    if(q.type==='packType'&&type==='packOpen'&&detail.packId===q.target) inc=1;
+    if(q.type==='getCard'&&type==='getCard'&&q.target.includes(detail.rarity)) inc=1;
+    if(q.type==='sellRarity'&&type==='sell'&&q.target.includes(detail.rarity)) inc=1;
+    if(q.type==='trade'&&type==='trade') inc=1;
+    if(q.type==='tradeRarity'&&type==='tradeRarity'&&q.target.includes(detail.rarity)) inc=1;
+    if(q.type==='spend'&&type==='spend') inc=detail.amount||0;
+    if(inc){ q.progress=Math.min(q.count, q.progress+inc); changed=true; }
+  });
+  if(changed){
+    db.ref('clarецards/'+hubUser+'/quests').set({quests:g5Quests,nextReset:g5QuestNextReset});
+    g5RenderQuests();
+  }
+}
+
+// ── Chest helpers ──
+function g5LoadChests(){
+  db.ref('clarецards/'+hubUser+'/chests').once('value',snap=>{
+    g5ChestTimers=snap.val()||{};
+    g5RenderChests();
+  });
+}
+function g5RenderChests(){
+  const el=document.getElementById('g5-chest-list');
+  if(!el) return;
+  el.innerHTML='';
+  const now=Date.now();
+  Object.entries(G5_CHEST_DEF).forEach(([id,def])=>{
+    const nextTs=g5ChestTimers[id]||0;
+    const ready=now>=nextTs;
+    const remMs=Math.max(0,nextTs-now);
+    const h=Math.floor(remMs/3600000),m=Math.floor((remMs%3600000)/60000),s=Math.floor((remMs%60000)/1000);
+    const timeStr=ready?'Ready!':h+'h '+m+'m '+s+'s';
+    const lootDesc=def.loot.map(l=>`${l.w}% ${l.type==='coins'?'🪙'+l.val:l.type==='pack'?l.val+' pack':'crate ('+l.val+')'}`).join(' · ');
+    const div=document.createElement('div');
+    div.className='g5-chest-card';
+    div.style.borderColor=ready?'var(--accent)':'#2a2a3a';
+    div.dataset.chestId=id;
+    div.innerHTML=`
+      <div class="g5-chest-icon">${def.icon}</div>
+      <div class="g5-chest-info">
+        <div class="g5-chest-name">${def.name}</div>
+        <div class="g5-chest-timer" id="g5-chest-timer-${id}">${timeStr}</div>
+        <div class="g5-chest-loot">${lootDesc}</div>
+      </div>
+      <div>
+        <button class="g5-btn primary" onclick="g5OpenChest('${id}')" ${ready?'':'disabled style="opacity:0.4;"'}>
+          ${ready?'Open!':'Locked'}
+        </button>
+      </div>`;
+    el.appendChild(div);
+  });
+  // Start countdown ticks
+  clearInterval(window._g5ChestTick);
+  window._g5ChestTick=setInterval(()=>{
+    const now2=Date.now();
+    Object.entries(G5_CHEST_DEF).forEach(([id,def])=>{
+      const el2=document.getElementById('g5-chest-timer-'+id);
+      if(!el2) return;
+      const ts=g5ChestTimers[id]||0;
+      const ready2=now2>=ts;
+      const rem=Math.max(0,ts-now2);
+      const h2=Math.floor(rem/3600000),m2=Math.floor((rem%3600000)/60000),s2=Math.floor((rem%60000)/1000);
+      el2.textContent=ready2?'Ready!':h2+'h '+m2+'m '+s2+'s';
+      const card=el2.closest('.g5-chest-card');
+      if(card){
+        card.style.borderColor=ready2?'var(--accent)':'#2a2a3a';
+        const btn=card.querySelector('button');
+        if(btn){btn.disabled=!ready2;btn.style.opacity=ready2?'1':'0.4';btn.textContent=ready2?'Open!':'Locked';}
+      }
+    });
+  },1000);
+}
+function g5ChestRollLoot(def){
+  const totalW=def.loot.reduce((s,l)=>s+l.w,0);
+  const roll=Math.random()*totalW;
+  let cum=0;
+  for(const l of def.loot){ cum+=l.w; if(roll<=cum) return l; }
+  return def.loot[0];
+}
+function g5OpenChest(id){
+  const def=G5_CHEST_DEF[id];
+  const now=Date.now();
+  if((g5ChestTimers[id]||0)>now){ g5Notify('Chest not ready yet!'); return; }
+  g5ChestTimers[id]=now+def.cooldown;
+  db.ref('clarецards/'+hubUser+'/chests').set(g5ChestTimers);
+  const rewards=[];
+  for(let i=0;i<def.rolls;i++) rewards.push(g5ChestRollLoot(def));
+  let msg='📦 '+def.name+' opened!\n';
+  rewards.forEach(r=>{
+    if(r.type==='coins'){
+      g5Coins+=r.val; msg+='🪙 +'+r.val+' Coins! ';
+    } else if(r.type==='pack'){
+      // Give pack as free open
+      g5GiveFreePack(r.val); msg+='🎴 '+r.val+' Pack! ';
+    } else if(r.type==='crate'){
+      g5OpenCrate(r.val); msg+='✨ Crate! ';
+    }
+  });
+  db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
+  g5UpdateCoinsDisplay();
+  g5Notify(msg.trim());
+  g5RenderChests();
+}
+function g5GiveFreePack(packId){
+  const pack=G5_PACKS[packId];
+  if(!pack) return;
+  const rarities=Object.entries(pack.weights).filter(([,w])=>w>0);
+  const totalW=rarities.reduce((s,[,w])=>s+w,0);
+  for(let i=0;i<pack.size;i++){
+    let roll=Math.random()*totalW,cum=0,chosenRarity='common';
+    for(const [r,w] of rarities){cum+=w;if(roll<=cum){chosenRarity=r;break;}}
+    const pool=G5_CARDS.filter(c=>c.rarity===chosenRarity);
+    const card=pool[Math.floor(Math.random()*pool.length)];
+    const mods=[];
+    if(Math.random()<(pack.dragon?0.25:0.05)) mods.push('dragon');
+    if(Math.random()<0.01) mods.push('rainbow');
+    if(Math.random()<0.025) mods.push('gold');
+    if(!mods.includes('gold')&&Math.random()<(pack.silverBoost?0.15:0.05)) mods.push('silver');
+    const key=g5MakeKey(card.id,mods);
+    g5Collection[key]=(g5Collection[key]||0)+1;
+    g5QuestProgress('getCard',{rarity:card.rarity});
+  }
+  g5QuestProgress('packOpen',{packId});
+  db.ref('clarецards/'+hubUser+'/collection').set(g5Collection);
+}
+function g5OpenCrate(crateType){
+  // legmyth = guaranteed legendary or mythical; myth = guaranteed mythical
+  const pool=crateType==='myth'
+    ? G5_CARDS.filter(c=>c.rarity==='mythical')
+    : G5_CARDS.filter(c=>c.rarity==='legendary'||c.rarity==='mythical');
+  const card=pool[Math.floor(Math.random()*pool.length)];
+  const key=g5MakeKey(card.id,[]);
+  g5Collection[key]=(g5Collection[key]||0)+1;
+  g5QuestProgress('getCard',{rarity:card.rarity});
+  db.ref('clarецards/'+hubUser+'/collection').set(g5Collection);
+}
 
 // ── Collection key format: "baseId|mod1,mod2" or just "baseId" ──
 // Modifiers: silver, gold, rainbow, dragon
@@ -852,6 +1145,10 @@ function g5OpenPack(packId){
     g5Collection[key]=(g5Collection[key]||0)+1;
   });
   db.ref('clarецards/'+hubUser+'/collection').set(g5Collection);
+  // Quest hooks
+  g5QuestProgress('packOpen',{packId:packId||'standard'});
+  g5QuestProgress('spend',{amount:pack.cost});
+  drawn.forEach(card=>g5QuestProgress('getCard',{rarity:card.rarity}));
 
   // Show reveal
   const area=document.getElementById('g5-reveal-area');
@@ -1007,6 +1304,14 @@ function g5SendOffer(){
     tradeKey,
     ts: Date.now()
   }, ()=>{
+    // Quest: trade anything
+    g5QuestProgress('trade',{});
+    // Quest: trade rare+
+    const highCard=Object.keys(offerCounts).find(id=>{
+      const d2=g5CardDef(id);
+      return d2&&['rare','epic','legendary','mythical'].includes(d2.rarity);
+    });
+    if(highCard){const d3=g5CardDef(highCard);g5QuestProgress('tradeRarity',{rarity:d3.rarity});}
     g5Notify('Offer sent!');
     document.getElementById('g5-offer-modal').style.display='none';
   });
@@ -1046,6 +1351,7 @@ function g5AcceptOffer(inboxKey, offerCards, wantCards, fromUser){
 
   // Delete inbox item
   db.ref('clarецards_inbox/'+hubUser+'/'+inboxKey).remove();
+  g5QuestProgress('trade',{});
   g5Notify('Trade accepted! +100 coins 🪙');
   g5LoadInbox();
   g5LoadCollection();
@@ -1171,6 +1477,8 @@ function g5SellCard(key){
   db.ref('clarецards/'+hubUser+'/collection').set(g5Collection);
   db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
   g5UpdateCoinsDisplay();
+  // Quest hook
+  if(d) g5QuestProgress('sell',{rarity:d.rarity});
   g5Notify('Sold for 🪙'+val+'!');
   g5RenderCollection(window._g5CurrentFilter||'all');
 }
@@ -1285,6 +1593,8 @@ function g5SwitchTab(tab){
   if(tab==='packs') {}
   if(tab==='hub') g5LoadTrades();
   if(tab==='inbox') g5LoadInbox();
+  if(tab==='quests'){ g5LoadQuests(); }
+  if(tab==='chests'){ g5LoadChests(); }
 }
 
 function g5Notify(msg){
@@ -1303,6 +1613,8 @@ function g5Notify(msg){
       <button class="g5-tab" data-tab="packs"      onclick="g5SwitchTab('packs')">Packs</button>
       <button class="g5-tab" data-tab="hub"        onclick="g5SwitchTab('hub')">Trading Hub</button>
       <button class="g5-tab" data-tab="inbox"      onclick="g5SwitchTab('inbox')">Inbox</button>
+      <button class="g5-tab" data-tab="quests"     onclick="g5SwitchTab('quests')">⚔ Quests</button>
+      <button class="g5-tab" data-tab="chests"     onclick="g5SwitchTab('chests')">📦 Chests</button>
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
       <div class="g5-coins">🪙 <span id="g5-coins-count">0</span></div>
@@ -1346,7 +1658,7 @@ function g5Notify(msg){
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('good')" style="border-color:#ffd700;box-shadow:0 0 14px #ffd70033;">✨<div class="g5-pack-label" style="color:#ffd700;">GOOD</div></div>
-          <div class="g5-pack-cost">🪙 150 coins</div>
+          <div class="g5-pack-cost">🪙 250 coins</div>
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">7 cards · better odds</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
@@ -1383,6 +1695,20 @@ function g5Notify(msg){
       <button class="g5-btn" onclick="g5LoadInbox()">↻ Refresh</button>
     </div>
     <div class="g5-hub-scroll"><div id="g5-inbox-list"></div></div>
+  </div>
+
+  <!-- QUESTS TAB -->
+  <div id="g5-quests" class="g5-screen" style="flex-direction:column;">
+    <div style="padding:10px 16px 6px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <span style="font-size:11px;color:#555;font-family:'Space Mono',monospace;">New quests every 20 min</span>
+      <span id="g5-quest-timer" style="font-size:11px;color:var(--accent);font-family:'Space Mono',monospace;"></span>
+    </div>
+    <div id="g5-quest-list" style="flex:1;overflow-y:auto;padding:8px 16px;display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+
+  <!-- CHESTS TAB -->
+  <div id="g5-chests" class="g5-screen" style="flex-direction:column;">
+    <div id="g5-chest-list" style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:12px;"></div>
   </div>
 
   <!-- POST TRADE MODAL -->
@@ -1677,6 +2003,9 @@ function g5Notify(msg){
                     </label>
                     <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer;">
                         <input type="checkbox" id="ed-drag-chk" onchange="edDragMode=this.checked;edCanvas.style.cursor=edDragMode?'grab':'crosshair';"> Drag Mode
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;cursor:pointer;">
+                        <input type="checkbox" id="ed-fly-chk" onchange="edFlyMode=this.checked;if(edFlyMode)startEdFlyLoop();else{edFlyY=0;edRender();}"> Admin Fly (WASD)
                     </label>
                     </div>
                     <!-- Selection-dependent (hidden when nothing selected) -->
@@ -2078,6 +2407,8 @@ function launchGame5(){
   g5SwitchTab('collection');
   g5LoadCollection();
   g5StartCoinTimer();
+  g5LoadQuests();
+  g5LoadChests();
 }
 function g5SetFilter(btn, filter){
   document.querySelectorAll('.g5-filter-btn').forEach(b=>b.classList.remove('active'));
@@ -5281,6 +5612,12 @@ document.addEventListener('keydown',e=>{
   const tag=document.activeElement&&document.activeElement.tagName;
   const isTyping=tag==='INPUT'||tag==='TEXTAREA';
   if(isTyping) return;
+  // Editor fly mode: capture WASD when editor is visible
+  if(edFlyMode && edCanvas && edCanvas.offsetParent!==null){
+    if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)){
+      e.preventDefault(); edFlyKeys[e.code]=true; return;
+    }
+  }
   if(e.code==='Space'){e.preventDefault();if(!e.repeat)dJumpPress();}
   if(e.code==='KeyP'||e.code==='Escape'){e.preventDefault();togglePause();}
   if(e.code==='ArrowDown'||e.code==='KeyS'){if(dShipMode||dWaveMode)dShipHeld=true;}
@@ -5289,6 +5626,7 @@ document.addEventListener('keyup',e=>{
   const tag=document.activeElement&&document.activeElement.tagName;
   const isTyping=tag==='INPUT'||tag==='TEXTAREA';
   if(isTyping) return;
+  edFlyKeys[e.code]=false;
   if(e.code==='Space')dJumpRelease();
   if(e.code==='ArrowDown'||e.code==='KeyS'){if(dShipMode||dWaveMode)dShipHeld=false;}
 });
@@ -5298,6 +5636,7 @@ document.addEventListener('mouseup',()=>dJumpRelease());
 
 let edCanvas,edCtx,edObs=[],edScrollX=0,edSelectedIdx=-1;
 let edDragMode=false,edGridOn=true,edGridSize=40;
+let edFlyMode=false,edFlyX=0,edFlyY=0,edFlyKeys={};
 let edDragIdx=-1,edDragOffX=0,edDragOffY=0,edPanDragging=false,edLastX=0,edLastY=0,edMouseDownPos=null;
 const ED_GH=()=>GROUND_Y;
 const OBJ_DEFAULTS={
@@ -5309,6 +5648,24 @@ const OBJ_DEFAULTS={
   gravityorb:{w:28,h:28},negorb:{w:28,h:28},trigger:{w:8,h:360},coin:{w:24,h:24},
   teleportin:{w:40,h:60},teleportout:{w:40,h:60},special:{w:40,h:40}
 };
+
+// Fly mode tick — called from edRender
+let _edFlyRAF=null;
+function edFlyTick(){
+  if(!edFlyMode||!edCanvas||edCanvas.offsetParent===null){_edFlyRAF=null;return;}
+  const spd=12;
+  if(edFlyKeys['KeyA']||edFlyKeys['ArrowLeft'])  edScrollX=Math.max(0,edScrollX-spd);
+  if(edFlyKeys['KeyD']||edFlyKeys['ArrowRight']) edScrollX+=spd;
+  if(edFlyKeys['KeyW']||edFlyKeys['ArrowUp'])    edFlyY=Math.max(-600,edFlyY-spd);
+  if(edFlyKeys['KeyS']||edFlyKeys['ArrowDown'])  edFlyY=Math.min(400,edFlyY+spd);
+  if(Object.values(edFlyKeys).some(Boolean)) edRender();
+  _edFlyRAF=requestAnimationFrame(edFlyTick);
+}
+function startEdFlyLoop(){
+  if(!_edFlyRAF) _edFlyRAF=requestAnimationFrame(edFlyTick);
+}
+// fly checkbox wired via onchange attr; also start loop when editor opens
+function edFlyInit(){ if(edFlyMode) startEdFlyLoop(); }
 
 function initEditor(){
   edCanvas=document.getElementById('ed-canvas');
@@ -5747,14 +6104,16 @@ function edRender(){
   if(!edCtx)return;
   const ctx=edCtx,W=edCanvas.width,H=edCanvas.height,gh=ED_GH();
   ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
- 
+  ctx.save();
+  ctx.translate(0, -edFlyY); // fly mode vertical offset
+
   if(edGridOn){
     ctx.strokeStyle='rgba(80,80,160,0.18)';ctx.lineWidth=1;
     const gox=edScrollX%edGridSize;
-    for(let x=-gox;x<W;x+=edGridSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-    for(let y=0;y<H;y+=edGridSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    for(let x=-gox;x<W;x+=edGridSize){ctx.beginPath();ctx.moveTo(x,-edFlyY);ctx.lineTo(x,H+edFlyY);ctx.stroke();}
+    for(let y=-edGridSize;y<H+edFlyY+edGridSize;y+=edGridSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   }
-  ctx.fillStyle=dGroundColor||'#252545';ctx.fillRect(0,gh,W,H-gh);
+  ctx.fillStyle=dGroundColor||'#252545';ctx.fillRect(0,gh,W,H-gh+edFlyY+200);
   ctx.strokeStyle='#5555aa';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,gh);ctx.lineTo(W,gh);ctx.stroke();
   for(let i=0;i<edObs.length;i++){
     const o=edObs[i];
@@ -5796,10 +6155,19 @@ function edRender(){
     }
   }
  
+  ctx.restore(); // end fly translate
+
+  // Status bar (drawn after restore so it's always at screen-space bottom)
   ctx.fillStyle='#222';ctx.fillRect(0,H-18,W,18);
   ctx.fillStyle='#555';ctx.font='9px monospace';ctx.textAlign='left';
   for(let x=0;x<W;x+=80){ctx.fillText(Math.round(x+edScrollX),x+2,H-5);}
- 
+
+  // Fly mode indicator
+  if(edFlyMode){
+    ctx.fillStyle='rgba(232,255,0,0.9)';ctx.font='bold 10px DM Sans,sans-serif';ctx.textAlign='right';
+    ctx.fillText('✈ FLY  W/A/S/D',W-6,H-5);ctx.textAlign='left';
+  }
+
   document.getElementById('ed-mode-label').textContent=
     edDragMode?'Drag mode — drag objects, click to select':'Place mode — click to add';
 }
