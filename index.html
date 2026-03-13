@@ -1431,14 +1431,21 @@ function g5SellSelected(){
   if(!g5SelectedCards.size){ g5Notify('Nothing selected!'); return; }
   let total=0;
   const keys=[...g5SelectedCards];
-  keys.forEach(k=>{ total+=g5SellValue(k); });
-  if(!confirm('Sell '+keys.length+' card(s) for 🪙'+total+'?')) return;
+  // Sell ALL copies of each selected card
   keys.forEach(k=>{
+    const count=g5Collection[k]||0;
+    total+=g5SellValue(k)*count;
+  });
+  const totalCards=keys.reduce((s,k)=>s+(g5Collection[k]||0),0);
+  if(!confirm('Sell '+totalCards+' card(s) for 🪙'+total+'?')) return;
+  keys.forEach(k=>{
+    const count=g5Collection[k]||0;
     const {baseId}=g5ParseKey(k);
     const d=g5CardDef(baseId);
-    if(d) g5QuestProgress('sell',{rarity:d.rarity});
-    g5Collection[k]--;
-    if(g5Collection[k]<=0) delete g5Collection[k];
+    for(let i=0;i<count;i++){
+      if(d) g5QuestProgress('sell',{rarity:d.rarity});
+    }
+    delete g5Collection[k];
   });
   g5Coins+=total;
   db.ref('clarецards/'+hubUser+'/collection').set(g5Collection);
