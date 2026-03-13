@@ -417,6 +417,8 @@
 .g5-btn.danger:hover { opacity:.88; }
 
 /* Inbox */
+.g5-card-wrap-sel { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+.g5-select-mode .g5-card { cursor:pointer !important; }
 .g5-quest-item {
   background:#1a1a2d; border:1px solid #2a2a3a; border-radius:8px;
   padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -644,6 +646,9 @@ const G5_CHEST_DEF = {
 let g5Collection = {}; // {cardId: count}
 let g5Coins = 0;
 let g5ActiveTab = 'collection';
+let g5SelectMode = false;
+let g5SelectedCards = new Set(); // set of keys
+let g5PackInventory = {}; // {packId: count}
 let g5Quests = [];       // [{id,desc,reward,rarity,progress,target,type,done}]
 let g5QuestNextReset = 0;
 let g5QuestStats = {};   // running counters: packsOpened, sellCount, tradeCount, etc.
@@ -834,8 +839,7 @@ function g5OpenChest(id){
     if(r.type==='coins'){
       g5Coins+=r.val; msg+='🪙 +'+r.val+' Coins! ';
     } else if(r.type==='pack'){
-      // Give pack as free open
-      g5GiveFreePack(r.val); msg+='🎴 '+r.val+' Pack! ';
+      g5BuyPackToInventory(r.val); msg+='🎴 '+r.val+' Pack! ';
     } else if(r.type==='crate'){
       g5OpenCrate(r.val); msg+='✨ Crate! ';
     }
@@ -844,6 +848,12 @@ function g5OpenChest(id){
   g5UpdateCoinsDisplay();
   g5Notify(msg.trim());
   g5RenderChests();
+}
+function g5BuyPackToInventory(packId){
+  // Used by chests/quests — gives pack to inventory without charging coins
+  g5PackInventory[packId]=(g5PackInventory[packId]||0)+1;
+  g5SavePackInventory();
+  g5Notify('You received a '+G5_PACKS[packId]?.label+' Pack! Check Collection → My Packs 🎴');
 }
 function g5GiveFreePack(packId){
   const pack=G5_PACKS[packId];
@@ -1114,7 +1124,15 @@ function g5OpenPack(packId){
   if(!pack){ g5Notify('Unknown pack!'); return; }
   if(g5Coins < pack.cost){ g5Notify('Not enough coins!'); return; }
   g5Coins -= pack.cost;
+  g5QuestProgress('spend',{amount:pack.cost});
   db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
+  // Add to pack inventory instead of opening immediately
+  g5PackInventory[packId]=(g5PackInventory[packId]||0)+1;
+  g5SavePackInventory();
+  g5UpdateCoinsDisplay();
+  g5Notify('Bought '+pack.label+' Pack! Open it from Collection → My Packs 🎴');
+  // Skip rest of open logic
+  return;
 
   const rarities = Object.entries(pack.weights).filter(([,w])=>w>0);
   const totalW = rarities.reduce((s,[,w])=>s+w,0);
@@ -1376,11 +1394,153 @@ function g5StartCoinTimer(){
 }
 function g5StopCoinTimer(){ clearInterval(_g5CoinTimer); _g5CoinTimer=null; }
 
+// ── Collection sub-tabs ──
+function g5ColSubTab(tab){
+  document.getElementById('g5-col-cards-view').style.display = tab==='cards'?'flex':'none';
+  document.getElementById('g5-col-mypacks-view').style.display = tab==='mypacks'?'block':'none';
+  document.getElementById('g5-col-subtab-cards').classList.toggle('g5-tab-active', tab==='cards');
+  document.getElementById('g5-col-subtab-mypacks').classList.toggle('g5-tab-active', tab==='mypacks');
+  if(tab==='mypacks') g5RenderMyPacks();
+}
+
+// ── Multi-select ──
+function g5ToggleSelectMode(){
+  g5SelectMode=!g5SelectMode;
+  g5SelectedCards.clear();
+  const btn=document.getElementById('g5-select-toggle');
+  const tb=document.getElementById('g5-select-toolbar');
+  if(btn) btn.textContent=g5SelectMode?'Cancel':'Select';
+  if(tb) tb.style.display=g5SelectMode?'flex':'none';
+  g5RenderCollection(window._g5CurrentFilter||'all');
+}
+function g5ClearSelection(){
+  g5SelectedCards.clear();
+  g5UpdateSelectCount();
+  g5RenderCollection(window._g5CurrentFilter||'all');
+}
+function g5ToggleCardSelect(key){
+  if(g5SelectedCards.has(key)) g5SelectedCards.delete(key);
+  else g5SelectedCards.add(key);
+  g5UpdateSelectCount();
+  // Just toggle highlight without full re-render
+  document.querySelectorAll('[data-card-key]').forEach(el=>{
+    el.classList.toggle('g5-card-wrap-sel', g5SelectedCards.has(el.dataset.cardKey));
+  });
+}
+function g5UpdateSelectCount(){
+  const el=document.getElementById('g5-select-count');
+  if(el) el.textContent=g5SelectedCards.size+' selected';
+}
+function g5SellSelected(){
+  if(!g5SelectedCards.size){ g5Notify('Nothing selected!'); return; }
+  let total=0;
+  const keys=[...g5SelectedCards];
+  keys.forEach(k=>{ total+=g5SellValue(k); });
+  if(!confirm('Sell '+keys.length+' card(s) for 🪙'+total+'?')) return;
+  keys.forEach(k=>{
+    const {baseId}=g5ParseKey(k);
+    const d=g5CardDef(baseId);
+    if(d) g5QuestProgress('sell',{rarity:d.rarity});
+    g5Collection[k]--;
+    if(g5Collection[k]<=0) delete g5Collection[k];
+  });
+  g5Coins+=total;
+  db.ref('clarецards/'+hubUser+'/collection').set(g5Collection);
+  db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
+  g5UpdateCoinsDisplay();
+  g5SelectedCards.clear();
+  g5Notify('Sold '+keys.length+' card(s) for 🪙'+total+'!');
+  g5RenderCollection(window._g5CurrentFilter||'all');
+}
+
+// ── Pack inventory ──
+function g5LoadPackInventory(cb){
+  db.ref('clarецards/'+hubUser+'/packInventory').once('value',snap=>{
+    g5PackInventory=snap.val()||{};
+    if(cb) cb();
+  });
+}
+function g5SavePackInventory(){
+  db.ref('clarецards/'+hubUser+'/packInventory').set(g5PackInventory);
+}
+function g5RenderMyPacks(){
+  const el=document.getElementById('g5-mypack-grid');
+  if(!el) return;
+  el.innerHTML='';
+  const hasPacks=Object.values(g5PackInventory).some(n=>n>0);
+  if(!hasPacks){
+    el.innerHTML='<div class="g5-empty" style="width:100%;">No packs — buy some from the Packs tab!</div>';
+    return;
+  }
+  Object.entries(G5_PACKS).forEach(([packId,pack])=>{
+    const count=g5PackInventory[packId]||0;
+    if(!count) return;
+    const styles={
+      standard:{icon:'🃏',color:'var(--primary)',glow:''},
+      good:{icon:'✨',color:'#ffd700',glow:'box-shadow:0 0 14px #ffd70033;'},
+      silver:{icon:'◈',color:'#bbb',glow:'box-shadow:0 0 14px #aaaaaa33;'},
+      dragon:{icon:'🐉',color:'#ff6b35',glow:'box-shadow:0 0 14px #ff6b3533;'},
+    };
+    const st=styles[packId]||{icon:'🎴',color:'#fff',glow:''};
+    const div=document.createElement('div');
+    div.style.cssText='display:flex;flex-direction:column;align-items:center;gap:8px;';
+    div.innerHTML=`
+      <div class="g5-pack" style="border-color:${st.color};${st.glow};position:relative;" onclick="g5OpenPackFromInventory('${packId}')">
+        ${st.icon}
+        <div class="g5-pack-label" style="color:${st.color};">${pack.label}</div>
+        <div style="position:absolute;top:-6px;right:-6px;background:var(--danger);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:bold;">×${count}</div>
+      </div>
+      <div style="font-size:10px;color:#555;font-family:'Space Mono',monospace;">${count} owned</div>`;
+    el.appendChild(div);
+  });
+}
+function g5OpenPackFromInventory(packId){
+  if(!(g5PackInventory[packId]>0)){ g5Notify('No '+packId+' packs!'); return; }
+  g5PackInventory[packId]--;
+  if(g5PackInventory[packId]<=0) delete g5PackInventory[packId];
+  g5SavePackInventory();
+  // Open it (reuse logic without charging coins)
+  g5GiveFreePack(packId);
+  // Show result screen
+  const pack=G5_PACKS[packId];
+  const rarities=Object.entries(pack.weights).filter(([,w])=>w>0);
+  const totalW=rarities.reduce((s,[,w])=>s+w,0);
+  const drawn=[];
+  for(let i=0;i<pack.size;i++){
+    let roll=Math.random()*totalW,cum=0,chosenRarity='common';
+    for(const [r,w] of rarities){cum+=w;if(roll<=cum){chosenRarity=r;break;}}
+    const pool=G5_CARDS.filter(cd=>cd.rarity===chosenRarity);
+    drawn.push({...pool[Math.floor(Math.random()*pool.length)],mods:[]});
+  }
+  // Actually add these specific cards
+  drawn.forEach(card=>{
+    const key=g5MakeKey(card.id,[]);
+    g5Collection[key]=(g5Collection[key]||0)+1;
+    g5QuestProgress('getCard',{rarity:card.rarity});
+  });
+  g5QuestProgress('packOpen',{packId});
+  db.ref('clarецards/'+hubUser+'/collection').set(g5Collection);
+  // Switch to packs tab to show reveal
+  g5SwitchTab('packs');
+  const area=document.getElementById('g5-reveal-area');
+  area.innerHTML='';
+  drawn.forEach((card,i)=>{
+    const div=document.createElement('div');
+    div.className='g5-card-reveal';
+    div.style.animationDelay=(i*0.12)+'s';
+    div.innerHTML=g5RenderCardObj(card,null,false,false,'');
+    area.appendChild(div);
+  });
+  document.getElementById('g5-pack-result').style.display='flex';
+  g5UpdateCoinsDisplay();
+}
+
 function g5LoadCollection(){
   db.ref('clarецards/'+hubUser).once('value', snap=>{
     const d = snap.val()||{};
     g5Collection = d.collection||{};
-    g5Coins = d.coins||200; // start with 200 coins
+    g5PackInventory = d.packInventory||{};
+    g5Coins = d.coins||200;
     if(!snap.exists()) db.ref('clarецards/'+hubUser+'/coins').set(200);
     g5UpdateCoinsDisplay();
     g5RenderCollection();
@@ -1502,9 +1662,16 @@ function g5RenderCollection(filter){
   filtered.forEach(([id, count])=>{
     const val = g5SellValue(id);
     const wrap = document.createElement('div');
-    wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
-    wrap.innerHTML = g5RenderCard(id, count>1?count:null, false, false, `g5ShowCardInfo('${id}')`)
-      + `<button class="g5-btn" onclick="g5SellCard('${id}')" style="font-size:9px;padding:2px 8px;height:auto;color:#ffd700;border-color:#333;">🪙${val}</button>`;
+    wrap.dataset.cardKey=id;
+    wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;cursor:'+(g5SelectMode?'pointer':'default')+';';
+    if(g5SelectedCards.has(id)) wrap.classList.add('g5-card-wrap-sel');
+    if(g5SelectMode){
+      wrap.innerHTML = g5RenderCard(id, count>1?count:null, false, false, '');
+      wrap.onclick=()=>g5ToggleCardSelect(id);
+    } else {
+      wrap.innerHTML = g5RenderCard(id, count>1?count:null, false, false, `g5ShowCardInfo('${id}')`)
+        + `<button class="g5-btn" onclick="g5SellCard('${id}')" style="font-size:9px;padding:2px 8px;height:auto;color:#ffd700;border-color:#333;">🪙${val}</button>`;
+    }
     el.appendChild(wrap);
   });
 }
@@ -1624,7 +1791,13 @@ function g5Notify(msg){
 
   <!-- COLLECTION TAB -->
   <div id="g5-collection" class="g5-screen g5-active" style="flex-direction:column;">
-    <div class="g5-filter-row" style="padding:10px 16px 6px;">
+    <div style="display:flex;gap:4px;padding:8px 16px 0;flex-shrink:0;">
+      <button class="g5-tab g5-tab-active" id="g5-col-subtab-cards" onclick="g5ColSubTab('cards')" style="font-size:10px;padding:3px 12px;">Cards</button>
+      <button class="g5-tab" id="g5-col-subtab-mypacks" onclick="g5ColSubTab('mypacks')" style="font-size:10px;padding:3px 12px;">My Packs</button>
+    </div>
+    <!-- Cards view -->
+    <div id="g5-col-cards-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+    <div class="g5-filter-row" style="padding:6px 16px 4px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
       <button class="g5-filter-btn active" onclick="g5SetFilter(this,'all')">All</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'common')">Common</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'uncommon')">Uncommon</button>
@@ -1632,6 +1805,13 @@ function g5Notify(msg){
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'epic')">Epic</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'legendary')">Legendary</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'mythical')">Mythical</button>
+      <button class="g5-btn" id="g5-select-toggle" onclick="g5ToggleSelectMode()" style="margin-left:auto;font-size:9px;padding:2px 10px;height:auto;">Select</button>
+    </div>
+    <!-- Multi-select toolbar (hidden until select mode) -->
+    <div id="g5-select-toolbar" style="display:none;padding:4px 16px;background:#111;border-bottom:1px solid #2a2a3a;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <span id="g5-select-count" style="font-size:11px;color:#aaa;font-family:'Space Mono',monospace;">0 selected</span>
+      <button class="g5-btn danger" onclick="g5SellSelected()" style="font-size:9px;padding:2px 10px;height:auto;">🪙 Sell Selected</button>
+      <button class="g5-btn" onclick="g5ClearSelection()" style="font-size:9px;padding:2px 10px;height:auto;">Clear</button>
     </div>
     <div id="g5-card-info-bar" class="g5-card-info-bar">
       <div class="g5-cib-suit" id="g5-cib-suit"></div>
@@ -1645,6 +1825,11 @@ function g5Notify(msg){
       <div class="g5-cib-cost" id="g5-cib-cost"></div>
     </div>
     <div class="g5-coll-scroll"><div id="g5-coll-grid" class="g5-coll-grid"></div></div>
+    </div><!-- end g5-col-cards-view -->
+    <!-- My Packs view -->
+    <div id="g5-col-mypacks-view" style="display:none;flex:1;overflow-y:auto;padding:12px 16px;">
+      <div id="g5-mypack-grid" style="display:flex;flex-wrap:wrap;gap:14px;"></div>
+    </div>
   </div>
 
   <!-- PACKS TAB -->
@@ -1658,7 +1843,7 @@ function g5Notify(msg){
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('good')" style="border-color:#ffd700;box-shadow:0 0 14px #ffd70033;">✨<div class="g5-pack-label" style="color:#ffd700;">GOOD</div></div>
-          <div class="g5-pack-cost">🪙 250 coins</div>
+          <div class="g5-pack-cost">🪙 150 coins</div>
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">7 cards · better odds</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
