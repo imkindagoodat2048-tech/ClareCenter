@@ -1405,27 +1405,23 @@ function g5ColSubTab(tab){
 
 // ── Multi-select ──
 function g5ToggleSelectMode(){
-  g5SelectMode=!g5SelectMode;
-  g5SelectedCards.clear();
-  const btn=document.getElementById('g5-select-toggle');
-  const tb=document.getElementById('g5-select-toolbar');
-  if(btn) btn.textContent=g5SelectMode?'Cancel':'Select';
-  if(tb) tb.style.display=g5SelectMode?'flex':'none';
-  g5RenderCollection(window._g5CurrentFilter||'all');
+  // kept for compatibility but no longer called from UI
 }
 function g5ClearSelection(){
   g5SelectedCards.clear();
   g5UpdateSelectCount();
-  g5RenderCollection(window._g5CurrentFilter||'all');
+  // Remove highlights without full re-render
+  document.querySelectorAll('[data-card-key]').forEach(el=>el.classList.remove('g5-card-wrap-sel'));
 }
 function g5ToggleCardSelect(key){
   if(g5SelectedCards.has(key)) g5SelectedCards.delete(key);
   else g5SelectedCards.add(key);
   g5UpdateSelectCount();
-  // Just toggle highlight without full re-render
   document.querySelectorAll('[data-card-key]').forEach(el=>{
     el.classList.toggle('g5-card-wrap-sel', g5SelectedCards.has(el.dataset.cardKey));
   });
+  const tb=document.getElementById('g5-select-toolbar');
+  if(tb) tb.style.display=g5SelectedCards.size>0?'flex':'none';
 }
 function g5UpdateSelectCount(){
   const el=document.getElementById('g5-select-count');
@@ -1449,6 +1445,8 @@ function g5SellSelected(){
   db.ref('clarецards/'+hubUser+'/coins').set(g5Coins);
   g5UpdateCoinsDisplay();
   g5SelectedCards.clear();
+  const tb=document.getElementById('g5-select-toolbar');
+  if(tb) tb.style.display='none';
   g5Notify('Sold '+keys.length+' card(s) for 🪙'+total+'!');
   g5RenderCollection(window._g5CurrentFilter||'all');
 }
@@ -1663,15 +1661,14 @@ function g5RenderCollection(filter){
     const val = g5SellValue(id);
     const wrap = document.createElement('div');
     wrap.dataset.cardKey=id;
-    wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;cursor:'+(g5SelectMode?'pointer':'default')+';';
+    wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
     if(g5SelectedCards.has(id)) wrap.classList.add('g5-card-wrap-sel');
-    if(g5SelectMode){
-      wrap.innerHTML = g5RenderCard(id, count>1?count:null, false, false, '');
-      wrap.onclick=()=>g5ToggleCardSelect(id);
-    } else {
-      wrap.innerHTML = g5RenderCard(id, count>1?count:null, false, false, `g5ShowCardInfo('${id}')`)
-        + `<button class="g5-btn" onclick="g5SellCard('${id}')" style="font-size:9px;padding:2px 8px;height:auto;color:#ffd700;border-color:#333;">🪙${val}</button>`;
-    }
+    wrap.innerHTML = g5RenderCard(id, count>1?count:null, false, false, '')
+      + `<button class="g5-btn" onclick="event.stopPropagation();g5SellCard('${id}')" style="font-size:9px;padding:2px 8px;height:auto;color:#ffd700;border-color:#333;">🪙${val}</button>`;
+    wrap.onclick=(e)=>{
+      if(e.shiftKey){ e.preventDefault(); g5ToggleCardSelect(id); }
+      else g5ShowCardInfo(id);
+    };
     el.appendChild(wrap);
   });
 }
@@ -1805,10 +1802,10 @@ function g5Notify(msg){
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'epic')">Epic</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'legendary')">Legendary</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'mythical')">Mythical</button>
-      <button class="g5-btn" id="g5-select-toggle" onclick="g5ToggleSelectMode()" style="margin-left:auto;font-size:9px;padding:2px 10px;height:auto;">Select</button>
+
     </div>
-    <!-- Multi-select toolbar (hidden until select mode) -->
-    <div id="g5-select-toolbar" style="display:none;padding:4px 16px;background:#111;border-bottom:1px solid #2a2a3a;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+    <!-- Multi-select toolbar (auto-shown when cards selected) -->
+    <div id="g5-select-toolbar" style="display:none;padding:4px 16px;background:#111;border-bottom:1px solid #2a2a3a;flex-shrink:0;align-items:center;gap:8px;">
       <span id="g5-select-count" style="font-size:11px;color:#aaa;font-family:'Space Mono',monospace;">0 selected</span>
       <button class="g5-btn danger" onclick="g5SellSelected()" style="font-size:9px;padding:2px 10px;height:auto;">🪙 Sell Selected</button>
       <button class="g5-btn" onclick="g5ClearSelection()" style="font-size:9px;padding:2px 10px;height:auto;">Clear</button>
