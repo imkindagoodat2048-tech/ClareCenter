@@ -268,6 +268,26 @@
             </div>
             <button class="game-play" id="game-5-btn" onclick="launchGame5()">Play</button>
         </div>
+        <div class="game-row">
+            <div class="game-info">
+                <div class="game-num">06</div>
+                <div>
+                    <div class="game-name"><span>Clare</span>Dimensions</div>
+                    <div class="game-tag">External · 3D</div>
+                </div>
+            </div>
+            <button class="game-play" onclick="window.open('https://imkindagoodat2048-tech.github.io/ClareDimensions/','_blank')">Play</button>
+        </div>
+        <div class="game-row">
+            <div class="game-info">
+                <div class="game-num">07</div>
+                <div>
+                    <div class="game-name"><span>Clare</span>...?</div>
+                    <div class="game-tag">???</div>
+                </div>
+            </div>
+            <button class="game-play" onclick="launchClareSecret()">Play</button>
+        </div>
     </div>
 </div>
 
@@ -585,9 +605,13 @@ const G5_CARDS = [
   {id:'plus4wild',   rank:'+4', suit:'wild',  symbol:'◉',red:false,rarity:'mythical',special:true},
   {id:'tarot_strength',rank:'VIII',suit:'tarot',symbol:'🦁',red:false,rarity:'mythical',special:true},
   {id:'truedragon',    rank:'∞',  suit:'dragon',symbol:'🐉',red:true, rarity:'mythical',special:true},
+  // Godly (0.5%)
+  {id:'nature_card',      rank:'🌿', suit:'nature',      symbol:'🌿', red:false, rarity:'godly', special:true},
+  {id:'destruction_card', rank:'💥', suit:'destruction', symbol:'💥', red:true,  rarity:'godly', special:true},
+  {id:'shattered_card',   rank:'',   suit:'shattered',   symbol:'',   red:false, rarity:'godly', special:true},
 ];
 
-const G5_RARITY_WEIGHTS = {common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1};
+const G5_RARITY_WEIGHTS = {common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1,godly:0.5};
 const G5_PACKS = {
   standard: { cost:50,  size:5, label:'STANDARD', icon:'🃏', desc:'5 cards',
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:false },
@@ -597,6 +621,16 @@ const G5_PACKS = {
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:true,  silverBoost:false },
   silver:   { cost:150, size:5, label:'SILVER',   icon:'◈',  desc:'5 cards · 15% silver',
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:true },
+  gold:     { cost:200, size:5, label:'GOLD',     icon:'✦',  desc:'5 cards · 15% gold',
+    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:false, goldBoost:true },
+  rainbow:  { cost:300, size:5, label:'RAINBOW',  icon:'🌈', desc:'5 cards · 5% rainbow',
+    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:false, rainbowBoost:true },
+  amazing:  { cost:1000, size:5, label:'AMAZING', icon:'🌟', desc:'5 cards · 25% mythical 1st · 10% rainbow · 25% gold · 5% silver · 25% dragon',
+    weights:{common:20,uncommon:15,rare:20,epic:15,legendary:10,mythical:20}, dragon:true, silverBoost:true, goldBoost:true, rainbowBoost:true, amazingMode:true },
+  guaranteed_leg: { cost:200, size:5, label:'GUAR. LEG', icon:'⭐', desc:'5 cards · first card 80% legendary 20% mythical',
+    weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:false, guaranteedLeg:true },
+  card_crate: { cost:200, size:25, label:'CARD CRATE', icon:'📦', desc:'25 cards · mostly commons',
+    weights:{common:70,uncommon:15,rare:8,epic:4,legendary:2.5,mythical:0.5}, dragon:false, silverBoost:false },
 };
 
 const G5_QUEST_POOL = {
@@ -867,9 +901,12 @@ function g5GiveFreePack(packId){
     const card=pool[Math.floor(Math.random()*pool.length)];
     const mods=[];
     if(Math.random()<(pack.dragon?0.25:0.05)) mods.push('dragon');
-    if(Math.random()<0.01) mods.push('rainbow');
-    if(Math.random()<0.025) mods.push('gold');
-    if(!mods.includes('gold')&&Math.random()<(pack.silverBoost?0.15:0.05)) mods.push('silver');
+    const _rbChance=pack.rainbowBoost?0.05:0.01;
+    if(Math.random()<_rbChance) mods.push('rainbow');
+    const _gChance=pack.goldBoost?0.15:0.025;
+    if(!mods.includes('rainbow')&&Math.random()<_gChance) mods.push('gold');
+    const _sChance=pack.silverBoost?0.15:0.05;
+    if(!mods.includes('gold')&&!mods.includes('rainbow')&&Math.random()<_sChance) mods.push('silver');
     const key=g5MakeKey(card.id,mods);
     g5Collection[key]=(g5Collection[key]||0)+1;
     g5QuestProgress('getCard',{rarity:card.rarity});
@@ -1111,12 +1148,99 @@ function g5RenderCardObj(card, count, small, selected, onclick){
     </div>`;
   }
 
+  // Godly card renders
+  if(d.id==='nature_card'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:linear-gradient(160deg,#0a2e0a,#1a4a1a,#0f3a0f);border-color:#2ed573;box-shadow:0 0 18px #2ed57355;animation:g5-mythglow 2s infinite alternate;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#2ed573;z-index:1;">🌿<br>✦</div>
+      <div class="g5-center" style="font-size:${small?'24px':'36px'};z-index:1;">🌿</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#2ed573;z-index:1;">🌿<br>✦</div>
+    </div>`;
+  }
+  if(d.id==='destruction_card'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:linear-gradient(160deg,#2e0000,#4a0a00,#3a0000);border-color:#ff6b35;box-shadow:0 0 18px #ff6b3555;animation:g5-mythglow 2s infinite alternate;" onclick="${onclick||''}" title="${title}">
+      ${countBadge}${badgeHtml}
+      <div class="g5-corner-tl" style="font-size:${small?'8px':'10px'};color:#ff6b35;z-index:1;">💥<br>✦</div>
+      <div class="g5-center" style="font-size:${small?'24px':'36px'};z-index:1;">💥</div>
+      <div class="g5-corner-br" style="font-size:${small?'8px':'10px'};color:#ff6b35;z-index:1;">💥<br>✦</div>
+    </div>`;
+  }
+  if(d.id==='shattered_card'){
+    return `<div class="${cls}" style="${sz}cursor:pointer;background:#fafafa;border-color:#ccc;position:relative;overflow:hidden;" onclick="g5ShatteredCardClick(event)" title="The Shattered Card — something feels wrong about it">
+      ${countBadge}${badgeHtml}
+      <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(200,200,200,0.12) 0px,rgba(200,200,200,0.12) 2px,transparent 2px,transparent 8px);"></div>
+      <div style="position:absolute;inset:0;background:repeating-linear-gradient(-45deg,rgba(200,200,200,0.08) 0px,rgba(200,200,200,0.08) 1px,transparent 1px,transparent 6px);"></div>
+    </div>`;
+  }
   return `<div class="${cls}" style="${sz}cursor:pointer;" onclick="${onclick||''}" title="${title}">
     ${countBadge}${badgeHtml}
     <div class="g5-corner-tl" style="font-size:${small?'9px':'11px'}">${d.rank}<br>${sym}</div>
     <div class="g5-center" style="font-size:${centerSz}">${centerSym}</div>
     <div class="g5-corner-br" style="font-size:${small?'9px':'11px'}">${d.rank}<br>${sym}</div>
   </div>`;
+}
+
+
+// ── Pull animations ──────────────────────────────────────────────────
+const G5_PULL_TEXTS = {
+  redjoker:           "Rejoice in my presence!",
+  supercard:          "This collection needs a HERO!",
+  plus4wild:          "I change the color to red.",
+  tarot_strength:     "I am the strength in you.",
+  truedragon:         "My beauty is beyond mortal comprehension.",
+  nature_card:        "Take a breath, and enjoy the world around you.",
+  destruction_card:   "Why waste your life doing nothing when you can do ANYTHING!",
+};
+function g5ShowPullAnimation(card){
+  const isGodly=card.rarity==='godly';
+  const text=G5_PULL_TEXTS[card.id]||(isGodly?'A card beyond rarity...':'Something incredible!');
+  const bg=isGodly
+    ?'linear-gradient(135deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff,#ff6b6b)'
+    :'linear-gradient(135deg,#ffd700,#ffee88,#ffd700,#cc9900,#ffd700)';
+  const overlay=document.createElement('div');
+  overlay.id='g5-pull-overlay';
+  overlay.style.cssText=`position:fixed;inset:0;z-index:20000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};background-size:300% 300%;animation:g5PullBgAnim 3s ease infinite;cursor:pointer;`;
+  overlay.innerHTML=`
+    <style>
+      @keyframes g5PullBgAnim{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+      @keyframes g5PullTextIn{from{opacity:0;transform:translateY(30px) scale(0.8)}to{opacity:1;transform:translateY(0) scale(1)}}
+      @keyframes g5PullCardIn{from{opacity:0;transform:scale(0.3) rotateY(180deg)}to{opacity:1;transform:scale(1.3) rotateY(0)}}
+      .g5-pull-text{font-family:'Bebas Neue',cursive;font-size:clamp(18px,4vw,34px);color:#fff;text-shadow:0 2px 12px rgba(0,0,0,0.6);letter-spacing:3px;text-align:center;padding:0 20px;margin-bottom:32px;animation:g5PullTextIn 0.8s ease both;}
+      .g5-pull-card-wrap{animation:g5PullCardIn 0.7s ease 0.5s both;}
+      .g5-pull-hint{margin-top:32px;font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.7);letter-spacing:2px;animation:g5PullTextIn 0.5s ease 1.3s both;}
+    </style>
+    <div class="g5-pull-text">${text}</div>
+    <div class="g5-pull-card-wrap" id="g5-pull-card-slot"></div>
+    <div class="g5-pull-hint">CLICK TO CONTINUE</div>
+  `;
+  document.body.appendChild(overlay);
+  const slot=document.getElementById('g5-pull-card-slot');
+  if(slot) slot.innerHTML=g5RenderCardObj({...card,mods:card.mods||[]},null,false,false,'');
+  overlay.onclick=()=>{overlay.style.opacity='0';overlay.style.transition='opacity 0.3s';setTimeout(()=>overlay.remove(),300);};
+}
+
+// ── Shattered card code prompt ────────────────────────────────────────
+function g5ShatteredCardClick(event){
+  event.stopPropagation();
+  const code=prompt('The Shattered Card trembles... enter a code:');
+  if(!code) return;
+  if(code.trim().toLowerCase()==='blockgirl'){
+    const replacement=Math.random()<0.5?'destruction_card':'nature_card';
+    // Find a shattered_card key in collection
+    const keys=Object.keys(g5Collection).filter(k=>k==='shattered_card'||k.startsWith('shattered_card|'));
+    if(keys.length>0){
+      const k=keys[0];
+      g5Collection[k]--;
+      if(g5Collection[k]<=0) delete g5Collection[k];
+      g5Collection[replacement]=(g5Collection[replacement]||0)+1;
+      db.ref('clarецards/'+hubUser+'/collection').set(g5Collection,()=>{
+        g5Notify('The Shattered Card transformed into the '+replacement.replace('_',' ')+'!');
+        setTimeout(()=>location.reload(),1800);
+      });
+    }
+  } else {
+    g5Notify('...');
+  }
 }
 
 function g5OpenPack(packId){
@@ -1512,14 +1636,30 @@ function g5OpenPackFromInventory(packId){
   const totalW=rarities.reduce((s,[,w])=>s+w,0);
   const drawn=[];
   for(let i=0;i<pack.size;i++){
-    let roll=Math.random()*totalW,cum=0,chosenRarity='common';
-    for(const [r,w] of rarities){cum+=w;if(roll<=cum){chosenRarity=r;break;}}
+    let chosenRarity='common';
+    if(i===0 && pack.amazingMode){
+      const ar=Math.random();
+      chosenRarity=ar<0.25?'mythical':ar<0.50?'legendary':ar<0.65?'epic':ar<0.80?'rare':'uncommon';
+    } else if(i===0 && pack.guaranteedLeg){
+      chosenRarity=Math.random()<0.8?'legendary':'mythical';
+    } else {
+      let roll=Math.random()*totalW,cum=0;
+      for(const [r,w] of rarities){cum+=w;if(roll<=cum){chosenRarity=r;break;}}
+    }
     const pool=G5_CARDS.filter(cd=>cd.rarity===chosenRarity);
-    drawn.push({...pool[Math.floor(Math.random()*pool.length)],mods:[]});
+    // Roll modifier per card for amazing pack
+    const mods2=[];
+    if(pack.amazingMode){
+      if(Math.random()<0.25) mods2.push('dragon');
+      if(Math.random()<0.10) mods2.push('rainbow');
+      else if(Math.random()<0.25) mods2.push('gold');
+      else if(Math.random()<0.05) mods2.push('silver');
+    }
+    drawn.push({...pool[Math.floor(Math.random()*pool.length)],mods:mods2});
   }
   // Actually add these specific cards
   drawn.forEach(card=>{
-    const key=g5MakeKey(card.id,[]);
+    const key=g5MakeKey(card.id,card.mods||[]);
     g5Collection[key]=(g5Collection[key]||0)+1;
     g5QuestProgress('getCard',{rarity:card.rarity});
   });
@@ -1538,6 +1678,14 @@ function g5OpenPackFromInventory(packId){
   });
   document.getElementById('g5-pack-result').style.display='flex';
   g5UpdateCoinsDisplay();
+  // Check for pull animation trigger
+  const bestDraw = drawn.reduce((best,c)=>{
+    const order=['godly','mythical','legendary','epic','rare','uncommon','common'];
+    return order.indexOf(c.rarity)<order.indexOf(best.rarity)?c:best;
+  }, drawn[0]);
+  if(bestDraw.rarity==='godly'||bestDraw.rarity==='mythical'){
+    setTimeout(()=>g5ShowPullAnimation(bestDraw), 500);
+  }
 }
 
 function g5LoadCollection(){
@@ -1557,7 +1705,7 @@ function g5UpdateCoinsDisplay(){
   if(el) el.textContent = g5Coins;
 }
 
-const G5_SELL_BASE = {common:5, uncommon:10, rare:20, epic:50, legendary:100, mythical:250};
+const G5_SELL_BASE = {common:5, uncommon:10, rare:20, epic:50, legendary:100, mythical:250, godly:2000};
 const G5_SELL_MOD  = {silver:1.25, gold:1.5, rainbow:2, dragon:1.1};
 
 function g5SellValue(key){
@@ -1576,6 +1724,7 @@ const G5_RARITY_COLORS = {
   epic:'background:#2a0a3a;color:#ce93d8',
   legendary:'background:#3d1f00;color:#ffb74d',
   mythical:'background:#1a0028;color:#e8ff00',
+  godly:'background:linear-gradient(90deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff);color:#fff;font-weight:900;border:1px solid #fff;',
 };
 
 function g5ShowCardInfo(key){
@@ -1809,6 +1958,7 @@ function g5Notify(msg){
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'epic')">Epic</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'legendary')">Legendary</button>
       <button class="g5-filter-btn" onclick="g5SetFilter(this,'mythical')">Mythical</button>
+      <button class="g5-filter-btn" onclick="g5SetFilter(this,'godly')" style="background:linear-gradient(90deg,#ff6b6b33,#ffd93d33,#6bcb7733);border-color:#fff;">✦ Godly</button>
 
     </div>
     <!-- Multi-select toolbar (auto-shown when cards selected) -->
@@ -1859,6 +2009,31 @@ function g5Notify(msg){
           <div class="g5-pack" onclick="g5OpenPack('dragon')" style="border-color:#ff6b35;box-shadow:0 0 14px #ff6b3533;">🐉<div class="g5-pack-label" style="color:#ff6b35;">DRAGON</div></div>
           <div class="g5-pack-cost">🪙 150 coins</div>
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 25% dragon</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div class="g5-pack" onclick="g5OpenPack('gold')" style="border-color:#ffd700;box-shadow:0 0 14px #ffd70044;">✦<div class="g5-pack-label" style="color:#ffd700;">GOLD</div></div>
+          <div class="g5-pack-cost">🪙 200 coins</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 15% gold</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div class="g5-pack" onclick="g5OpenPack('rainbow')" style="border-color:#fff;box-shadow:0 0 14px #ffffff33;background:linear-gradient(135deg,#ff6b6b22,#ffd93d22,#6bcb7722,#4d96ff22);">🌈<div class="g5-pack-label" style="color:#fff;">RAINBOW</div></div>
+          <div class="g5-pack-cost">🪙 300 coins</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 5% rainbow</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div class="g5-pack" onclick="g5OpenPack('amazing')" style="border-color:#e8ff00;box-shadow:0 0 20px #e8ff0066;background:linear-gradient(135deg,#1a0028,#001a00);">🌟<div class="g5-pack-label" style="color:#e8ff00;">AMAZING</div></div>
+          <div class="g5-pack-cost">🪙 1000 coins</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 25% mythical 1st</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div class="g5-pack" onclick="g5OpenPack('guaranteed_leg')" style="border-color:#ffb74d;box-shadow:0 0 14px #ffb74d33;">⭐<div class="g5-pack-label" style="color:#ffb74d;">GUAR. LEG</div></div>
+          <div class="g5-pack-cost">🪙 200 coins</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · first is legendary+</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div class="g5-pack" onclick="g5OpenPack('card_crate')" style="border-color:#888;box-shadow:0 0 14px #88888833;">📦<div class="g5-pack-label" style="color:#888;">CARD CRATE</div></div>
+          <div class="g5-pack-cost">🪙 200 coins</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">25 cards · mostly common</div>
         </div>
       </div>
       <div id="g5-pack-result" style="display:none;flex-direction:column;align-items:center;gap:10px;">
@@ -1935,6 +2110,18 @@ function g5Notify(msg){
   </div>
 </div>
 
+<!-- BG DRAW PANEL -->
+<div id="bg-draw-panel" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.94);flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+  <div style="font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:3px;color:var(--accent);">Draw Background</div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;">
+    <label style="font-size:11px;color:#aaa;display:flex;align-items:center;gap:4px;">Color: <input type="color" id="bg-brush-color" value="#ffffff" oninput="edBgBrushColor=this.value"></label>
+    <label style="font-size:11px;color:#aaa;display:flex;align-items:center;gap:4px;">Size: <input type="range" min="2" max="40" value="8" id="bg-brush-size" oninput="edBgBrushSize=parseInt(this.value);document.getElementById('bg-sz-val').textContent=this.value"> <span id="bg-sz-val">8</span></label>
+    <button onclick="bgFill()" style="background:#2f3542;border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:10px;">Fill</button>
+    <button onclick="clearEdBg()" style="background:#333;border:none;color:#aaa;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:10px;">Clear</button>
+    <button onclick="closeBgDrawPanel()" style="background:var(--primary);border:none;color:white;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;">Done</button>
+  </div>
+  <canvas id="bg-draw-canvas" style="border:2px solid #333;border-radius:4px;cursor:crosshair;touch-action:none;max-width:90vw;" width="800" height="400"></canvas>
+</div>
 <!-- MODAL -->
 <div id="master-modal" class="modal-overlay hidden">
     <div class="modal-box" id="modal-content"></div>
@@ -2196,6 +2383,14 @@ function g5Notify(msg){
                     <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;cursor:pointer;">
                         <input type="checkbox" id="ed-fly-chk" onchange="edFlyMode=this.checked;if(edFlyMode)startEdFlyLoop();else{edFlyY=0;edRender();}"> Admin Fly (WASD)
                     </label>
+                    <div style="border-top:1px solid #2a2a3a;padding-top:8px;margin-top:4px;">
+                      <div style="font-size:9px;color:#555;letter-spacing:1px;margin-bottom:6px;font-family:'Space Mono',monospace;">BACKGROUND</div>
+                      <button onclick="openBgDrawPanel()" style="background:#2f3542;border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:10px;width:100%;margin-bottom:6px;">🖌 Draw Background</button>
+                      <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;margin-bottom:4px;">
+                        <input type="checkbox" id="ed-bg-loop" onchange="edBgLooping=this.checked;"> Looping Background
+                      </label>
+                      <button onclick="clearEdBg()" style="background:#1a1a2e;border:1px solid #333;color:#888;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:9px;width:100%;">Clear Background</button>
+                    </div>
                     </div>
                     <!-- Selection-dependent (hidden when nothing selected) -->
                     <div id="ed-sel-props" style="display:none;border-top:1px solid #2a2a3a;padding-top:8px;">
@@ -2607,6 +2802,15 @@ function g5SetFilter(btn, filter){
 function closeGame5(){
   document.getElementById('game5-panel').style.display='none';
   g5StopCoinTimer();
+}
+function launchClareSecret(){
+  const msgs=['12453','1Qmxv','2Y2s=','4R2lybA==','5SXM=','3UmVhbA=='];
+  const pick=msgs[Math.floor(Math.random()*msgs.length)];
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+  ov.innerHTML=`<div style="font-family:'Space Mono',monospace;font-size:clamp(20px,5vw,42px);color:#e8ff00;letter-spacing:6px;text-align:center;user-select:none;">${pick}</div>`;
+  ov.onclick=()=>ov.remove();
+  document.body.appendChild(ov);
 }
 function launchClareTown(){
   document.getElementById('claretown').classList.remove('hidden');
@@ -3514,7 +3718,87 @@ function siderTeleport(){
 function dOrbJump(bounce){
   dVY=-(4+dJumpHeight*0.14)*((bounce||50)/50);
 }
-function dLoop(){if(!dRunning||dPaused)return;dRAF=requestAnimationFrame(dLoop);tickModifiers(1);dPhysics();dRender();}
+
+// ── Background Drawing System ─────────────────────────────────────────
+function openBgDrawPanel(){
+  const panel=document.getElementById('bg-draw-panel');
+  if(!panel)return;
+  panel.style.display='flex';
+  edBgCanvas=document.getElementById('bg-draw-canvas');
+  edBgCtx=edBgCanvas.getContext('2d');
+  if(!_edBgInit){
+    _edBgInit=true;
+    edBgCtx.fillStyle='#1a1a2e';
+    edBgCtx.fillRect(0,0,edBgCanvas.width,edBgCanvas.height);
+  }
+  edBgCanvas.onmousedown=(e)=>{edBgPainting=true;bgDraw(e);};
+  edBgCanvas.onmousemove=(e)=>{if(edBgPainting)bgDraw(e);};
+  edBgCanvas.onmouseup=edBgCanvas.onmouseleave=()=>{edBgPainting=false;};
+}
+function bgDraw(e){
+  if(!edBgCtx)return;
+  const rect=edBgCanvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(edBgCanvas.width/rect.width);
+  const my=(e.clientY-rect.top)*(edBgCanvas.height/rect.height);
+  edBgCtx.fillStyle=edBgBrushColor;
+  edBgCtx.beginPath();edBgCtx.arc(mx,my,edBgBrushSize,0,Math.PI*2);edBgCtx.fill();
+}
+function bgFill(){
+  if(!edBgCtx)return;
+  edBgCtx.fillStyle=edBgBrushColor;
+  edBgCtx.fillRect(0,0,edBgCanvas.width,edBgCanvas.height);
+}
+function clearEdBg(){
+  _edBgInit=false;
+  const c=document.getElementById('bg-draw-canvas');
+  if(c){const cx=c.getContext('2d');cx.clearRect(0,0,c.width,c.height);cx.fillStyle='#1a1a2e';cx.fillRect(0,0,c.width,c.height);}
+  edBgCanvas=null;edBgCtx=null;edRender();
+}
+function closeBgDrawPanel(){
+  document.getElementById('bg-draw-panel').style.display='none';
+  edRender();
+}
+function drawEditorBg(ctx,W,H,scrollX){
+  if(!edBgCanvas||!_edBgInit)return;
+  ctx.save();
+  if(edBgLooping){
+    const bw=edBgCanvas.width;
+    const offset=scrollX%bw;
+    ctx.drawImage(edBgCanvas,-offset,0,bw,H);
+    if(offset>0)ctx.drawImage(edBgCanvas,bw-offset,0,bw,H);
+  } else {
+    ctx.drawImage(edBgCanvas,0,0,W,H);
+  }
+  ctx.restore();
+}
+
+let _airborneTimer=0,_lowScreenTimer=0;
+function dLoop(){
+  if(!dRunning||dPaused)return;
+  dRAF=requestAnimationFrame(dLoop);
+  tickModifiers(1);dPhysics();dRender();
+  // Track airplane skin: airborne 30s on rated level
+  if(dCurrentLevel&&dCurrentLevel.difficulty&&hubUser&&!dShipMode&&!dWaveMode&&!dSpiderMode){
+    if(!dGrounded){
+      _airborneTimer+=1/60;
+      if(_airborneTimer>=30){
+        db.ref('claredash_skins/'+hubUser+'/airplaneSkin').set(true,()=>{_cachedSkinData.airplaneSkin=true;checkSkinUnlocksLocal();});
+        _airborneTimer=-9999;
+      }
+    } else { _airborneTimer=0; }
+  }
+  // Track yarhar skin: lower half of screen 30s on rated level
+  if(dCurrentLevel&&dCurrentLevel.difficulty&&hubUser){
+    const halfH=dCanvas?dCanvas.height*0.5:GROUND_Y*0.5;
+    if(dPY>halfH){
+      _lowScreenTimer+=1/60;
+      if(_lowScreenTimer>=30){
+        db.ref('claredash_skins/'+hubUser+'/yarharSkin').set(true,()=>{_cachedSkinData.yarharSkin=true;checkSkinUnlocksLocal();});
+        _lowScreenTimer=-9999;
+      }
+    } else { _lowScreenTimer=0; }
+  }
+}
 function dPhysics(){
   if(dDied||dWon)return;
   const gh=GROUND_Y,spd=getDSPD();
@@ -3671,6 +3955,18 @@ function dPhysics(){
           showDashOver('LEVEL COMPLETE!','Finished in '+attempts+' attempt'+(attempts>1?'s':'')+'!');
           if(dCurrentLevelKey&&hubUser){
             db.ref('claredash_best/'+hubUser+'/'+dCurrentLevelKey).set(100);
+            // Inhumane skin
+            if(dCurrentLevel&&dCurrentLevel.difficulty==='inhumane'){
+              db.ref('claredash_skins/'+hubUser+'/beatInhumane').set(true,()=>{_cachedSkinData.beatInhumane=true;checkSkinUnlocksLocal();});
+            }
+            // Easiest skin
+            if(dCurrentLevel&&dCurrentLevel.difficulty==='easiest'){
+              db.ref('claredash_skins/'+hubUser+'/beatEasiest').set(true,()=>{_cachedSkinData.beatEasiest=true;checkSkinUnlocksLocal();});
+            }
+            // Troll skin: first attempt win on non-easiest rated level
+            if(dAttempts===1&&dCurrentLevel&&dCurrentLevel.difficulty&&dCurrentLevel.difficulty!=='easiest'){
+              db.ref('claredash_skins/'+hubUser+'/trollSkin').set(true,()=>{_cachedSkinData.trollSkin=true;checkSkinUnlocksLocal();});
+            }
             // ── Gem earning (first clear only) ──
             if(dCurrentLevel&&dCurrentLevel.difficulty){
               const GEM_VALUES={easiest:0,cakewalk:1,easy:2,medium:3,hard:4,extreme:5,deadly:10,inhumane:15};
@@ -4075,8 +4371,6 @@ function renderObs(ctx,o,rx,_obsArr){
   } else if(o.t==='solidblock'){
     const scol=o.color||'#ffffff';
     ctx.fillStyle=scol;ctx.fillRect(rx,o.y,o.w,o.h);
-    // slightly darker stroke from the fill color
-    ctx.strokeStyle='rgba(0,0,0,0.25)';ctx.lineWidth=1.5;ctx.strokeRect(rx+.5,o.y+.5,o.w-1,o.h-1);
   } else if(o.t==='block'){
     const bv=o.version||1;
     const col=o.color||'#2a2a5a';
@@ -4843,6 +5137,10 @@ function setDifficultyAdmin(key,diffId){
 function dDie(){
   dDied=true;dRunning=false;
   const pct=Math.round(dPct*100);
+  // Track 95%+ death on rated level for Sorry! skin
+  if(pct>=95&&dCurrentLevel&&dCurrentLevel.difficulty&&hubUser){
+    db.ref('claredash_skins/'+hubUser+'/die95').set(true,()=>{_cachedSkinData.die95=true;checkSkinUnlocksLocal();});
+  }
   if(dCurrentLevelKey&&hubUser){
     db.ref('claredash_best/'+hubUser+'/'+dCurrentLevelKey).once('value',snap=>{
       if(snap.val()==null||pct>snap.val())db.ref('claredash_best/'+hubUser+'/'+dCurrentLevelKey).set(pct);
@@ -4887,6 +5185,8 @@ const DASH_SKINS=[
   {id:'gemskin',  label:'Gem',            desc:"Buy this from the gem shop. MONEY!! 🤑🤑💎💎", unlock:'gemShop'},
   {id:'truecakewalker',label:'True Cakewalker',desc:"Buy this from the gem shop. You might need to go easy on the sugar..", unlock:'gemShop'},
   {id:'skullcube',    label:'Skull',          desc:"Beat 1 Deadly. Your SUPA skilled now.",                              unlock:'beatDeadly'},
+  {id:'sorry',        label:'Sorry!',          desc:'Die at 95%+ on a Rated level. Owch.',                               unlock:'die95'},
+  {id:'inhumanity',   label:'INHUMANITY!!',    desc:'Complete an Inhumane. You are truly inhuman.',                       unlock:'beatInhumane'},
 ];
 const SHIP_SKINS=[
   {id:'cursor',   label:'Cursor',         desc:"Default.",                            unlock:'default'},
@@ -4895,6 +5195,8 @@ const SHIP_SKINS=[
   {id:'flipper',  label:'Flipper',        desc:"Beat FlipSide. UR PRO!!!!!!.",                      unlock:'beatFlipSide'},
   {id:'admincursor',label:'Admin',        desc:"Admin only. For the COOLEST of clares.",                         unlock:'admin'},
   {id:'bone',     label:'Bone',           desc:"Beat the main level 'Spooky'. It's BONE chilling! wait have we already done that joke", unlock:'beatSpooky'},
+  {id:'airplane',   label:'AIRPLANE!!!',     desc:"Fly without touching the ground for 30 seconds on a Rated level. You're the master of the skies!", unlock:'airplaneSkin'},
+  {id:'yarhar',     label:'YAR HAR!',         desc:"Stay on the lower half of the screen for 30 seconds on a Rated level. You're the master of the seas!", unlock:'yarharSkin'},
 ];
 const SPIDER_SKINS=[
   {id:'eyes8',    label:'8Eyes',          desc:"Default.",                            unlock:'default'},
@@ -4902,7 +5204,9 @@ const SPIDER_SKINS=[
   {id:'monkey',   label:'Monkey',         desc:"Flip gravity 500 times. I feel dizzy...",             unlock:'flips500'},
   {id:'adminspider',label:'Admin',        desc:"Admin only. For the COOLEST of clares.",                         unlock:'admin'},
   {id:'deadly',   label:'Deadly',         desc:"Find this in a deep dark place. It's BONE chilling!!!",          unlock:'vaultDeadly'},
-  {id:'hand',     label:'Hand',           desc:"Beat the 'Spooky' Pack. Not obtainable yet. Need a hand?",        unlock:'beatSpookyPack'},
+  {id:'hand',     label:'Hand',           desc:"Beat the 'Spooky' Pack. Not obtainable yet. Need a hand.",        unlock:'beatSpookyPack'},
+  {id:'easybutton', label:'Easy Button',     desc:'Complete an Easiest level. That was easy.',                          unlock:'beatEasiest'},
+  {id:'troll',      label:'TROLL!!',          desc:'Beat a non-easiest level first try with no previous attempts.',      unlock:'trollSkin'},
 ];
 
 const SIDER_SKINS=[
@@ -4989,7 +5293,11 @@ function computeUnlockedSkins(d){
   if(d.beatCakeWalk)dUnlockedShipSkins.push('cake');
   if(d.beatFlipSide)dUnlockedShipSkins.push('flipper');
   if(d.beatSpooky)dUnlockedShipSkins.push('bone');
+  if(d.airplaneSkin)dUnlockedShipSkins.push('airplane');
+  if(d.yarharSkin)dUnlockedShipSkins.push('yarhar');
   if(d.beatDeadly)dUnlockedSkins.push('skullcube');
+  if(d.die95)dUnlockedSkins.push('sorry');
+  if(d.beatInhumane)dUnlockedSkins.push('inhumanity');
   // Spider skins
   const prevSpider=[...dUnlockedSpiderSkins];
   dUnlockedSpiderSkins=['eyes8'];
@@ -4997,6 +5305,8 @@ function computeUnlockedSkins(d){
   if(ratedBeats>=10)dUnlockedSpiderSkins.push('trophy');
   if(dGravFlipCount>=500)dUnlockedSpiderSkins.push('monkey');
   if(d.vaultDeadlySkin)dUnlockedSpiderSkins.push('deadly');
+  if(d.beatEasiest)dUnlockedSpiderSkins.push('easybutton');
+  if(d.trollSkin)dUnlockedSpiderSkins.push('troll');
   if(d.beatSpookyPack)dUnlockedSpiderSkins.push('hand');
   // Ball skins
   const prevBall=[...dUnlockedBallSkins];
@@ -5544,6 +5854,26 @@ function drawSkinShape(ctx,x,y,s,pc,skinId,strokeOverride){
     ctx.fillStyle='#fd79a8';ctx.fillRect(x+Math.round(s*0.24),y,Math.round(s*0.12),Math.round(s*0.1));
     ctx.fillStyle='#fd79a8';ctx.fillRect(x+Math.round(s*0.44),y,Math.round(s*0.12),Math.round(s*0.1));
     ctx.fillStyle='#fd79a8';ctx.fillRect(x+Math.round(s*0.64),y,Math.round(s*0.12),Math.round(s*0.1));
+  } else if(skinId==='sorry'){
+    ctx.fillStyle=pc;ctx.fillRect(x,y,s,s);
+    ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,s-2,s-2);
+    // Frowny face
+    ctx.fillStyle=stroke;
+    ctx.fillRect(x+s*0.2,y+s*0.28,s*0.16,s*0.16);
+    ctx.fillRect(x+s*0.64,y+s*0.28,s*0.16,s*0.16);
+    // Frown arc
+    ctx.strokeStyle=stroke;ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(cx,y+s*0.74,s*0.22,0,Math.PI,true);ctx.stroke();
+  } else if(skinId==='inhumanity'){
+    if(!window._inhumanityImg){window._inhumanityImg=new Image();window._inhumanityImg.src='difficulty/inhumane.png';}
+    if(window._inhumanityImg.complete&&window._inhumanityImg.naturalWidth>0){
+      ctx.drawImage(window._inhumanityImg,x,y,s,s);
+    } else {
+      ctx.fillStyle='#1a0000';ctx.fillRect(x,y,s,s);
+      ctx.font=Math.round(s*0.55)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('😈',cx,cy+2);
+      window._inhumanityImg.onload=()=>{if(document.getElementById('skin-grid'))buildSkinGrid();};
+    }
   } else if(skinId==='skullcube'){
     // White skull on dark background
     ctx.fillStyle='#1a1a2e';ctx.fillRect(x,y,s,s);
@@ -5620,6 +5950,16 @@ function drawShipSkinInGame(ctx,x,y,pc){
     // Highlight top-right
     ctx.fillStyle='rgba(255,255,255,0.7)';
     ctx.beginPath();ctx.ellipse(bx2+bw-kw*0.6,ky+kh*0.18,kw*0.28,kw*0.18,-0.5,0,Math.PI*2);ctx.fill();
+  } else if(skin==='airplane'){
+    ctx.fillStyle=pc||'#4834d4';ctx.fillRect(x,y,s,s);
+    ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1.5;ctx.strokeRect(x+1,y+1,s-2,s-2);
+    ctx.font=Math.round(s*0.6)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('✈️',cx,cy+2);
+  } else if(skin==='yarhar'){
+    ctx.fillStyle=pc||'#4834d4';ctx.fillRect(x,y,s,s);
+    ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1.5;ctx.strokeRect(x+1,y+1,s-2,s-2);
+    ctx.font=Math.round(s*0.6)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🏴‍☠️',cx,cy+2);
   } else if(skin==='skull'){
     // Skull shape
     ctx.fillStyle=pc||'#ffffff';ctx.strokeStyle='#888';ctx.lineWidth=1.5;
@@ -5701,6 +6041,20 @@ function drawSpiderSkinInGame(ctx,x,y,pc){
       if(seg<1){ctx.fillStyle='#aaa';ctx.beginPath();ctx.arc(tw,th/2,s*0.022,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e8e0cc';}
     }
     ctx.restore();
+  } else if(skin==='easybutton'){
+    ctx.fillStyle='#cc0000';ctx.fillRect(x,y,s,s);
+    ctx.strokeStyle='#ff4444';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,s-2,s-2);
+    const btnY=y+s*0.18,btnH=s*0.64;
+    ctx.fillStyle='#2ed573';
+    ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x+s*0.08,btnY,s*0.84,btnH,5);else ctx.rect(x+s*0.08,btnY,s*0.84,btnH);
+    ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold '+Math.round(s*0.26)+'px DM Sans,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('EASY',cx,btnY+btnH/2+1);
+  } else if(skin==='troll'){
+    ctx.fillStyle=pc||'#4834d4';ctx.fillRect(x,y,s,s);
+    ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1.5;ctx.strokeRect(x+1,y+1,s-2,s-2);
+    ctx.font=Math.round(s*0.6)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🧌',cx,cy+2);
   } else if(skin==='deadly'){
     // Deadly spider - uses deadly.png image
     if(!window._deadlySpiderImg){window._deadlySpiderImg=new Image();window._deadlySpiderImg.src='difficulty/deadly.png';}
@@ -5825,6 +6179,10 @@ document.addEventListener('mouseup',()=>dJumpRelease());
 
 let edCanvas,edCtx,edObs=[],edScrollX=0,edSelectedIdx=-1;
 let edDragMode=false,edGridOn=true,edGridSize=40;
+let edMultiSel=new Set(); // indices of multi-selected objects
+let edShiftDragOffs=[]; // [{idx,dx,dy}] for multi-drag
+let edBgCanvas=null,edBgCtx=null,edBgLooping=false,edBgPainting=false;
+let edBgBrushColor='#ffffff',edBgBrushSize=8,_edBgInit=false;
 let edFlyMode=false,edFlyX=0,edFlyY=0,edFlyKeys={};
 let edDragIdx=-1,edDragOffX=0,edDragOffY=0,edPanDragging=false,edLastX=0,edLastY=0,edMouseDownPos=null;
 const ED_GH=()=>GROUND_Y;
@@ -5906,10 +6264,22 @@ function edMouseDown(e){
   }
   const {wx,wy}=edWorldPos(e);
   if(edDragMode){
-   
     for(let i=edObs.length-1;i>=0;i--){
       const o=edObs[i];
       if(wx>=o.x&&wx<=o.x+o.w&&wy>=o.y&&wy<=o.y+o.h){
+        if(e.shiftKey){
+          // Shift: toggle multi-select
+          if(edMultiSel.has(i))edMultiSel.delete(i);else edMultiSel.add(i);
+          edRender();return;
+        }
+        // Click on a multi-selected item: drag all
+        if(edMultiSel.has(i)&&edMultiSel.size>1){
+          edDragIdx=i;edDragOffX=wx-o.x;edDragOffY=wy-o.y;
+          edShiftDragOffs=[];
+          edMultiSel.forEach(idx=>edShiftDragOffs.push({idx,dx:wx-edObs[idx].x,dy:wy-edObs[idx].y}));
+          edCanvas.style.cursor='grabbing';edRender();return;
+        }
+        edMultiSel.clear();edShiftDragOffs=[];
         edDragIdx=i;edDragOffX=wx-o.x;edDragOffY=wy-o.y;edSelectObj(i);edRender();
         edCanvas.style.cursor='grabbing';
         return;
@@ -5952,9 +6322,18 @@ function edMouseMove(e){
   document.getElementById('ed-x').textContent=Math.round(wx);
   if(edDragIdx>=0){
     const {wx:wwx,wy:wwy}=edWorldPos(e);
-    let nx=wwx-edDragOffX,ny=wwy-edDragOffY;
-    if(edGridOn){nx=Math.round(nx/edGridSize)*edGridSize;ny=Math.round(ny/edGridSize)*edGridSize;}
-    edObs[edDragIdx].x=Math.round(nx);edObs[edDragIdx].y=Math.round(ny);
+    if(edShiftDragOffs.length>1){
+      // Move all multi-selected
+      edShiftDragOffs.forEach(({idx,dx,dy})=>{
+        let nx=wwx-dx,ny=wwy-dy;
+        if(edGridOn){nx=Math.round(nx/edGridSize)*edGridSize;ny=Math.round(ny/edGridSize)*edGridSize;}
+        edObs[idx].x=Math.round(nx);edObs[idx].y=Math.round(ny);
+      });
+    } else {
+      let nx=wwx-edDragOffX,ny=wwy-edDragOffY;
+      if(edGridOn){nx=Math.round(nx/edGridSize)*edGridSize;ny=Math.round(ny/edGridSize)*edGridSize;}
+      edObs[edDragIdx].x=Math.round(nx);edObs[edDragIdx].y=Math.round(ny);
+    }
     edRender();return;
   }
   if(!edDragMode&&edMouseDownPos&&!edPanDragging){
@@ -6293,6 +6672,7 @@ function edRender(){
   if(!edCtx)return;
   const ctx=edCtx,W=edCanvas.width,H=edCanvas.height,gh=ED_GH();
   ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
+  drawEditorBg(ctx,W,H,edScrollX);
   ctx.save();
   ctx.translate(0, -edFlyY); // fly mode vertical offset
 
@@ -6321,6 +6701,13 @@ function edRender(){
       renderObs(ctx,o,rx,edObs);
     }
     ctx.restore();
+    // Multi-select highlight
+    if(edMultiSel.has(i)&&i!==edSelectedIdx){
+      ctx.save();ctx.strokeStyle='rgba(232,255,0,0.45)';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      const rx2=edObs[i].x-edScrollX;
+      ctx.strokeRect(rx2-2,edObs[i].y-2,edObs[i].w+4,edObs[i].h+4);
+      ctx.setLineDash([]);ctx.restore();
+    }
     // selection highlight + scale handles
     if(i===edSelectedIdx){
       const selRot=(o.rot||0)*Math.PI/180;
@@ -6401,15 +6788,67 @@ function saveLevel(){
     });
   }
 }
+let _testFlyY=200,_testFlyActive=false,_testNoclip=false;
 function testLevel(){
   if(!edObs.find(o=>o.t==='startblock')){alert('Need a Start Block!');return;}
   if(!edObs.find(o=>o.t==='endblock')){alert('Need an End Block!');return;}
   dCurrentLevel={name:'Test',author:'bartelsfamily5',obs:edObs};dCurrentLevelKey=null;
   dAttempts=1;
+  _testFlyActive=true;_testNoclip=false;_testFlyY=GROUND_Y-DSIZE;
   ['dash-play-tab','dash-create-tab','dash-settings','dash-level-page'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.add('hidden');});
   document.getElementById('dash-game').classList.remove('hidden');
   document.getElementById('dash-over').classList.add('hidden');
-  requestAnimationFrame(()=>{initDCanvas();resetDash();dRunning=true;dLoop();updDHUD();});
+  // Create test bar if not exists
+  let tb=document.getElementById('dash-test-bar');
+  if(!tb){
+    tb=document.createElement('div');tb.id='dash-test-bar';
+    tb.style.cssText='position:absolute;top:44px;left:10px;z-index:30;background:rgba(15,15,26,0.94);border:1px solid #e8ff00;border-radius:6px;padding:5px 12px;display:flex;align-items:center;gap:10px;font-family:Space Mono,monospace;font-size:10px;color:#e8ff00;pointer-events:all;';
+    tb.innerHTML='<span>✈ TEST — WASD fly</span>'
+      +'<label style="display:flex;align-items:center;gap:4px;color:#aaa;cursor:pointer;font-size:10px;">'
+      +'<input type="checkbox" id="test-noclip-chk" onchange="_testNoclip=this.checked"> Noclip</label>'
+      +'<button onclick="stopTestMode()" style="background:#eb4d4b;border:none;color:white;padding:2px 9px;border-radius:3px;cursor:pointer;font-size:10px;">Stop</button>';
+    document.getElementById('dash-game').appendChild(tb);
+  }
+  tb.style.display='flex';
+  requestAnimationFrame(()=>{initDCanvas();resetDash();dRunning=true;_testFlyLoop();updDHUD();});
+}
+function stopTestMode(){
+  _testFlyActive=false;dRunning=false;
+  if(dRAF)cancelAnimationFrame(dRAF);
+  const tb=document.getElementById('dash-test-bar');if(tb)tb.style.display='none';
+  showDashTab('create');
+}
+function _testFlyLoop(){
+  if(!dRunning||!_testFlyActive)return;
+  dRAF=requestAnimationFrame(_testFlyLoop);
+  const spd=5;
+  if(TK['KeyW']||TK['ArrowUp'])   _testFlyY=Math.max(-300,_testFlyY-spd);
+  if(TK['KeyS']||TK['ArrowDown']) _testFlyY=Math.min(GROUND_Y,_testFlyY+spd);
+  if(TK['KeyA']||TK['ArrowLeft']) dScrollX=Math.max(0,dScrollX-spd);
+  if(TK['KeyD']||TK['ArrowRight'])dScrollX+=spd;
+  if(!_testNoclip){
+    // Normal physics but player position locked to fly Y
+    dPX=120;dPY=_testFlyY;dVY=0;dGrounded=false;
+    // Still scroll automatically
+    dScrollX+=getDSPD();
+    // Check portals/triggers but skip death/physics
+    for(const o of dObs){
+      const ox=o.x-dScrollX;
+      if(o.t==='endblock'&&dPX+DSIZE>=ox){
+        // Hit end - don't win in test mode, just show a toast
+        dScrollX-=getDSPD();break;
+      }
+    }
+  } else {
+    dPX=120;dPY=_testFlyY;dVY=0;dGrounded=false;
+    dScrollX+=getDSPD();
+  }
+  dRender();
+  // Update pct
+  const start=dObs.find(o=>o.t==='startblock');
+  const end=dObs.find(o=>o.t==='endblock');
+  if(start&&end){const total=end.x-start.x;const done=dScrollX-(start.x-110);dPct=Math.max(0,Math.min(1,done/total));}
+  updDHUD();
 }
 
 // ===== CLARETOWN ENGINE =====
