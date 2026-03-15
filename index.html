@@ -223,7 +223,7 @@
                 <div class="game-num">01</div>
                 <div>
                     <div class="game-name"><span>Clare</span>Cool</div>
-                    <div class="game-tag">Social</div>
+                    <div class="game-tag">External</div>
                 </div>
             </div>
             <button class="game-play" onclick="launchClareCool()">Play</button>
@@ -253,7 +253,7 @@
                 <div class="game-num">04</div>
                 <div>
                     <div class="game-name"><span>Clare</span>Clash</div>
-                    <div class="game-tag">Fighting</div>
+                    <div class="game-tag">External</div>
                 </div>
             </div>
             <button class="game-play" onclick="launchClareClash()">Play</button>
@@ -273,7 +273,7 @@
                 <div class="game-num">06</div>
                 <div>
                     <div class="game-name"><span>Clare</span>Dimensions</div>
-                    <div class="game-tag">Explorational</div>
+                    <div class="game-tag">External · 3D</div>
                 </div>
             </div>
             <button class="game-play" onclick="window.open('https://imkindagoodat2048-tech.github.io/ClareDimensions/','_blank')">Play</button>
@@ -2367,10 +2367,6 @@ function g5Notify(msg){
                     </div>
                     <div style="border-top:1px solid #2a2a3a;margin-bottom:8px;padding-top:8px;">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                        <span style="font-size:11px;width:80px;">BG Color</span>
-                        <input type="color" id="ed-bg-color" value="#1a1a2e" oninput="dBgColor=this.value;edRender();" style="width:36px;height:22px;border:none;background:none;cursor:pointer;padding:0;">
-                    </div>
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                         <span style="font-size:11px;width:80px;">Ground Color</span>
                         <input type="color" id="ed-ground-color" value="#252545" oninput="dGroundColor=this.value;edRender();" style="width:36px;height:22px;border:none;background:none;cursor:pointer;padding:0;">
                     </div>
@@ -4230,7 +4226,13 @@ function dPhysics(){
 function dRender(){
   const ctx=dCtx,W=dCanvas.width,H=dCanvas.height,gh=GROUND_Y;
   ctx.shadowBlur=0;ctx.shadowColor='transparent'; // ensure shadow off
-  ctx.fillStyle=dBgColor||'#1a1a2e';ctx.fillRect(0,0,W,H);
+  // Custom drawn bg takes priority over solid bg color
+  if(edBgCanvas && _edBgInit){
+    ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+    drawEditorBg(ctx,W,H,dScrollX);
+  } else {
+    ctx.fillStyle=dBgColor||'#1a1a2e';ctx.fillRect(0,0,W,H);
+  }
   ctx.strokeStyle='rgba(80,80,160,0.1)';ctx.lineWidth=1;
   const gs=60,gox=dScrollX%gs;
   ctx.beginPath();
