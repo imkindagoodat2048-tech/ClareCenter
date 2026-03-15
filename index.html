@@ -2377,7 +2377,7 @@ function g5Notify(msg){
                         <input type="checkbox" id="ed-drag-chk" onchange="edDragMode=this.checked;edCanvas.style.cursor=edDragMode?'grab':'crosshair';"> Drag Mode
                     </label>
                     <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;cursor:pointer;">
-                        <input type="checkbox" id="ed-fly-chk" onchange="edFlyMode=this.checked;if(edFlyMode)startEdFlyLoop();else{edFlyY=0;edRender();}"> Admin Fly (WASD)
+                        <input type="checkbox" id="ed-fly-chk" onchange="edFlyMode=this.checked;if(edFlyMode){startEdFlyLoop();}else{if(_edFlyRAF){cancelAnimationFrame(_edFlyRAF);_edFlyRAF=null;}Object.keys(edFlyKeys).forEach(k=>edFlyKeys[k]=false);edFlyY=0;edRender();}"> Admin Fly (WASD)
                     </label>
                     <div style="border-top:1px solid #2a2a3a;padding-top:8px;margin-top:4px;">
                       <div style="font-size:9px;color:#555;letter-spacing:1px;margin-bottom:6px;font-family:'Space Mono',monospace;">BACKGROUND</div>
@@ -2896,6 +2896,8 @@ function showDashTab(tab){
   ['dash-play-tab','dash-packs-tab','dash-create-tab','dash-game','dash-settings','dash-level-page'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.classList.add('hidden');
   });
+  // Clear fly keys when leaving create tab so nothing lingers
+  Object.keys(edFlyKeys).forEach(k=>edFlyKeys[k]=false);
   stopDash();
   if(tab==='play'){document.getElementById('dash-play-tab').classList.remove('hidden');loadLevelList();}
   else if(tab==='create'){document.getElementById('dash-create-tab').classList.remove('hidden');initEditor();}
@@ -6217,7 +6219,7 @@ document.addEventListener('keyup',e=>{
   const tag=document.activeElement&&document.activeElement.tagName;
   const isTyping=tag==='INPUT'||tag==='TEXTAREA';
   if(isTyping) return;
-  edFlyKeys[e.code]=false;
+  edFlyKeys[e.code]=false; // always clear so stale keys never linger
   TK[e.code]=false;
   if(e.code==='Space')dJumpRelease();
   if(e.code==='ArrowDown'||e.code==='KeyS'){if(dShipMode||dWaveMode)dShipHeld=false;}
@@ -6248,13 +6250,18 @@ const OBJ_DEFAULTS={
 // Fly mode tick — called from edRender
 let _edFlyRAF=null;
 function edFlyTick(){
-  if(!edFlyMode||!edCanvas||edCanvas.offsetParent===null){_edFlyRAF=null;return;}
+  // Stop immediately if fly mode turned off
+  if(!edFlyMode||!edCanvas||edCanvas.offsetParent===null){
+    _edFlyRAF=null;
+    return;
+  }
   const spd=12;
-  if(edFlyKeys['KeyA']||edFlyKeys['ArrowLeft'])  edScrollX=Math.max(0,edScrollX-spd);
-  if(edFlyKeys['KeyD']||edFlyKeys['ArrowRight']) edScrollX+=spd;
-  if(edFlyKeys['KeyW']||edFlyKeys['ArrowUp'])    edFlyY=Math.max(-600,edFlyY-spd);
-  if(edFlyKeys['KeyS']||edFlyKeys['ArrowDown'])  edFlyY=Math.min(400,edFlyY+spd);
-  if(Object.values(edFlyKeys).some(Boolean)) edRender();
+  let moved=false;
+  if(edFlyKeys['KeyA']||edFlyKeys['ArrowLeft'])  { edScrollX=Math.max(0,edScrollX-spd); moved=true; }
+  if(edFlyKeys['KeyD']||edFlyKeys['ArrowRight']) { edScrollX+=spd; moved=true; }
+  if(edFlyKeys['KeyW']||edFlyKeys['ArrowUp'])    { edFlyY=Math.max(-600,edFlyY-spd); moved=true; }
+  if(edFlyKeys['KeyS']||edFlyKeys['ArrowDown'])  { edFlyY=Math.min(400,edFlyY+spd); moved=true; }
+  if(moved) edRender();
   _edFlyRAF=requestAnimationFrame(edFlyTick);
 }
 function startEdFlyLoop(){
