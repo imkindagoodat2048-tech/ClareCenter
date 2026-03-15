@@ -223,7 +223,7 @@
                 <div class="game-num">01</div>
                 <div>
                     <div class="game-name"><span>Clare</span>Cool</div>
-                    <div class="game-tag">Chatting</div>
+                    <div class="game-tag">External</div>
                 </div>
             </div>
             <button class="game-play" onclick="launchClareCool()">Play</button>
@@ -253,7 +253,7 @@
                 <div class="game-num">04</div>
                 <div>
                     <div class="game-name"><span>Clare</span>Clash</div>
-                    <div class="game-tag">PVP</div>
+                    <div class="game-tag">External</div>
                 </div>
             </div>
             <button class="game-play" onclick="launchClareClash()">Play</button>
@@ -273,7 +273,7 @@
                 <div class="game-num">06</div>
                 <div>
                     <div class="game-name"><span>Clare</span>Dimensions</div>
-                    <div class="game-tag">Exploration</div>
+                    <div class="game-tag">External · 3D</div>
                 </div>
             </div>
             <button class="game-play" onclick="window.open('https://imkindagoodat2048-tech.github.io/ClareDimensions/','_blank')">Play</button>
@@ -625,7 +625,7 @@ const G5_PACKS = {
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:false, goldBoost:true },
   rainbow:  { cost:300, size:5, label:'RAINBOW',  icon:'🌈', desc:'5 cards · 5% rainbow',
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:false, rainbowBoost:true },
-  amazing:  { cost:1000, size:5, label:'AMAZING', icon:'🌟', desc:'5 cards · 25% mythical 1st · 10% rainbow · 25% gold · 5% silver · 25% dragon',
+  amazing:  { cost:1000, size:10, label:'AMAZING', icon:'🌟', desc:'10 cards · first 2 are 25% mythical · boosted rainbow/gold/dragon',
     weights:{common:20,uncommon:15,rare:20,epic:15,legendary:10,mythical:20}, dragon:true, silverBoost:true, goldBoost:true, rainbowBoost:true, amazingMode:true },
   guaranteed_leg: { cost:200, size:5, label:'GUAR. LEG', icon:'⭐', desc:'5 cards · first card 80% legendary 20% mythical',
     weights:{common:60,uncommon:20,rare:10,epic:5,legendary:4,mythical:1}, dragon:false, silverBoost:false, guaranteedLeg:true },
@@ -1637,7 +1637,7 @@ function g5OpenPackFromInventory(packId){
   const drawn=[];
   for(let i=0;i<pack.size;i++){
     let chosenRarity='common';
-    if(i===0 && pack.amazingMode){
+    if(i<2 && pack.amazingMode){
       const ar=Math.random();
       chosenRarity=ar<0.25?'mythical':ar<0.50?'legendary':ar<0.65?'epic':ar<0.80?'rare':'uncommon';
     } else if(i===0 && pack.guaranteedLeg){
@@ -2023,7 +2023,7 @@ function g5Notify(msg){
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('amazing')" style="border-color:#e8ff00;box-shadow:0 0 20px #e8ff0066;background:linear-gradient(135deg,#1a0028,#001a00);">🌟<div class="g5-pack-label" style="color:#e8ff00;">AMAZING</div></div>
           <div class="g5-pack-cost">🪙 1000 coins</div>
-          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">5 cards · 25% mythical 1st</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#444;letter-spacing:1px;max-width:110px;text-align:center;">10 cards · first 2 are 25% mythical</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
           <div class="g5-pack" onclick="g5OpenPack('guaranteed_leg')" style="border-color:#ffb74d;box-shadow:0 0 14px #ffb74d33;">⭐<div class="g5-pack-label" style="color:#ffb74d;">GUAR. LEG</div></div>
