@@ -223,7 +223,7 @@
                 <div class="game-num">01</div>
                 <div>
                     <div class="game-name"><span>Clare</span>Cool</div>
-                    <div class="game-tag">Social</div>
+                    <div class="game-tag">External</div>
                 </div>
             </div>
             <button class="game-play" onclick="launchClareCool()">Play</button>
@@ -253,7 +253,7 @@
                 <div class="game-num">04</div>
                 <div>
                     <div class="game-name"><span>Clare</span>Clash</div>
-                    <div class="game-tag">Fighting</div>
+                    <div class="game-tag">External</div>
                 </div>
             </div>
             <button class="game-play" onclick="launchClareClash()">Play</button>
@@ -273,7 +273,7 @@
                 <div class="game-num">06</div>
                 <div>
                     <div class="game-name"><span>Clare</span>Dimensions</div>
-                    <div class="game-tag">Exploration</div>
+                    <div class="game-tag">External · 3D</div>
                 </div>
             </div>
             <button class="game-play" onclick="window.open('https://imkindagoodat2048-tech.github.io/ClareDimensions/','_blank')">Play</button>
@@ -2381,11 +2381,24 @@ function g5Notify(msg){
                     </label>
                     <div style="border-top:1px solid #2a2a3a;padding-top:8px;margin-top:4px;">
                       <div style="font-size:9px;color:#555;letter-spacing:1px;margin-bottom:6px;font-family:'Space Mono',monospace;">BACKGROUND</div>
-                      <button onclick="openBgDrawPanel()" style="background:#2f3542;border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:10px;width:100%;margin-bottom:6px;">🖌 Draw Background</button>
-                      <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;margin-bottom:4px;">
-                        <input type="checkbox" id="ed-bg-loop" onchange="edBgLooping=this.checked;"> Looping Background
-                      </label>
-                      <button onclick="clearEdBg()" style="background:#1a1a2e;border:1px solid #333;color:#888;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:9px;width:100%;">Clear Background</button>
+                      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11px;color:#aaa;">
+                        Mode:
+                        <select id="ed-bg-mode-sel" onchange="edSetBgMode(this.value)" style="background:#0f0f1a;border:1px solid #333;color:white;font-size:10px;padding:2px 6px;border-radius:4px;flex:1;">
+                          <option value="color">Solid Color</option>
+                          <option value="drawn">Drawn</option>
+                        </select>
+                      </div>
+                      <div id="ed-bg-color-row" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                        <span style="font-size:11px;width:80px;">BG Color</span>
+                        <input type="color" id="ed-bg-color" value="#1a1a2e" oninput="dBgColor=this.value;edRender();" style="width:36px;height:22px;border:none;background:none;cursor:pointer;padding:0;">
+                      </div>
+                      <div id="ed-bg-drawn-rows" style="display:none;">
+                        <button onclick="openBgDrawPanel()" style="background:#2f3542;border:none;color:white;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:10px;width:100%;margin-bottom:6px;">🖌 Draw Background</button>
+                        <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;margin-bottom:4px;">
+                          <input type="checkbox" id="ed-bg-loop" onchange="edBgLooping=this.checked;"> Looping Background
+                        </label>
+                        <button onclick="clearEdBg()" style="background:#1a1a2e;border:1px solid #333;color:#888;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:9px;width:100%;">Clear Background</button>
+                      </div>
                     </div>
                     </div>
                     <!-- Selection-dependent (hidden when nothing selected) -->
@@ -3504,6 +3517,14 @@ function playLevel(key){
     if(dCurrentLevel.speed!=null){dSpeedBPS=dCurrentLevel.speed;const si=document.getElementById('ed-speed-in');if(si){si.value=dCurrentLevel.speed*10;document.getElementById('ed-speed-val').textContent=parseFloat(dCurrentLevel.speed).toFixed(1);}}
     if(dCurrentLevel.jumpHeight!=null){dJumpHeight=dCurrentLevel.jumpHeight;const ji=document.getElementById('ed-jump-in');if(ji){ji.value=dCurrentLevel.jumpHeight;document.getElementById('ed-jump-val').textContent=dCurrentLevel.jumpHeight;}}
     dBgColor=dCurrentLevel.bgColor||'#1a1a2e';dGroundColor=dCurrentLevel.groundColor||'#252545';
+    // Load saved background image
+    window._playBgImage=null;
+    window._playBgMode=dCurrentLevel.bgMode||'color';
+    window._playBgLooping=dCurrentLevel.edBgLooping||false;
+    if(dCurrentLevel.bgImageData&&dCurrentLevel.bgMode==='drawn'){
+      const img=new Image();img.onload=()=>{window._playBgImage=img;};
+      img.src=dCurrentLevel.bgImageData;
+    }
     db.ref('claredash_levels/'+key+'/plays').transaction(n=>(n||0)+1);
     dAttempts=1;
     window._dashReturnTab=document.getElementById('dash-packs-tab')&&!document.getElementById('dash-packs-tab').classList.contains('hidden')?'packs':'play';
@@ -3716,6 +3737,11 @@ function dOrbJump(bounce){
 }
 
 // ── Background Drawing System ─────────────────────────────────────────
+function edSetBgMode(mode){
+  document.getElementById('ed-bg-color-row').style.display = mode==='color' ? 'flex' : 'none';
+  document.getElementById('ed-bg-drawn-rows').style.display = mode==='drawn' ? 'block' : 'none';
+  edRender();
+}
 function openBgDrawPanel(){
   const panel=document.getElementById('bg-draw-panel');
   if(!panel)return;
@@ -4226,10 +4252,22 @@ function dPhysics(){
 function dRender(){
   const ctx=dCtx,W=dCanvas.width,H=dCanvas.height,gh=GROUND_Y;
   ctx.shadowBlur=0;ctx.shadowColor='transparent'; // ensure shadow off
-  // Custom drawn bg takes priority over solid bg color
-  if(edBgCanvas && _edBgInit){
+  // Background rendering
+  if(_testFlyActive && edBgCanvas && _edBgInit && window._playBgMode!=='color'){
+    // Test mode: use editor's live drawn canvas
     ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
     drawEditorBg(ctx,W,H,dScrollX);
+  } else if(!_testFlyActive && window._playBgImage && window._playBgMode==='drawn'){
+    // Real level with saved drawn bg
+    ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+    if(window._playBgLooping){
+      const bw=window._playBgImage.width||800;
+      const offset=dScrollX%bw;
+      ctx.drawImage(window._playBgImage,-offset,0,bw,H);
+      if(offset>0)ctx.drawImage(window._playBgImage,bw-offset,0,bw,H);
+    } else {
+      ctx.drawImage(window._playBgImage,0,0,W,H);
+    }
   } else {
     ctx.fillStyle=dBgColor||'#1a1a2e';ctx.fillRect(0,0,W,H);
   }
@@ -6157,10 +6195,18 @@ document.addEventListener('keydown',e=>{
   const tag=document.activeElement&&document.activeElement.tagName;
   const isTyping=tag==='INPUT'||tag==='TEXTAREA';
   if(isTyping) return;
-  // Editor fly mode: capture WASD when editor is visible
-  if(edFlyMode && edCanvas && edCanvas.offsetParent!==null){
+  const createVisible = document.getElementById('dash-create-tab') && !document.getElementById('dash-create-tab').classList.contains('hidden');
+  const gameVisible   = document.getElementById('dash-game') && !document.getElementById('dash-game').classList.contains('hidden');
+  // Editor fly mode: ONLY capture WASD when create tab is showing, NOT when game is showing
+  if(edFlyMode && createVisible && !gameVisible){
     if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)){
       e.preventDefault(); edFlyKeys[e.code]=true; return;
+    }
+  }
+  // Test fly mode: capture WASD for _testFlyLoop
+  if(_testFlyActive && gameVisible){
+    if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)){
+      TK[e.code]=true;
     }
   }
   if(e.code==='Space'){e.preventDefault();if(!e.repeat)dJumpPress();}
@@ -6172,6 +6218,7 @@ document.addEventListener('keyup',e=>{
   const isTyping=tag==='INPUT'||tag==='TEXTAREA';
   if(isTyping) return;
   edFlyKeys[e.code]=false;
+  TK[e.code]=false;
   if(e.code==='Space')dJumpRelease();
   if(e.code==='ArrowDown'||e.code==='KeyS'){if(dShipMode||dWaveMode)dShipHeld=false;}
 });
@@ -6217,6 +6264,7 @@ function startEdFlyLoop(){
 function edFlyInit(){ if(edFlyMode) startEdFlyLoop(); }
 
 function initEditor(){
+  edFlyY=0; // reset fly position when editor opens
   edCanvas=document.getElementById('ed-canvas');
   const wrap=edCanvas.parentElement;
   edCanvas.width=wrap.offsetWidth||800;
@@ -6673,8 +6721,13 @@ function editorUndo(){
 function edRender(){
   if(!edCtx)return;
   const ctx=edCtx,W=edCanvas.width,H=edCanvas.height,gh=ED_GH();
-  ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,W,H);
-  drawEditorBg(ctx,W,H,edScrollX);
+  const _bgMode=document.getElementById('ed-bg-mode-sel')?document.getElementById('ed-bg-mode-sel').value:'color';
+  if(_bgMode==='drawn' && edBgCanvas && _edBgInit){
+    ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+    drawEditorBg(ctx,W,H,edScrollX);
+  } else {
+    ctx.fillStyle=dBgColor||'#1a1a2e';ctx.fillRect(0,0,W,H);
+  }
   ctx.save();
   ctx.translate(0, -edFlyY); // fly mode vertical offset
 
@@ -6780,9 +6833,12 @@ function saveLevel(){
     // All users can create levels
     const isPriv=document.getElementById('ed-private-chk')&&document.getElementById('ed-private-chk').checked;
     const sharedWith=isPriv?(document.getElementById('ed-share-in').value.trim().toLowerCase().split(',').map(s=>s.trim()).filter(Boolean)):[];
+    // Capture drawn background as base64 if it exists
+    const bgImageData=(edBgCanvas&&_edBgInit)?edBgCanvas.toDataURL('image/png',0.7):'';
+    const bgMode=document.getElementById('ed-bg-mode-sel')?document.getElementById('ed-bg-mode-sel').value:'color';
     db.ref('claredash_levels').once('value',allSnap=>{
       const nextId=(allSnap.numChildren()||0)+1;
-      db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,created:Date.now(),private:isPriv||false,sharedWith,mapId:nextId},()=>{
+      db.ref('claredash_levels').push({name,author:hubUser,obs:edObs,speed:dSpeedBPS,jumpHeight:dJumpHeight,bgColor:dBgColor,groundColor:dGroundColor,bgImageData,bgMode,edBgLooping,created:Date.now(),private:isPriv||false,sharedWith,mapId:nextId},()=>{
         alert('Level saved: '+name);
         document.getElementById('lvl-name-in').value='';
         edObs=[];edRender();loadLevelList();
@@ -6828,22 +6884,20 @@ function _testFlyLoop(){
   if(TK['KeyS']||TK['ArrowDown']) _testFlyY=Math.min(GROUND_Y,_testFlyY+spd);
   if(TK['KeyA']||TK['ArrowLeft']) dScrollX=Math.max(0,dScrollX-spd);
   if(TK['KeyD']||TK['ArrowRight'])dScrollX+=spd;
+  dPX=120;dPY=_testFlyY;dVY=0;dGrounded=false;
   if(!_testNoclip){
-    // Normal physics but player position locked to fly Y
-    dPX=120;dPY=_testFlyY;dVY=0;dGrounded=false;
-    // Still scroll automatically
     dScrollX+=getDSPD();
-    // Check portals/triggers but skip death/physics
-    for(const o of dObs){
-      const ox=o.x-dScrollX;
-      if(o.t==='endblock'&&dPX+DSIZE>=ox){
-        // Hit end - don't win in test mode, just show a toast
-        dScrollX-=getDSPD();break;
-      }
+    // Stop at end block
+    const endBlk=dObs.find(o=>o.t==='endblock');
+    if(endBlk && dScrollX >= endBlk.x - 80){
+      dScrollX = endBlk.x - 80; // clamp at end
     }
   } else {
-    dPX=120;dPY=_testFlyY;dVY=0;dGrounded=false;
     dScrollX+=getDSPD();
+    const endBlk=dObs.find(o=>o.t==='endblock');
+    if(endBlk && dScrollX >= endBlk.x - 80){
+      dScrollX = endBlk.x - 80;
+    }
   }
   dRender();
   // Update pct
